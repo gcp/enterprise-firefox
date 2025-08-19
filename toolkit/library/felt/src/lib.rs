@@ -721,7 +721,7 @@ impl FeltRestartForced {
         let isHttps = Self::is_scheme(aContentLocation, "https");
 
         if (isHttp || isHttps) && self.restart_forced.load(Ordering::Relaxed) {
-            nsIContentPolicy::ACCEPT
+            nsIContentPolicy::REJECT_RESTARTFORCED
         } else {
             nsIContentPolicy::ACCEPT
         }
