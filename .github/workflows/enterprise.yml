@@ -44,6 +44,7 @@ jobs:
         uses: ./.github/actions/create-vm
         with:
           instance_kind: "linux-build"
+          gcp_machine_type: "c4d-highcpu-48"
           extra_labels: "build,LinuxNative"
           gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
           github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
@@ -94,8 +95,7 @@ jobs:
         uses: ./.github/actions/create-vm
         with:
           instance_kind: "linux-test"
-          gcp_machine_type: "c4d-standard-2"
-          gcp_provisioning_model: "STANDARD"
+          gcp_machine_type: "c4d-highcpu-2"
           extra_labels: "test,LinuxNative"
           gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
           github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
@@ -215,6 +215,7 @@ jobs:
         uses: ./.github/actions/create-vm
         with:
           instance_kind: "windows-build"
+          gcp_machine_type: "c4d-highcpu-48"
           extra_labels: "build,WinCross"
           gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
           github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
@@ -265,8 +266,7 @@ jobs:
         uses: ./.github/actions/create-vm
         with:
           instance_kind: "windows-test"
-          gcp_machine_type: "c4d-standard-2"
-          gcp_provisioning_model: "STANDARD"
+          gcp_machine_type: "c4d-highcpu-2"
           gcp_disk_size: "100"
           gcp_disk_source: "disk-2025-dc-v20250813-20250902102015"
           gcp_metadata_startup: "--metadata-from-file=windows-startup-script-ps1=./repo-checkout/.github/workflows/windows-startup.ps1"
@@ -478,7 +478,7 @@ jobs:
         id: attach
         run: |
           MOUNT_DIR=$(hdiutil attach ./obj-aarch64-apple-darwin/dist/firefox-144.0a1.en-US.mac.dmg | grep "/Volumes" | sed -e "s/.*\/Volumes/\/Volumes/g")
-          ls -hal "${MOUNT_DIR}"/Firefox.app/Contents/MacOS/firefox
+          ls -halR "${MOUNT_DIR}"
           echo "mount_dir='${MOUNT_DIR}'" >> "$GITHUB_OUTPUT"
           RUNTIME_PATH=$(find "${MOUNT_DIR}" -type f -name "firefox")
           echo "runtime_path=$RUNTIME_PATH" >> "$GITHUB_OUTPUT"
