@@ -276,7 +276,6 @@
 #  include "DBusService.h"
 #endif
 
-extern uint32_t gRestartMode;
 extern void InstallSignalHandlers(const char* ProgramName);
 
 #define FILE_COMPATIBILITY_INFO "compatibility.ini"_ns
