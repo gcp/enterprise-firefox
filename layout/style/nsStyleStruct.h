@@ -400,6 +400,8 @@ class AnchorPosReferencedAnchors {
       nsTHashMap<RefPtr<const nsAtom>, mozilla::Maybe<AnchorPosResolutionData>>;
 
  public:
+  using Value = mozilla::Maybe<AnchorPosResolutionData>;
+
   AnchorPosReferencedAnchors() = default;
   AnchorPosReferencedAnchors(const AnchorPosReferencedAnchors&) = delete;
   AnchorPosReferencedAnchors(AnchorPosReferencedAnchors&&) = default;
@@ -410,10 +412,11 @@ class AnchorPosReferencedAnchors {
 
   struct Result {
     bool mAlreadyResolved;
-    mozilla::Maybe<AnchorPosResolutionData>* mEntry;
+    Value* mEntry;
   };
 
-  Result Lookup(const nsAtom* aAnchorName, bool aNeedOffset);
+  Result InsertOrModify(const nsAtom* aAnchorName, bool aNeedOffset);
+  const Value* Lookup(const nsAtom* aAnchorName) const;
 
   bool IsEmpty() const { return mMap.IsEmpty(); }
 
@@ -1218,6 +1221,8 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleText {
  private:
   mozilla::StyleWordBreak mWordBreak = mozilla::StyleWordBreak::Normal;
   mozilla::StyleOverflowWrap mOverflowWrap = mozilla::StyleOverflowWrap::Normal;
+  mozilla::StyleTextAutospace mTextAutospace =
+      mozilla::StyleTextAutospace::NORMAL;
 
  public:
   mozilla::StyleHyphens mHyphens;
@@ -1257,9 +1262,6 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleText {
   mozilla::StyleTextWrapStyle mTextWrapStyle =
       mozilla::StyleTextWrapStyle::Auto;
 
-  mozilla::StyleTextAutospace mTextAutospace =
-      mozilla::StyleTextAutospace::NORMAL;
-
   char16_t TextSecurityMaskChar() const {
     switch (mWebkitTextSecurity) {
       case mozilla::StyleTextSecurity::None:
@@ -1288,6 +1290,13 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleText {
       return mozilla::StyleOverflowWrap::Anywhere;
     }
     return mOverflowWrap;
+  }
+
+  mozilla::StyleTextAutospace EffectiveTextAutospace() const {
+    if (!mozilla::StaticPrefs::layout_css_text_autospace_enabled()) {
+      return mozilla::StyleTextAutospace::NO_AUTOSPACE;
+    }
+    return mTextAutospace;
   }
 
   bool WhiteSpaceIsSignificant() const {
