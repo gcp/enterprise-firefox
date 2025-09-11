@@ -12,7 +12,8 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Manager
+from ctypes import c_wchar_p  # c_wchar_p
 
 import requests
 from base_test import EnterpriseTestsBase
@@ -22,8 +23,8 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
-    def reply(self, payload):
-        self.send_response(200, "Success")
+    def reply(self, payload, code=200, status="Success"):
+        self.send_response(code, status)
         self.send_header("Content-Length", len(payload))
         self.end_headers()
         self.wfile.write(bytes(payload, "utf8"))
@@ -124,6 +125,20 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
 
         elif path == "/api/browser/hacks/policies":
+            auth = self.headers.get("Authorization")
+            if not auth:
+                self.reply("", 401, "Authorization required")
+                return
+
+            bearer = auth.split(" ")
+            if len(bearer) != 2 or bearer[0].lower() != "bearer":
+                self.reply("", 401, "Authorization required")
+                return
+
+            if bearer[1] != self.server.policy_access_token.value:
+                self.reply("", 401, "Authorization required")
+                return
+
             if hasattr(self.server, "policy_block_about_config"):
                 with self.server.policy_block_about_config.get_lock():
                     policy_value = (
@@ -136,12 +151,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 m = json.dumps({"policies": {}})
 
         elif path == "/sso/callback":
-            m = """
+            m = f"""
 <html>
 <head>
-    <title>Dashboard!</title>
+    <title>Callback!</title>
     <script id="token_data" type="application/json">
-        {"access_token":"dummy_access_token","token_type":"bearer","expires_in":71999,"refresh_token":"dummy_refresh_token"}
+        {{"access_token":"{self.server.policy_access_token.value}","token_type":"bearer","expires_in":71999,"refresh_token":"dummy_refresh_token"}}
     </script>
 </head>
 <body>
@@ -174,6 +189,7 @@ def serve(
     cookie_name=None,
     cookie_value=None,
     policy_block_about_config=None,
+    policy_access_token=None
 ):
     httpd = HTTPServer(("", port), classname)
     httpd.sso_port = sso_port
@@ -184,6 +200,8 @@ def serve(
         httpd.cookie_value = cookie_value
     if policy_block_about_config is not None:
         httpd.policy_block_about_config = policy_block_about_config
+    if policy_access_token:
+        httpd.policy_access_token = policy_access_token
     print(f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}")
     httpd.serve_forever()
     print(f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}")
@@ -196,6 +214,9 @@ class FeltTests(EnterpriseTestsBase):
         self.sso_port = sso_server
         self.policy_block_about_config = Value("B", 1)
 
+        manager = Manager()
+        self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
+
         print(f"Starting console server: {self.console_port}")
         self.console_httpd = Process(
             target=serve,
@@ -204,6 +225,7 @@ class FeltTests(EnterpriseTestsBase):
                 sso_port=self.sso_port,
                 console_port=self.console_port,
                 policy_block_about_config=self.policy_block_about_config,
+                policy_access_token=self.policy_access_token,
             ),
         )
         self.console_httpd.start()

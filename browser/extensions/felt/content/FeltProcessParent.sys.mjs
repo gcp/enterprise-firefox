@@ -46,7 +46,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
   }
 
-  startFirefox() {
+  startFirefox(accessToken = null) {
     this.restartReported = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
@@ -56,7 +56,10 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.felt.sendStringPreference("browser.felt.console", consoleAddr);
         this.felt.sendStringPreference("browser.policies.server", consoleAddr);
 
-        const json = await lazy.ConsoleClient.getDefaultPolicies()
+        if (accessToken) {
+          this.felt.sendStringPreference("browser.policies.access_token", accessToken);
+        }
+        const json = await lazy.ConsoleClient.getDefaultPrefs();
         json.prefs.forEach(pref => {
           const name = pref[0];
           const value = pref[1];
@@ -75,6 +78,7 @@ export class FeltProcessParent extends JSProcessActorParent {
               break;
           }
         });
+
         this.felt.sendCookies(this.getAllCookies());
         this.felt.sendReady();
         Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarted", {});
@@ -213,7 +217,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     console.debug(`FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`);
     switch (message.name) {
       case "FeltChild:StartFirefox":
-        this.startFirefox();
+        this.startFirefox(message.data?.access_token ?? null);
         break;
 
       case "FeltParent:RestartFirefox":
