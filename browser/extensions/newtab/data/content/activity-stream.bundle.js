@@ -11418,6 +11418,8 @@ function InterestPicker({
       checked: checked,
       "aria-checked": checked,
       onChange: e => handleChange(e, index),
+      key: `${interest.sectionId}-${checked}` // Force remount to sync DOM state with React state
+      ,
       tabIndex: index === focusedIndex ? 0 : -1,
       onFocus: () => {
         onItemFocus(index);
@@ -12299,7 +12301,7 @@ function CardSections({
     messageData
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const weatherPlacement = (0,external_ReactRedux_namespaceObject.useSelector)(selectWeatherPlacement);
-  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
+  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
   const weatherEnabled = prefs.showWeather;
   const personalizationEnabled = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const interestPickerEnabled = prefs[PREF_INTEREST_PICKER_ENABLED];
@@ -12431,6 +12433,8 @@ const USER_ACTION_TYPES = {
 };
 const PREF_WIDGETS_LISTS_MAX_LISTS = "widgets.lists.maxLists";
 const PREF_WIDGETS_LISTS_MAX_LISTITEMS = "widgets.lists.maxListItems";
+const PREF_WIDGETS_LISTS_BADGE_ENABLED = "widgets.lists.badge.enabled";
+const PREF_WIDGETS_LISTS_BADGE_LABEL = "widgets.lists.badge.label";
 function Lists({
   dispatch,
   handleUserInteraction
@@ -12732,6 +12736,15 @@ function Lists({
     setPendingNewList(id);
     handleListInteraction();
   }
+  function handleCancelNewList() {
+    // If current list is new and has no label/tasks, remove it
+    if (!selectedList?.label && selectedList?.tasks?.length === 0) {
+      const updatedLists = {
+        ...lists
+      };
+      delete updatedLists[selected];
+    }
+  }
   function handleDeleteList() {
     let updatedLists = {
       ...lists
@@ -12861,6 +12874,12 @@ function Lists({
   const listKeys = Object.keys(lists);
   const selectedIndex = Math.max(0, listKeys.indexOf(selected));
   const listNamePlaceholder = currentListsCount > 1 && selectedIndex !== 0 ? "newtab-widget-lists-name-placeholder-new" : "newtab-widget-lists-name-placeholder-default";
+  const nimbusBadgeEnabled = prefs.widgetsConfig?.listsBadgeEnabled;
+  const nimbusBadgeLabel = prefs.widgetsConfig?.listsBadgeLabel;
+  const nimbusBadgeTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsBadgeEnabled;
+  const nimbusBadgeTrainhopLabel = prefs.trainhopConfig?.widgets?.listsBadgeLabel;
+  const badgeEnabled = (nimbusBadgeEnabled || nimbusBadgeTrainhopEnabled) ?? prefs[PREF_WIDGETS_LISTS_BADGE_ENABLED] ?? false;
+  const badgeLabel = (nimbusBadgeLabel || nimbusBadgeTrainhopLabel) ?? prefs[PREF_WIDGETS_LISTS_BADGE_LABEL] ?? "";
   return /*#__PURE__*/external_React_default().createElement("article", {
     className: "lists",
     ref: el => {
@@ -12873,6 +12892,7 @@ function Lists({
     onSave: handleListNameSave,
     isEditing: isEditing,
     setIsEditing: setIsEditing,
+    onCancel: handleCancelNewList,
     type: "list",
     maxLength: 30,
     dataL10nId: listNamePlaceholder
@@ -12887,8 +12907,16 @@ function Lists({
     label: list.label
   } : {
     "data-l10n-id": "newtab-widget-lists-name-label-default"
-  }))))), !isEditing && /*#__PURE__*/external_React_default().createElement("moz-badge", {
-    "data-l10n-id": "newtab-widget-lists-label-new"
+  }))))), !isEditing && badgeEnabled && badgeLabel && /*#__PURE__*/external_React_default().createElement("moz-badge", {
+    "data-l10n-id": (() => {
+      if (badgeLabel === "New") {
+        return "newtab-widget-lists-label-new";
+      }
+      if (badgeLabel === "Beta") {
+        return "newtab-widget-lists-label-beta";
+      }
+      return "";
+    })()
   }), /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "lists-panel-button",
     iconSrc: "chrome://global/skin/icons/more.svg",
@@ -12939,7 +12967,7 @@ function Lists({
     ref: reorderListRef,
     itemSelector: "fieldset .task-type-tasks",
     dragSelector: ".checkbox-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("fieldset", null, selectedList?.tasks.length >= 1 ? selectedList.tasks.map((task, index) => /*#__PURE__*/external_React_default().createElement(ListItem, {
+  }, /*#__PURE__*/external_React_default().createElement("fieldset", null, selectedList?.tasks.length >= 1 && selectedList.tasks.map((task, index) => /*#__PURE__*/external_React_default().createElement(ListItem, {
     type: TASK_TYPE.IN_PROGRESS,
     task: task,
     key: task.id,
@@ -12949,11 +12977,9 @@ function Lists({
     isValidUrl: isValidUrl,
     isFirst: index === 0,
     isLast: index === selectedList.tasks.length - 1
-  })) : /*#__PURE__*/external_React_default().createElement("p", {
-    className: "empty-list-text",
-    "data-l10n-id": "newtab-widget-lists-empty-cta"
-  }), selectedList?.completed.length >= 1 && /*#__PURE__*/external_React_default().createElement("details", {
-    className: "completed-task-wrapper"
+  })), selectedList?.completed.length >= 1 && /*#__PURE__*/external_React_default().createElement("details", {
+    className: "completed-task-wrapper",
+    open: selectedList?.tasks.length < 1
   }, /*#__PURE__*/external_React_default().createElement("summary", null, /*#__PURE__*/external_React_default().createElement("span", {
     "data-l10n-id": "newtab-widget-lists-completed-list",
     "data-l10n-args": JSON.stringify({
@@ -12966,7 +12992,22 @@ function Lists({
     task: completedTask,
     deleteTask: deleteTask,
     updateTask: updateTask
-  })))))), /*#__PURE__*/external_React_default().createElement("canvas", {
+  }))))), selectedList?.tasks.length < 1 && selectedList?.completed.length < 1 && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "empty-list"
+  }, /*#__PURE__*/external_React_default().createElement("picture", null, /*#__PURE__*/external_React_default().createElement("source", {
+    srcSet: "chrome://newtab/content/data/content/assets/lists-empty-state-dark.svg",
+    media: "(prefers-color-scheme: dark)"
+  }), /*#__PURE__*/external_React_default().createElement("source", {
+    srcSet: "chrome://newtab/content/data/content/assets/lists-empty-state-light.svg",
+    media: "(prefers-color-scheme: light)"
+  }), /*#__PURE__*/external_React_default().createElement("img", {
+    width: "100",
+    height: "100",
+    alt: ""
+  })), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "empty-list-text",
+    "data-l10n-id": "newtab-widget-lists-empty-cta"
+  }))), /*#__PURE__*/external_React_default().createElement("canvas", {
     className: "confetti-canvas",
     ref: canvasRef
   }));
@@ -13031,9 +13072,10 @@ function ListItem({
     target: "_blank",
     className: "task-label",
     title: task.value
-  }, task.value) : /*#__PURE__*/external_React_default().createElement("span", {
+  }, task.value) : /*#__PURE__*/external_React_default().createElement("label", {
     className: "task-label",
     title: task.value,
+    htmlFor: `task-${task.id}`,
     onClick: () => setIsEditing(true)
   }, task.value);
   return /*#__PURE__*/external_React_default().createElement("div", {
@@ -13046,7 +13088,8 @@ function ListItem({
   }, /*#__PURE__*/external_React_default().createElement("input", {
     type: "checkbox",
     onChange: handleCheckboxChange,
-    checked: task.completed || exiting
+    checked: task.completed || exiting,
+    id: `task-${task.id}`
   }), isCompleted ? taskLabel : /*#__PURE__*/external_React_default().createElement(EditableText, {
     isEditing: isEditing,
     setIsEditing: setIsEditing,
@@ -13087,6 +13130,7 @@ function EditableText({
   isEditing,
   setIsEditing,
   onSave,
+  onCancel,
   children,
   type,
   dataL10nId = null,
@@ -13111,6 +13155,7 @@ function EditableText({
     } else if (e.key === "Escape") {
       setIsEditing(false);
       setTempValue(value);
+      onCancel?.();
     }
   }
   function handleOnBlur() {

@@ -264,6 +264,7 @@ RangeBasedTextDirectiveCreator::CollectContextTerms() {
         mStartContent.Length(), kMaxContextTermLength);
     mStartContent = Substring(mStartContent, 0, kMaxContextTermLength);
   }
+  mStartContent.CompressWhitespace();
   mStartFoldCaseContent = mStartContent;
   ToFoldedCase(mStartFoldCaseContent);
   TEXT_FRAGMENT_LOG("Maximum possible start term:\n{}",
@@ -276,6 +277,7 @@ RangeBasedTextDirectiveCreator::CollectContextTerms() {
     mEndContent =
         Substring(mEndContent, mEndContent.Length() - kMaxContextTermLength);
   }
+  mEndContent.CompressWhitespace();
   mEndFoldCaseContent = mEndContent;
   ToFoldedCase(mEndFoldCaseContent);
   TEXT_FRAGMENT_LOG("Maximum possible end term:\n{}",
