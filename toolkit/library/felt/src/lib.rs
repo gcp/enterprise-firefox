@@ -313,7 +313,6 @@ pub struct FeltXPCOM {
     >,
     tx: RefCell<Option<ipc_channel::ipc::IpcSender<FeltMessage>>>,
     rx: RefCell<Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>>,
-    console_addr: RefCell<Option<String>>,
 }
 
 #[allow(non_snake_case)]
@@ -323,7 +322,6 @@ impl FeltXPCOM {
             one_shot_server: RefCell::new(None),
             tx: RefCell::new(None),
             rx: RefCell::new(None),
-            console_addr: RefCell::new(None)
         })
     }
 
@@ -337,43 +335,6 @@ impl FeltXPCOM {
         } else {
             NS_ERROR_FAILURE
         }
-    }
-
-    fn get_http(&self, uri: &str) -> Option<String> {
-        trace!("FeltXPCOM: get_http");
-
-        let console_addr = self.console_addr.borrow();
-        if console_addr.is_some() {
-            let url = format!("{}/{}", console_addr.clone().unwrap(), uri);
-            let req = minreq::get(url).send();
-            if let Err(err) = req {
-                trace!("FeltXPCOM: get_http: err={}", err);
-                return None;
-            }
-
-            let rep = req.unwrap();
-            let body = match rep.status_code {
-                200 => {
-                    rep.as_str().unwrap()
-                },
-                _ => {
-                    trace!("FeltXPCOM: get_http: status code? {}", rep.status_code);
-                    return None;
-                }
-            };
-
-            return Some(body.to_string());
-        }
-
-        None
-    }
-
-    fn SetConsoleAddr(&self, addr: *const nsACString) -> nserror::nsresult {
-        let addr_s = unsafe { (*addr).to_string() };
-        trace!("FeltXPCOM:SetConsoleAddr: {:?}", addr_s);
-        self.console_addr.replace(Some(addr_s.clone()));
-        utils::inject_string_pref("browser.felt.console".to_string(), addr_s);
-        NS_OK
     }
 
     fn SendCookies(&self, cookies: *const ThinVec<Option<RefPtr<nsICookie>>>) -> nserror::nsresult {
@@ -544,69 +505,6 @@ impl FeltXPCOM {
         unsafe { *is_felt_ui = found_felt_ui_arg; }
         trace!("FeltXPCOM: IsFeltUI: {}", found_felt_ui_arg);
         NS_OK
-    }
-
-    fn SetPrefsForFelt(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM: GetFeltPrefs");
-
-        if let Some(body) = self.get_http("felt/prefs") {
-            match serde_json::from_str::<serde_json::Value>(&body) {
-                Ok(val) => {
-                    trace!("FeltXPCOM: GetFeltPrefs: JSON val {:?}", val);
-                    if let Some(prefs) = val.get("prefs").expect("no prefs").as_array() {
-                        for pref in prefs {
-                            trace!("FeltXPCOM: GetFeltPrefs: JSON pref ({:?}, {:?})", pref[0], pref[1]);
-                            let pref_name = pref[0].as_str().unwrap().to_string();
-                            match pref[1].as_str().unwrap() {
-                                "true" | "false" => {
-                                    let val = match pref[1].as_str().unwrap() {
-                                        "true" => true,
-                                        "false" => false,
-                                        _ => false,
-                                    };
-                                    utils::inject_bool_pref(pref_name, val);
-                                },
-                                _ => {
-                                    utils::inject_string_pref(pref_name, pref[1].as_str().unwrap().to_string())
-                                }
-                            }
-                        }
-                    } else {
-                        return NS_ERROR_FAILURE;
-                    }
-                },
-                Err(err) => {
-                    trace!("FeltXPCOM: GetFeltPrefs: JSON err: {}", err);
-                    return NS_ERROR_FAILURE;
-                },
-            };
-
-            NS_OK
-        } else {
-            NS_ERROR_FAILURE
-        }
-    }
-
-    fn GetPolicies(&self, policies: *mut nsACString) -> nserror::nsresult {
-        trace!("FeltXPCOM: GetPolicies");
-        if let Some(body) = self.get_http("policies") {
-            trace!("FeltXPCOM: GetPolicies: body={}", body);
-            unsafe { (*policies).assign(&body); }
-            NS_OK
-        } else {
-            NS_ERROR_FAILURE
-        }
-    }
-
-    fn GetPrefs(&self, policies: *mut nsACString) -> nserror::nsresult {
-        trace!("FeltXPCOM: GetPrefs");
-        if let Some(body) = self.get_http("default") {
-            trace!("FeltXPCOM: GetPrefs: body={}", body);
-            unsafe { (*policies).assign(&body); }
-            NS_OK
-        } else {
-            NS_ERROR_FAILURE
-        }
     }
 
     fn OneShotIpcServer(&self, channel: *mut nsACString) -> nserror::nsresult {

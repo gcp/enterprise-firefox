@@ -9,9 +9,6 @@
 [scriptable, uuid(53c53451-3b93-440c-b27b-9759ccb29da6)]
 interface nsIFelt : nsISupports {
   [must_use]
-  void setConsoleAddr(in ACString addr);
-
-  [must_use]
   ACString oneShotIpcServer();
 
   [must_use]
@@ -19,15 +16,6 @@ interface nsIFelt : nsISupports {
 
   [must_use]
   boolean isFeltUI();
-
-  [must_use]
-  void setPrefsForFelt();
-
-  [must_use]
-  ACString getPrefs();
-
-  [must_use]
-  ACString getPolicies();
 
   [must_use]
   void ipcChannel();
