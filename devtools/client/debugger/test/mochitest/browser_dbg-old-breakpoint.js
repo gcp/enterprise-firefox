@@ -56,8 +56,9 @@ add_task(async function () {
   const onBreakpoint = waitForDispatch(dbg.store, "SET_BREAKPOINT", 2);
   // Pending breakpoints are installed asynchronously, keep invoking the entry
   // function until the debugger pauses.
-  await waitUntil(() => {
+  await waitUntil(async () => {
     invokeInTab("main");
+    await waitForPaused(dbg);
     return isPaused(dbg);
   });
   await onBreakpoint;
