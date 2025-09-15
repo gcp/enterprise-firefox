@@ -2,12 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+console.debug(`FeltExtension: FeltWindowChild.sys.mjs`);
 
-export class FeltChild extends JSWindowActorChild {
+export class FeltWindowChild extends JSWindowActorChild {
   actorCreated() {
     Services.cpmm.addMessageListener("FeltMain:RedirectURL", this);
+    Services.cpmm.addMessageListener("FeltParent:Done", this);
     Services.cpmm.sendAsyncMessage("FeltChild:Loaded", {});
+ 
+    console.debug(`FeltExtension: FeltParent.sys.mjs: FeltWindowChild: getActor()`);   
+    this.actor = ChromeUtils.domProcessChild.getActor("FeltProcess");
+    console.debug(`FeltExtension: FeltParent.sys.mjs: FeltWindowChild: getActor(): actor=${this.actor}`);   
   }
 
   // Only handle DOMContentLoaded on https://sso.mozilla.com/dashboard
@@ -17,7 +22,7 @@ export class FeltChild extends JSWindowActorChild {
       return;
     }
 
-    this.sendAsyncMessage("FeltChild:StartFirefox", {});
+    this.actor.sendAsyncMessage("FeltChild:StartFirefox", {});
   }
 
   receiveMessage(message) {

@@ -510,6 +510,37 @@ impl FeltXPCOM {
         }
     }
 
+    fn MakeBackgroundProcess(&self, success: *mut bool) -> nserror::nsresult {
+        trace!("FeltXPCOM: MakeBackgroundProcess");
+        unsafe { *success = false; }
+        #[cfg(target_os = "macos")]
+        {
+            #[repr(C)]
+            struct ProcessSerialNumber {
+                pub highLongOfPSN: u32,
+                pub lowLongOfPSN: u32,
+            }
+
+            type ProcessApplicationTransformState = u32;
+            let kProcessTransformToBackgroundApplication = 2;
+            let kCurrentProcess = 2;
+
+            unsafe extern "C-unwind" { fn TransformProcessType(
+                psn: *const ProcessSerialNumber,
+                transform_state: ProcessApplicationTransformState,
+            ) -> u32; }
+
+            let psn = ProcessSerialNumber { highLongOfPSN: 0, lowLongOfPSN: kCurrentProcess };
+            let rv = unsafe { TransformProcessType(&psn, kProcessTransformToBackgroundApplication) };
+            trace!("FeltXPCOM: MakeBackgroundProcess: rv={:?}", rv);
+
+            unsafe { *success = rv == 0; }
+        }
+
+        trace!("FeltXPCOM: MakeBackgroundProcess: {}", unsafe { *success });
+        NS_OK
+    }
+
     fn IsFeltUI(&self, is_felt_ui: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: IsFeltUI");
         let found_felt_ui_arg = env::args()

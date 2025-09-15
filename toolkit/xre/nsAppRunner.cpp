@@ -5658,19 +5658,6 @@ nsresult XREMain::XRE_mainRun() {
       workingDir = nullptr;
     }
 
-#if defined(MOZ_WIDGET_FELT)
-    {
-      // Should we display the Felt UI?
-      auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
-      if (feltUI) {
-        // Ask for a dummy chrome so BrowserGlue.sys.mjs or
-        // BrowserContentHandler.sys.mjs do not attempt to open a window
-        gArgv[gArgc++] = strdup("--chrome");
-        gArgv[gArgc++] = strdup("chrome://extensions/content/dummy.xhtml");
-      }
-    }
-#endif
-
     cmdLine = new nsCommandLine();
 
     rv = cmdLine->Init(gArgc, gArgv, workingDir,

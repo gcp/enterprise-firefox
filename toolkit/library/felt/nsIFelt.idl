@@ -15,6 +15,9 @@ interface nsIFelt : nsISupports {
   ACString binPath();
 
   [must_use]
+  boolean makeBackgroundProcess();
+
+  [must_use]
   boolean isFeltUI();
 
   [must_use]

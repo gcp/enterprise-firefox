@@ -7,14 +7,9 @@
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
 let JSWINDOWACTORS = {};
-
-JSWINDOWACTORS.Felt = {
-  parent: {
-    esModuleURI: "chrome://felt/content/FeltParent.sys.mjs",
-  },
-
+JSWINDOWACTORS.FeltWindow = {
   child: {
-    esModuleURI: "chrome://felt/content/FeltChild.sys.mjs",
+    esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
     events: {
       DOMContentLoaded: {},
       load: {},
@@ -33,7 +28,7 @@ JSWINDOWACTORS.Felt = {
         false
       );
       if (isEnabled) {
-        JSWINDOWACTORS.Felt.matches = Services.prefs
+        JSWINDOWACTORS.FeltWindow.matches = Services.prefs
           .getStringPref("browser.felt.matches")
           .split(",");
         if (!isRegistered) {
@@ -51,6 +46,13 @@ JSWINDOWACTORS.Felt = {
   },
 };
 
+let JSPROCESSACTORS = {};
+JSPROCESSACTORS.FeltProcess = {
+  parent: {
+    esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
+  },
+};
+
 let ActorManagerParent = {
   _addActors(actors, kind) {
     let register, unregister;
@@ -58,6 +60,10 @@ let ActorManagerParent = {
       case "JSWindowActor":
         register = ChromeUtils.registerWindowActor;
         unregister = ChromeUtils.unregisterWindowActor;
+        break;
+      case "JSProcessActor":
+        register = ChromeUtils.registerProcessActor;
+        unregister = ChromeUtils.unregisterProcessActor;
         break;
       default:
         throw new Error("Invalid JSActor kind " + kind);
@@ -101,6 +107,9 @@ let ActorManagerParent = {
 
   addJSWindowActors(actors) {
     this._addActors(actors, "JSWindowActor");
+  },
+  addJSProcessActors(actors) {
+    this._addActors(actors, "JSProcessActor");
   },
 };
 
@@ -171,6 +180,7 @@ this.felt = class extends ExtensionAPI {
       this.setFeltPrefs();
       this.registerChrome();
       ActorManagerParent.addJSWindowActors(JSWINDOWACTORS);
+      ActorManagerParent.addJSProcessActors(JSPROCESSACTORS);
       this.showWindow();
       Services.ppmm.addMessageListener("FeltChild:Loaded", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
@@ -212,12 +222,30 @@ this.felt = class extends ExtensionAPI {
         break;
 
       case "FeltParent:FirefoxStarted":
-        this._win.minimize();
+        Services.startup.enterLastWindowClosingSurvivalArea();
+        Services.ww.unregisterNotification(this.windowObserver);
+        this._win.close();
+        const success = this.feltXPCOM.makeBackgroundProcess();
+        console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
         break;
 
       default:
         console.debug(`FeltExtension: ${message.name} NOT HANDLED`);
         break;
+    }
+  }
+
+  windowObserver(subject, topic) {
+    console.debug(`FeltExtension: topic=${topic}`);
+    if (topic === "domwindowopened") {
+      Services.startup.exitLastWindowClosingSurvivalArea();
+    }
+
+    if (topic === "domwindowclosed" && this._win === subject) {
+      Services.ww.unregisterNotification(this.windowObserver);
+      Services.startup.quit(
+        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+      );
     }
   }
 
@@ -231,16 +259,7 @@ this.felt = class extends ExtensionAPI {
       null
     );
 
-    const windowObserver = (subject, topic) => {
-      if (this._win === subject) {
-        Services.ww.unregisterNotification(windowObserver);
-        Services.startup.quit(
-          Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-        );
-      }
-    };
-
-    Services.ww.registerNotification(windowObserver);
+    Services.ww.registerNotification(this.windowObserver);
 
     // The window will send notifyObservers() itself. This is required
     // to make sure things are starting properly, including registration

@@ -1581,6 +1581,14 @@ nsDefaultCommandLineHandler.prototype = {
       return;
     }
 
+    // Make sure that when FeltUI is requested, we do not try to open another
+    // window.
+    if (cmdLine.findFlag("feltUI", true) != -1) {
+      console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
+      cmdLine.preventDefault = true;
+      return;
+    }
+
     for (let i = 0; i < cmdLine.length; ++i) {
       var curarg = cmdLine.getArgument(i);
       if (curarg.match(/^-/)) {

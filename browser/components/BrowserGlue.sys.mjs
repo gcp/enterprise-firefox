@@ -609,6 +609,14 @@ BrowserGlue.prototype = {
     let startTime = ChromeUtils.now();
 
     let shouldCreateWindow = isPrivateWindow => {
+      // Make sure that when FeltUI is requested, we do not try to open another
+      // window.
+      if (cmdLine.findFlag("feltUI", true) != -1) {
+        console.debug(`Felt: Found FeltUI in BrowserGlue.`);
+        Services.startup.enterLastWindowClosingSurvivalArea();
+        return false;
+      }
+
       if (cmdLine.findFlag("wait-for-jsdebugger", false) != -1) {
         return true;
       }

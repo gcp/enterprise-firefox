@@ -11,8 +11,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setInterval: "resource://gre/modules/Timer.sys.mjs",
 });
 
-export class FeltParent extends JSWindowActorParent {
+console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
+
+export class FeltProcessParent extends JSProcessActorParent {
   constructor() {
+    console.debug(`FeltExtension: FeltParentProcess.sys.mjs: FeltProcessParent`);
     super();
     this.felt = Cc["@mozilla.org/toolkit/library/felt;1"].getService(
       Ci.nsIFelt
@@ -20,17 +23,19 @@ export class FeltParent extends JSWindowActorParent {
 
     this.restartObserver = {
       observe(aSubject, aTopic, aData) {
-        console.debug(`FELT: Received ${aTopic}`);
+        console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
           case "felt-firefox-restarting":
-            Services.ppmm.broadcastAsyncMessage(
-              "FeltParent:RestartFirefox",
-              {}
-            );
+	    const restartDisabled = Services.prefs.getBoolPref("browser.felt.disable_restart", false);
+            if (!restartDisabled) {
+                Services.ppmm.broadcastAsyncMessage("FeltParent:RestartFirefox", {});
+	    } else {
+                console.debug(`FeltExtension: ParentProcess: restart is disabled`);
+	    }
             break;
 
           default:
-            console.debug(`FELT: Unhandled ${aTopic}`);
+            console.debug(`FeltExtension: ParentProcess: Unhandled ${aTopic}`);
             break;
         }
       },
@@ -72,7 +77,7 @@ export class FeltParent extends JSWindowActorParent {
         });
         this.felt.sendCookies(this.getAllCookies());
         this.felt.sendReady();
-        this.sendAsyncMessage("FeltParent:Done", {});
+        Services.ppmm.broadcastAsyncMessage("FeltParent:Done", {});
         Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarted", {});
       })
       .then(() => {
@@ -199,7 +204,7 @@ export class FeltParent extends JSWindowActorParent {
   }
 
   receiveMessage(message) {
-    console.debug(`FELT: Received message ${message.name} => ${message.data}`);
+    console.debug(`FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`);
     switch (message.name) {
       case "FeltChild:StartFirefox":
         this.startFirefox();
@@ -208,15 +213,15 @@ export class FeltParent extends JSWindowActorParent {
       case "FeltParent:RestartFirefox":
         this.restartReported = true;
         this.firefox = null;
-        console.debug(`FELT: Killing firefox`);
+        console.debug(`FeltExtension: ParentProcess: Killing firefox`);
         this.proc
           .kill()
           .then(() => {
-            console.debug(`FELT: Killed, starting new firefox`);
+            console.debug(`FeltExtension: ParentProcess: Killed, starting new firefox`);
             this.startFirefox();
           })
           .catch(err => {
-            console.debug(`FELT: Killed failed: ${err}`);
+            console.debug(`FeltExtension: ParentProcess: Killed failed: ${err}`);
           });
         break;
 
