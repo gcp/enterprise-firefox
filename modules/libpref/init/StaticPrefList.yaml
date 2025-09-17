@@ -2155,14 +2155,15 @@
 #endif
   mirror: always
 
-#ifdef XP_WIN
-  # allow to copy clipboard data to Clipboard History/Cloud
-  # (used on sensitive data in about:logins and Private Browsing)
--   name: clipboard.copyPrivateDataToClipboardCloudOrHistory
-    type: bool
-    value: false
-    mirror: always
+# Allow clipboard data to be copied to the clipboard history/cloud
+# (used for sensitive data from about:logins and Private Browsing)
+# On GTK this controls the usage of the x-kde-passwordManagerHint MIME.
+- name: clipboard.copyPrivateDataToClipboardCloudOrHistory
+  type: bool
+  value: false
+  mirror: always
 
+#ifdef XP_WIN
   # Whether to put a file promise onto the clipboard when copying images on Windows
 -   name: clipboard.imageAsFile.enabled
     type: bool
@@ -8761,6 +8762,14 @@
 # Whether object fuses are used to optimize constant properties on the global
 # object and its lexical environment object.
 - name: javascript.options.objectfuse_for_global
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
+# Whether object fuses are used to optimize constant properties on builtin JS
+# constructors and prototypes.
+- name: javascript.options.objectfuse_for_js_builtin_ctors_protos
   type: bool
   value: true
   mirror: always
