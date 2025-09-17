@@ -295,7 +295,10 @@ class FeltTests(EnterpriseTestsBase):
         )
         self.set_bool_pref("browser.felt.is_testing", True)
 
-        self.set_felt_window()
+        self._driver.set_context("chrome")
+        windows = len(self._driver.window_handles)
+        self._logger.info(f"Checking number of windows: {windows}")
+        assert windows == 1, "There should only be one Felt window"
 
     def teardown(self):
         if not self._manually_closed_child:
@@ -349,16 +352,6 @@ class FeltTests(EnterpriseTestsBase):
         self._logger.info(f"Pref value: {rv}")
         self._driver.set_context("content")
         return rv
-
-    def set_felt_window(self):
-        self._logger.info(f"Searching FELT in {self._driver.window_handles}")
-        for win in self._driver.window_handles:
-            self._logger.info(f"Testing for FELT at {win}")
-            self._driver.switch_to.window(win)
-            self._logger.info(f"Switched to {win}: {self._driver.current_url}")
-            if self._driver.current_url == "chrome://felt/content/feltui.xhtml":
-                self._logger.info(f"Found FELT at {win}")
-                return
 
     def get_elem(self, e):
         # Windows is slower?
