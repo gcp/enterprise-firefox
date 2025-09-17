@@ -375,10 +375,39 @@ class FeltTests(EnterpriseTestsBase):
                 EC.visibility_of_element_located((By.CSS_SELECTOR, e))
             )
 
-    def test_felt_0_load_sso(self, exp):
+    def test_felt_00_chrome_on_email_submit(self, exp):
+
         self._logger.info("Checking FELT pref")
         assert self.get_felt_enabled_pref() == True, "pref should be enabled"
 
+        self._driver.set_context("chrome")
+        self._logger.info("Submitting email in chrome context ...")
+        email = self.get_elem("#felt-login__form-email")
+        self._logger.info(f"Submitting email in chrome context: {email}")
+
+        # <moz-input-text> fails with 'unreachable by keyboard' in Selenium
+        # because shadowroot does not delegate focus???
+        # cf https://searchfox.org/firefox-main/rev/938e8f38c6765875e998d5c2965ad5864f5a5ee2/dom/base/nsFocusManager.cpp#5649
+        self._driver.execute_script(
+            """
+            arguments[0].value = arguments[1];
+            arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+            """, email, "random@mozilla.com")
+
+        self._logger.info("Submitting email by clicking")
+        btn = self.get_elem("#felt-login__form-sign-in-btn")
+        btn.click()
+
+        self._logger.info("Email submitted and SSO browser displayed")
+        sso_content_ready = self.get_elem(".felt-login__sso")
+        assert sso_content_ready, "The SSO content is displayed"
+        self._logger.info(f"Email submitted and SSO browser displayed correctly: {sso_content_ready}")
+
+        self._driver.set_context("content")
+
+        return True
+
+    def test_felt_0_load_sso(self, exp):
         self._logger.info("Checking SSO page")
         for element in exp["elements"]:
             elem = self.get_elem(element[0])
