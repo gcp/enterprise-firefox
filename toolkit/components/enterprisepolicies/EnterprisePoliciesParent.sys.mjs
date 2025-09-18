@@ -747,18 +747,22 @@ class RemotePoliciesProvider {
     }
   }
 
+  _performPolling() {
+    this._connectConsoleHttp()
+      .then(jsonResponse => {
+        this._hasRemoteConnection = true;
+        this._ingestPolicies(jsonResponse);
+      })
+      .catch(error => {
+        console.debug(`RemotePoliciesProvider: performPolling(): ${this._pollingFrequency}: error ${error}`);
+        this._hasRemoteConnection = false;
+      });
+  }
+
   _startPolling() {
     Services.obs.addObserver(this, "xpcom-shutdown");
-    this._poller = lazy.setInterval(() => {
-      this._connectConsoleHttp()
-        .then(jsonResponse => {
-          this._hasRemoteConnection = true;
-          this._ingestPolicies(jsonResponse);
-        })
-        .catch(error => {
-          this._hasRemoteConnection = false;
-        });
-    }, this._pollingFrequency);
+    this._performPolling();
+    this._poller = lazy.setInterval(this._performPolling.bind(this), this._pollingFrequency);
   }
 
   _ingestPolicies(payload) {
