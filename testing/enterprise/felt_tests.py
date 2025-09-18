@@ -204,7 +204,7 @@ def serve(
 
 
 class FeltTests(EnterpriseTestsBase):
-    def __init__(self, json, firefox, geckodriver, profile_root, console, sso_server, test_prefs=[]):
+    def __init__(self, json, firefox, geckodriver, profile_root, console, sso_server, test_prefs=[], cli_args=[], env_vars={}):
         self._manually_closed_child = False
         self.console_port = console
         self.sso_port = sso_server
@@ -253,7 +253,8 @@ class FeltTests(EnterpriseTestsBase):
             firefox,
             geckodriver,
             profile_root,
-            extra_cli_args=["-feltUI"],
+            extra_cli_args=cli_args,
+            extra_env=env_vars,
             extra_prefs=prefs,
             dont_maximize=True,
         )

@@ -1551,9 +1551,8 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
   }
 
 #if defined(MOZ_WIDGET_FELT)
-  auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
   auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
-  if (feltUI && !forcedProfile) {
+  if (PR_GetEnv("MOZ_FELT_UI") && !forcedProfile) {
     nsCOMPtr<nsIFile> file;
     MOZ_TRY(
         GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(file)));

@@ -106,5 +106,7 @@ def run_tests(command_context, what, **kwargs):
                 subprocess.check_call(cli)
             except Exception as ex:
                 print("Received", ex)
+        else:
+            print(f"Could not find JSON '{final_json}' for '{test_file}'")
 
     return 0

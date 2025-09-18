@@ -609,7 +609,7 @@ BrowserGlue.prototype = {
     let shouldCreateWindow = isPrivateWindow => {
       // Make sure that when FeltUI is requested, we do not try to open another
       // window.
-      if (cmdLine.findFlag("feltUI", true) != -1) {
+      if (Services.env.exists("MOZ_FELT_UI")) {
         console.debug(`Felt: Found FeltUI in BrowserGlue.`);
         Services.startup.enterLastWindowClosingSurvivalArea();
         return false;

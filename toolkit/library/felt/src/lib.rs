@@ -542,12 +542,9 @@ impl FeltXPCOM {
 
     fn IsFeltUI(&self, is_felt_ui: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: IsFeltUI");
-        let found_felt_ui_arg = env::args()
-            .into_iter()
-            .find_map(|arg| arg.find("-feltUI"))
-            .is_some();
-        unsafe { *is_felt_ui = found_felt_ui_arg; }
-        trace!("FeltXPCOM: IsFeltUI: {}", found_felt_ui_arg);
+        let found_felt_ui_env = env::var("MOZ_FELT_UI").is_ok();
+        unsafe { *is_felt_ui = found_felt_ui_env; }
+        trace!("FeltXPCOM: IsFeltUI: found_felt_ui_env={}", found_felt_ui_env);
         NS_OK
     }
 
