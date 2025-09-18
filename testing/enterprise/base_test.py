@@ -30,7 +30,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 class EnterpriseTestsBase:
     _INSTANCE = None
 
-    def __init__(self, exp, firefox, geckodriver, profile_root, extra_cli_args=[], extra_prefs=None, dont_maximize=False):
+    def __init__(self, exp, firefox, geckodriver, profile_root, extra_cli_args=[], extra_env=[], extra_prefs=None, dont_maximize=False):
         self._EXE_PATH = rf"{geckodriver}"
         self._BIN_PATH = rf"{firefox}"
 
@@ -83,6 +83,7 @@ class EnterpriseTestsBase:
         for arg in extra_cli_args:
             options.add_argument(arg)
 
+        os.environ.update(extra_env)
         self._driver = webdriver.Firefox(service=driver_service, options=options)
 
         test_filter = "test_{}".format(os.environ.get("TEST_FILTER", ""))

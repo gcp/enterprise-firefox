@@ -1,0 +1,12 @@
+{
+  "test_felt_00_chrome_on_email_submit": {},
+  "test_felt_0_load_sso": {
+    "elements": [
+      ["#login", "login"],
+      ["#password", "password"]
+    ]
+  },
+  "test_felt_1_perform_sso_auth": {},
+  "test_felt_2_ensure_sso_cookie_stored": {},
+  "test_felt_3_browser_started": {}
+}

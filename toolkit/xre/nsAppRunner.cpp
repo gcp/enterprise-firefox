@@ -5658,6 +5658,16 @@ nsresult XREMain::XRE_mainRun() {
       workingDir = nullptr;
     }
 
+#if defined(MOZ_WIDGET_FELT)
+  if (XRE_IsParentProcess()) {
+    // This will remove the arg from CLI
+    Maybe<bool> felt = geckoargs::sFeltUI.Get(gArgc, gArgv);
+    if (felt.isSome() && *felt) {
+      PR_SetEnv("MOZ_FELT_UI=1");
+    }
+  }
+#endif
+
     cmdLine = new nsCommandLine();
 
     rv = cmdLine->Init(gArgc, gArgv, workingDir,
@@ -5891,15 +5901,10 @@ nsresult XREMain::XRE_mainRun() {
 #endif
 
 #if defined(MOZ_WIDGET_FELT)
-  if (XRE_IsParentProcess()) {
-    // Should we display the Felt UI?
-    auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
-
+  if (XRE_IsParentProcess() && !PR_GetEnv("MOZ_FELT_UI")) {
     // FELT IPC channel remainder
     Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
 
-    MOZ_RELEASE_ASSERT(!(feltUI && felt.isSome()),
-                       "Cannot have both -feltUI and -felt CLI args");
     if (felt.isSome()) {
       firefox_connect_to_felt(*felt);
     }

@@ -199,10 +199,15 @@ jobs:
           . venv_tests/bin/activate
           python3 test_firefox_start.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
-      - name: "test browser starts from felt"
+      - name: "test browser starts from felt using CLI argument"
         run: |
           . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_browser_starts.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+          MOZ_LOG=console:5 python3 test_felt_browser_starts_fromCli.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+
+      - name: "test browser starts from felt using environment variable"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_browser_starts_fromEnv.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
       - name: "test browser about:config is blocked"
         run: |
@@ -410,11 +415,17 @@ jobs:
           . venv_tests\Scripts\activate
           python3 test_firefox_start.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
-      - name: "test browser starts from felt"
+      - name: "test browser starts from felt using CLI arg"
         run: |
           . venv_tests\Scripts\activate
           $Env:MOZ_LOG="console:5"
-          python3 test_felt_browser_starts.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+          python3 test_felt_browser_starts_fromCli.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+
+      - name: "test browser starts from felt using environment variable"
+        run: |
+          . venv_tests\Scripts\activate
+          $Env:MOZ_LOG="console:5"
+          python3 test_felt_browser_starts_fromEnv.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
       - name: "test browser about:config is blocked"
         run: |
@@ -576,10 +587,15 @@ jobs:
           . venv_tests/bin/activate
           python3 test_firefox_start.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
-      - name: "test browser starts from felt"
+      - name: "test browser starts from felt using CLI argument"
         run: |
           . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_browser_starts.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+          MOZ_LOG=console:5 python3 test_felt_browser_starts_fromCli.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+
+      - name: "test browser starts from felt using environment variable"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_browser_starts_fromEnv.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
       - name: "test browser about:config is blocked"
         run: |
