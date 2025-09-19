@@ -38,7 +38,7 @@ curl \
 rustup target add x86_64-unknown-linux-gnu
 rustup target add x86_64-pc-windows-msvc
 rustup target add aarch64-apple-darwin
-rustup toolchain install stable 
+rustup toolchain install 1.85
 
 # mach macos-sign will perform a verify step that depends on codesign
 cargo install apple-codesign
