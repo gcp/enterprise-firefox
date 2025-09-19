@@ -300,7 +300,7 @@ jobs:
         uses: ./.github/actions/create-vm
         with:
           instance_kind: "windows-test"
-          gcp_machine_type: "c4d-highcpu-2"
+          gcp_machine_type: "c4d-highcpu-8"
           gcp_disk_size: "100"
           gcp_disk_source: "disk-2025-dc-v20250813-20250902102015"
           gcp_metadata_startup: "--metadata-from-file=windows-startup-script-ps1=./repo-checkout/.github/workflows/windows-startup.ps1"
