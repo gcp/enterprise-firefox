@@ -358,7 +358,9 @@ static void keyboard_handle_keymap(void* data, struct wl_keyboard* wl_keyboard,
 
 static void keyboard_handle_enter(void* data, struct wl_keyboard* keyboard,
                                   uint32_t serial, struct wl_surface* surface,
-                                  struct wl_array* keys) {}
+                                  struct wl_array* keys) {
+  gLastSerial = serial;
+}
 
 static void keyboard_handle_leave(void* data, struct wl_keyboard* keyboard,
                                   uint32_t serial, struct wl_surface* surface) {

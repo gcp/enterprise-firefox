@@ -504,6 +504,11 @@ class Settings(private val appContext: Context) : PreferencesHolder {
         default = false,
     )
 
+    var allowScreenshotsInPrivateMode by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_allow_screenshots_in_private_mode),
+        default = false,
+    )
+
     val appIconSelection by lazyFeatureFlagPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_app_icon_selection_enabled),
         featureFlag = true,
@@ -2615,7 +2620,7 @@ class Settings(private val appContext: Context) : PreferencesHolder {
      */
     var enableComposeLogins by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_compose_logins),
-        default = false,
+        default = true,
     )
 
     var loginsListSortOrder by stringPreference(
@@ -2770,11 +2775,6 @@ class Settings(private val appContext: Context) : PreferencesHolder {
     var tabManagerEnhancementsEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_tab_manager_enhancements),
         default = { DefaultTabManagementFeatureHelper.enhancementsEnabled },
-    )
-
-    var allowScreenshotsInPrivateMode by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_screenshots_in_private_mode_allowed),
-        default = false,
     )
 
     /**
