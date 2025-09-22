@@ -528,15 +528,45 @@ jobs:
           export PATH=$HOME/.cargo/bin:$PATH
           ./mach build
 
-      - name: package
+      - name: "package unsigned"
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
           ./mach package
+          DMG_FILE=$(find obj-*/dist/ -type f -name "*.mac.dmg")
+          DMG_UNSIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.unsigned.dmg/g")
+          cp "$DMG_FILE" "$DMG_UNSIGNED"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: firefox-macOS-aarch64
-          path: obj-*/dist/firefox-*.dmg*
+          name: firefox-macOS-unsigned-aarch64
+          path: obj-*/dist/firefox-*.unsigned.dmg*
+          compression-level: 0
+
+      - name: signature
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          echo -n "$(uuidgen)" > firefoxEnterprise_pass.p12
+          DMG_FILE=$(find obj-*/dist/ -type f -name "*.mac.dmg")
+          DMG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.dmg/g")
+          HFSPLUS_FILE="$(basename $DMG_FILE .dmg).hfsplus"
+          OBJDIR=$(find obj-* -maxdepth 0 -type d)
+          rcodesign generate-self-signed-certificate --person-name FirefoxEnterprise --p12-file firefoxEnterprise.p12 --p12-password "$(cat firefoxEnterprise_pass.p12)"
+          ~/.mozbuild/dmg/dmg extract $DMG_FILE $OBJDIR/dist/$HFSPLUS_FILE
+          mkdir $OBJDIR/dist/hfs/
+          pushd $OBJDIR/dist/hfs/
+            ~/.mozbuild/dmg/hfsplus ../$HFSPLUS_FILE extractall
+          popd
+          APP_FILE=$(find obj-*/dist/hfs/ -maxdepth 1 -type d -name "*.app")
+          ./mach macos-sign -v -c nightly -e developer -r -f firefoxEnterprise.p12 -p firefoxEnterprise_pass.p12 -a "${APP_FILE}"
+          APP_FILENAME=$(basename $APP_FILE)
+          tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns $APP_FILENAME
+          ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
+          rm $OBJDIR/dist/nightly_signed.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-macOS-signed-aarch64
+          path: obj-*/dist/firefox-*.signed.dmg*
           compression-level: 0
 
   macOS-test:
@@ -552,7 +582,7 @@ jobs:
       - name: "download firefox build"
         uses: actions/download-artifact@v5
         with:
-          name: firefox-macOS-aarch64
+          name: firefox-macOS-signed-aarch64
 
       - name: "download enterprise tests"
         uses: actions/download-artifact@v5
@@ -568,6 +598,7 @@ jobs:
           echo "mount_dir='${MOUNT_DIR}'" >> "$GITHUB_OUTPUT"
           RUNTIME_PATH=$(find "${MOUNT_DIR}" -type f -name "firefox")
           echo "runtime_path=$RUNTIME_PATH" >> "$GITHUB_OUTPUT"
+          codesign -vv "$MOUNT_DIR/Firefox.app"
 
       - name: "install python"
         run: |

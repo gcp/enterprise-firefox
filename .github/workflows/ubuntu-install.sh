@@ -25,6 +25,7 @@ apt -y install \
         unzip \
         uuid \
         wget \
+        xattr \
         zip \
         7zip
 
@@ -38,6 +39,12 @@ rustup target add x86_64-unknown-linux-gnu
 rustup target add x86_64-pc-windows-msvc
 rustup target add aarch64-apple-darwin
 rustup toolchain install stable 
+
+# mach macos-sign will perform a verify step that depends on codesign
+cargo install apple-codesign
+ln -s /usr/bin/true /usr/bin/codesign
+
+rcodesign --version
 
 useradd worker -d /home/worker
 mkdir -p /home/worker
