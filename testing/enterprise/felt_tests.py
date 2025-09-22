@@ -344,15 +344,6 @@ class FeltTests(EnterpriseTestsBase):
         self._driver.set_context("content")
         return rv
 
-    def get_felt_enabled_pref(self):
-        self._driver.set_context("chrome")
-        rv = self._driver.execute_script(
-            "try { return Services.prefs.getBoolPref('browser.felt.enabled'); } catch { return false; }"
-        )
-        self._logger.info(f"Pref value: {rv}")
-        self._driver.set_context("content")
-        return rv
-
     def get_elem(self, e):
         # Windows is slower?
         if sys.platform == "win32":
@@ -376,10 +367,6 @@ class FeltTests(EnterpriseTestsBase):
             )
 
     def test_felt_00_chrome_on_email_submit(self, exp):
-
-        self._logger.info("Checking FELT pref")
-        assert self.get_felt_enabled_pref() == True, "pref should be enabled"
-
         self._driver.set_context("chrome")
         self._logger.info("Submitting email in chrome context ...")
         email = self.get_elem("#felt-login__form-email")

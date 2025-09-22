@@ -4,8 +4,5 @@
     },
     "test_about_buildconfig": {
         "official": "--with-branding=browser/branding/official"
-    },
-    "test_felt_pref_missing_or_disabled": {
-        "pref_value": false
     }
 }

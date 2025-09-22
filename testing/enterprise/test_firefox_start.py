@@ -24,20 +24,6 @@ class EnterpriseTests(EnterpriseTestsBase):
     def teardown(self):
         pass
 
-    def test_felt_pref_missing_or_disabled(self, exp):
-        self._driver.set_context("chrome")
-        pref_value = self._driver.execute_script(
-            "try { return Services.prefs.getBoolPref('browser.felt.enabled'); } catch { return false; }"
-        )
-        self._logger.info(f"Pref value: {pref_value}")
-        self._driver.set_context("content")
-
-        assert (
-            pref_value == exp["pref_value"]
-        ), f"the browser.felt.enabled pref is {exp['pref_value']}"
-
-        return True
-
     def test_about_support(self, exp):
         self.open_tab("about:support")
 

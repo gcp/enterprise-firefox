@@ -379,7 +379,6 @@ impl FeltXPCOM {
     }
 
     fn SendReady(&self) -> nserror::nsresult {
-        utils::inject_bool_pref("browser.felt.enabled".to_string(), false);
         self.send(FeltMessage::StartupReady)
     }
 

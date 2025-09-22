@@ -6,114 +6,12 @@
 
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
-let JSWINDOWACTORS = {};
-JSWINDOWACTORS.FeltWindow = {
-  child: {
-    esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
-    events: {
-      DOMContentLoaded: {},
-      load: {},
-    },
-  },
-
-  allFrames: true,
-  matches: [""],
-
-  onAddActor(register, unregister) {
-    let isRegistered = false;
-
-    const maybeRegister = () => {
-      const isEnabled = Services.prefs.getBoolPref(
-        "browser.felt.enabled",
-        false
-      );
-      if (isEnabled) {
-        JSWINDOWACTORS.FeltWindow.matches = Services.prefs
-          .getStringPref("browser.felt.matches")
-          .split(",");
-        if (!isRegistered) {
-          register();
-          isRegistered = true;
-        }
-      } else if (isRegistered) {
-        unregister();
-        isRegistered = false;
-      }
-    };
-
-    Services.prefs.addObserver("browser.felt.enabled", maybeRegister);
-    maybeRegister();
-  },
-};
-
-let JSPROCESSACTORS = {};
-JSPROCESSACTORS.FeltProcess = {
-  parent: {
-    esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
-  },
-};
-
-let ActorManagerParent = {
-  _addActors(actors, kind) {
-    let register, unregister;
-    switch (kind) {
-      case "JSWindowActor":
-        register = ChromeUtils.registerWindowActor;
-        unregister = ChromeUtils.unregisterWindowActor;
-        break;
-      case "JSProcessActor":
-        register = ChromeUtils.registerProcessActor;
-        unregister = ChromeUtils.unregisterProcessActor;
-        break;
-      default:
-        throw new Error("Invalid JSActor kind " + kind);
-    }
-    for (let [actorName, actor] of Object.entries(actors)) {
-      // The actor defines its own register/unregister logic.
-      if (actor.onAddActor) {
-        actor.onAddActor(
-          () => register(actorName, actor),
-          () => unregister(actorName, actor)
-        );
-        continue;
-      }
-
-      // If enablePreference is set, only register the actor while the
-      // preference is set to true.
-      if (actor.enablePreference) {
-        Services.prefs.addObserver(actor.enablePreference, () => {
-          const isEnabled = Services.prefs.getBoolPref(
-            actor.enablePreference,
-            false
-          );
-          if (isEnabled) {
-            register(actorName, actor);
-          } else {
-            unregister(actorName, actor);
-          }
-          if (actor.onPreferenceChanged) {
-            actor.onPreferenceChanged(isEnabled);
-          }
-        });
-
-        if (!Services.prefs.getBoolPref(actor.enablePreference, false)) {
-          continue;
-        }
-      }
-
-      register(actorName, actor);
-    }
-  },
-
-  addJSWindowActors(actors) {
-    this._addActors(actors, "JSWindowActor");
-  },
-  addJSProcessActors(actors) {
-    this._addActors(actors, "JSProcessActor");
-  },
-};
 
 this.felt = class extends ExtensionAPI {
+
+  FELT_PROCESS_ACTOR = "FeltProcess";
+  FELT_WINDOW_ACTOR = "FeltWindow";
+
   registerChrome() {
     let aomStartup = Cc[
       "@mozilla.org/addons/addon-manager-startup;1"
@@ -136,7 +34,6 @@ this.felt = class extends ExtensionAPI {
       ["browser.felt.sso_url", `${consoleAddr}/sso_url`],
       ["browser.felt.matches", `${consoleAddr}/dashboard`],
       ["browser.felt.redirect_after_sso", `${consoleAddr}/redirect_after_sso`],
-      ["browser.felt.enabled", true],
     ];
 
     prefs.forEach(pref => {
@@ -171,6 +68,29 @@ this.felt = class extends ExtensionAPI {
     });
   }
 
+  registerActors() {
+    const matches = Services.prefs
+          .getStringPref("browser.felt.matches")
+          .split(",");
+    ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
+      child: {
+        esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
+        events: {
+          DOMContentLoaded: {},
+          load: {},
+        },
+      },
+      allFrames: true,
+      matches,
+    })
+
+    ChromeUtils.registerProcessActor(this.FELT_PROCESS_ACTOR, {
+      parent: {
+        esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
+      },
+    })
+  }
+
   onStartup() {
     this.feltXPCOM = Cc["@mozilla.org/toolkit/library/felt;1"].getService(
       Ci.nsIFelt
@@ -179,8 +99,7 @@ this.felt = class extends ExtensionAPI {
     if (this.feltXPCOM.isFeltUI()) {
       this.setFeltPrefs();
       this.registerChrome();
-      ActorManagerParent.addJSWindowActors(JSWINDOWACTORS);
-      ActorManagerParent.addJSProcessActors(JSPROCESSACTORS);
+      this.registerActors();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltChild:Loaded", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
@@ -280,6 +199,7 @@ this.felt = class extends ExtensionAPI {
     this.chromeHandle.destruct();
     this.chromeHandle = null;
 
-    ChromeUtils.unregisterWindowActor("Felt");
+    ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
+    ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
   }
 };
