@@ -48,6 +48,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   startFirefox() {
     this.restartReported = false;
+    Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {

@@ -54,12 +54,20 @@ this.felt = class extends ExtensionAPI {
       Ci.nsIFelt
     );
 
+    // In tests if we close too early we lose the browser context
+    if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
+      this.windowCloseMessage = "FeltParent:FirefoxStarted";
+    } else {
+      this.windowCloseMessage = "FeltParent:FirefoxStarting";
+    }
+
     if (this.feltXPCOM.isFeltUI()) {
       this.registerChrome();
       this.registerActors();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
+      Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxStarted", this);
     }
   }
@@ -86,7 +94,7 @@ this.felt = class extends ExtensionAPI {
         // TODO: What should we do, restart Firefox?
         break;
 
-      case "FeltParent:FirefoxStarted":
+      case this.windowCloseMessage:
         Services.startup.enterLastWindowClosingSurvivalArea();
         Services.ww.unregisterNotification(this.windowObserver);
         this._win.close();
