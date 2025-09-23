@@ -94,5 +94,4 @@ if __name__ == "__main__":
         profile_root=sys.argv[3],
         console=port_console,
         sso_server=port_sso_serv,
-        env_vars={"MOZ_FELT_UI": "1"},
     )

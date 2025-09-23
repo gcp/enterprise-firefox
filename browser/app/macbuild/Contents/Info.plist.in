@@ -249,8 +249,6 @@
 		<string>0</string>
 		<key>SYSTEM_VERSION_COMPAT</key>
 		<string>0</string>
-		<key>MOZ_FELT_UI</key>
-		<string>1</string>
 	</dict>
 	<key>LSFileQuarantineEnabled</key>
 	<true/>

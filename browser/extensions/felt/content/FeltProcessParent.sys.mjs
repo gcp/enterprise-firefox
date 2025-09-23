@@ -134,11 +134,6 @@ export class FeltProcessParent extends JSProcessActorParent {
 
       const firefoxBin = this.felt.binPath();
 
-      // Make sure we do not transmit MOZ_FELT_UI to child processes
-      const env = {
-        "MOZ_FELT_UI": null
-      };
-
       try {
         Services.prefs.getStringPref("browser.felt.profile_path");
       } catch {
@@ -153,8 +148,6 @@ export class FeltProcessParent extends JSProcessActorParent {
           arguments: firefoxCreateProfileArgs,
           stdout: "stdout",
           stderr: "stderr",
-          environmentAppend: true,
-          environment: env,
         };
 
         let profileCreation = await lazy.Subprocess.call(firefoxCreateProfile)
@@ -193,8 +186,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         arguments: firefoxRunArgs,
         stdout: "stdout",
         stderr: "stderr",
-        environmentAppend: true,
-        environment: env,
+        /* environmentAppend: true,
+        environment: env, */
       };
 
       this.proc = await lazy.Subprocess.call(firefoxRun)

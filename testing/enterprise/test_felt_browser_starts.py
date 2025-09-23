@@ -20,7 +20,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
 
-class FeltStartsBrowserCli(FeltTests):
+class FeltStartsBrowser(FeltTests):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -45,12 +45,11 @@ class FeltStartsBrowserCli(FeltTests):
 if __name__ == "__main__":
     port_console = portpicker.pick_unused_port()
     port_sso_serv = portpicker.pick_unused_port()
-    FeltStartsBrowserCli(
-        "felt_browser_starts_fromCli.json",
+    FeltStartsBrowser(
+        "felt_browser_starts.json",
         firefox=sys.argv[1],
         geckodriver=sys.argv[2],
         profile_root=sys.argv[3],
         console=port_console,
         sso_server=port_sso_serv,
-        cli_args=["-feltUI"], 
     )
