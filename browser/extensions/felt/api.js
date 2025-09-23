@@ -101,7 +101,6 @@ this.felt = class extends ExtensionAPI {
       this.registerChrome();
       this.registerActors();
       this.showWindow();
-      Services.ppmm.addMessageListener("FeltChild:Loaded", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxStarted", this);
@@ -111,16 +110,6 @@ this.felt = class extends ExtensionAPI {
   receiveMessage(message) {
     console.debug(`FeltExtension: ${message.name} handling ...`);
     switch (message.name) {
-      case "FeltChild:Loaded":
-        Services.ppmm.removeMessageListener("FeltChild:Loaded", this);
-        const redirect_after_sso = Services.prefs.getStringPref(
-          "browser.felt.redirect_after_sso"
-        );
-        Services.ppmm.broadcastAsyncMessage(
-          "FeltMain:RedirectURL",
-          redirect_after_sso
-        );
-        break;
 
       case "FeltParent:FirefoxNormalExit":
         Services.ppmm.removeMessageListener(

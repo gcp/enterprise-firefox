@@ -77,7 +77,6 @@ export class FeltProcessParent extends JSProcessActorParent {
         });
         this.felt.sendCookies(this.getAllCookies());
         this.felt.sendReady();
-        Services.ppmm.broadcastAsyncMessage("FeltParent:Done", {});
         Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarted", {});
       })
       .then(() => {

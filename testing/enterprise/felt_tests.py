@@ -77,18 +77,6 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 </html>
             """
 
-        elif path == "/redirect_after_sso":
-            m = """
-<html>
-<head>
-    <title>Landing page!</title>
-</head>
-<body>
-    <h1>New page</h1>
-</body>
-</html>
-            """
-
         elif path == "/sso_page":
             m = """
 <html>
@@ -242,10 +230,6 @@ class FeltTests(EnterpriseTestsBase):
             # ends up with mDomain=localhost:8000 and aDomain=localhost
             # for pref value http://localhost/dashboard
             ["browser.felt.matches", "http://localhost/dashboard"],
-            [
-                "browser.felt.redirect_after_sso",
-                f"http://localhost:{self.sso_port}/redirect_after_sso",
-            ],
         ] + test_prefs
 
         super(__class__, self).__init__(
@@ -412,7 +396,7 @@ class FeltTests(EnterpriseTestsBase):
 
         return True
 
-    def test_felt_2_redirect_after_sso(self, exp):
+    def test_felt_2_ensure_sso_cookie_stored(self, exp):
         expected_cookie = list(
             filter(
                 lambda x: x["name"] == self.cookie_name
