@@ -15,7 +15,7 @@ inputs:
   gcp_disk_source:
     description: "Name of the image to use for disk"
     required: false
-    default: "disk-2404-noble-amd64-v20250818-20250922123247"
+    default: "disk-2404-noble-amd64-v20250818-20250904110918"
   gcp_disk_size:
     description: "Size (GB) of the disk to create"
     required: false
