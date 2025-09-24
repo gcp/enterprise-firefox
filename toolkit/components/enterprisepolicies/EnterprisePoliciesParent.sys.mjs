@@ -786,7 +786,11 @@ class RemotePoliciesProvider {
         const serverAddr = Services.prefs.getStringPref(
           "browser.policies.server"
         );
-        const response = await fetch(`${serverAddr}/api/browser/hacks/policies`);
+        const response = await fetch(`${serverAddr}/api/browser/hacks/policies`, {
+          headers: {
+            "Authorization": `Bearer ${Services.prefs.getStringPref("browser.policies.access_token", "")}`
+	  }
+	});
         resolve(await response.json());
       } catch (error) {
         console.error(error.message);

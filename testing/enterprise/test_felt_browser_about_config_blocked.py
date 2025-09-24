@@ -50,7 +50,7 @@ class BrowserAboutConfigBlocked(FeltTests):
         while max_try < 20:
             max_try += 1
             try:
-                r = requests.get(f"{url}")
+                r = requests.get(f"{url}", headers={"Authorization": f"Bearer {self.policy_access_token.value}"})
                 j = r.json()
                 if j["policies"]["BlockAboutConfig"] == False:
                     self._logger.info(f"Policy update propagated at {url}!")

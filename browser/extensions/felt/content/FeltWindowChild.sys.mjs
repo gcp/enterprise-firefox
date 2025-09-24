@@ -29,7 +29,7 @@ export class FeltWindowChild extends JSWindowActorChild {
     console.debug("Sending token data to ConsoleClient")
     lazy.ConsoleClient.onConsoleTokenDataReceived(consoleTokenData)
 
-    this.actor.sendAsyncMessage("FeltChild:StartFirefox", {});
+    this.actor.sendAsyncMessage("FeltChild:StartFirefox", {"access_token": lazy.ConsoleClient.consoleTokenData.accessToken});
   }
 
 }
