@@ -5658,16 +5658,6 @@ nsresult XREMain::XRE_mainRun() {
       workingDir = nullptr;
     }
 
-#if defined(MOZ_WIDGET_FELT)
-  if (XRE_IsParentProcess()) {
-    // This will remove the arg from CLI
-    Maybe<bool> felt = geckoargs::sFeltUI.Get(gArgc, gArgv);
-    if (felt.isSome() && *felt) {
-      PR_SetEnv("MOZ_FELT_UI=1");
-    }
-  }
-#endif
-
     cmdLine = new nsCommandLine();
 
     rv = cmdLine->Init(gArgc, gArgv, workingDir,
@@ -6143,13 +6133,19 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   });
 
 #if defined(MOZ_WIDGET_FELT)
-  // FELT IPC channel
-  Maybe<const char*> felt =
-      geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
   if (XRE_IsParentProcess()) {
+    // FELT IPC channel
+    Maybe<const char*> felt =
+        geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
     if (felt.isSome()) {
       // Deal with env_logger and all. Too early for CookieService
       felt_init();
+    }
+
+    // This will remove the arg from CLI
+    Maybe<bool> feltUI = geckoargs::sFeltUI.Get(gArgc, gArgv);
+    if (feltUI.isSome() && *feltUI) {
+      PR_SetEnv("MOZ_FELT_UI=1");
     }
   }
 #endif
