@@ -78,7 +78,7 @@ export const ConsoleClient = {
             SSO: `${this.consoleAddr}/sso/login?target=browser`,
             SSO_CALLBACK: `${this.consoleAddr}/sso/callback?*`,
             REDIRECT_AFTER_SSO: `${this.consoleAddr}/redirect_after_sso`,
-            DEFAULT_POLICIES: `${this.consoleAddr}/api/browser/hacks/default`,
+            DEFAULT_PREFS: `${this.consoleAddr}/api/browser/hacks/default`,
             REMOTE_POLICIES: `${this.consoleAddr}/api/browser/hacks/policies`,
         };
     },
@@ -121,9 +121,9 @@ export const ConsoleClient = {
 
     },
 
-    async getDefaultPolicies() {
-        console.debug("ConsoleClient: getDefaultPolicies");
-        const payload = await this.fetchPolicies(this.ENDPOINTS.DEFAULT_POLICIES);
+    async getDefaultPrefs() {
+        console.debug("ConsoleClient: getDefaultPrefs");
+        const payload = await this.fetchPolicies(this.ENDPOINTS.DEFAULT_PREFS);
         return payload;
     },
 
