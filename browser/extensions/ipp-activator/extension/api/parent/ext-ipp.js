@@ -34,16 +34,12 @@ this.ippActivator = class extends ExtensionAPI {
           name: "ippActivator.onIPPActivated",
           register: fire => {
             const topic = "IPProtectionService:Started";
-            const observer = {
-              observe(subject, t, _data) {
-                if (t === topic) {
-                  fire.async({});
-                }
-              },
+            const observer = _event => {
+              fire.async({});
             };
-            Services.obs.addObserver(observer, topic);
+            lazy.IPProtectionService.addEventListener(topic, observer);
             return () => {
-              Services.obs.removeObserver(observer, topic);
+              lazy.IPProtectionService.removeEventListener(topic, observer);
             };
           },
         }).api(),
@@ -226,38 +222,47 @@ this.ippActivator = class extends ExtensionAPI {
           context,
           name: "ippActivator.onDynamicTabBreakagesUpdated",
           register: fire => {
-            const branch = Services.prefs.getBranch("extensions.ippactivator.");
             const observer = {
               observe(subject, topic, data) {
                 if (
                   topic === "nsPref:changed" &&
-                  data === "dynamicTabBreakages"
+                  data === PREF_DYNAMIC_TAB_BREAKAGES
                 ) {
                   fire.async({});
                 }
               },
             };
-            branch.addObserver("", observer);
-            return () => branch.removeObserver("", observer);
+            Services.prefs.addObserver(PREF_DYNAMIC_TAB_BREAKAGES, observer);
+            return () =>
+              Services.prefs.removeObserver(
+                PREF_DYNAMIC_TAB_BREAKAGES,
+                observer
+              );
           },
         }).api(),
         onDynamicWebRequestBreakagesUpdated: new ExtensionCommon.EventManager({
           context,
           name: "ippActivator.onDynamicWebRequestBreakagesUpdated",
           register: fire => {
-            const branch = Services.prefs.getBranch("extensions.ippactivator.");
             const observer = {
               observe(subject, topic, data) {
                 if (
                   topic === "nsPref:changed" &&
-                  data === "dynamicWebRequestBreakages"
+                  data === PREF_DYNAMIC_WEBREQUEST_BREAKAGES
                 ) {
                   fire.async({});
                 }
               },
             };
-            branch.addObserver("", observer);
-            return () => branch.removeObserver("", observer);
+            Services.prefs.addObserver(
+              PREF_DYNAMIC_WEBREQUEST_BREAKAGES,
+              observer
+            );
+            return () =>
+              Services.prefs.removeObserver(
+                PREF_DYNAMIC_WEBREQUEST_BREAKAGES,
+                observer
+              );
           },
         }).api(),
       },

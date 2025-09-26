@@ -3887,18 +3887,59 @@ static gfxFloat ComputeTabWidthAppUnits(const nsIFrame* aFrame) {
 
 // Walk backward from aIter to prior cluster starts (within the same textframe's
 // content) and return the first non-mark autospace class.
+//
+// @param aContentOffsetAtFrameStart the original content offset at the start of
+// the textframe.
 static Maybe<TextAutospace::CharClass> LastNonMarkCharClass(
-    gfxSkipCharsIterator& aIter, const gfxTextRun* aTextRun,
-    const CharacterDataBuffer& aBuffer) {
-  while (aIter.GetOriginalOffset() > 0) {
+    gfxSkipCharsIterator& aIter, int32_t aContentOffsetAtFrameStart,
+    const gfxTextRun* aTextRun, const CharacterDataBuffer& aBuffer) {
+  while (aIter.GetOriginalOffset() > aContentOffsetAtFrameStart) {
     aIter.AdvanceOriginal(-1);
-    FindClusterStart(aTextRun, 0, &aIter);
+    FindClusterStart(aTextRun, aContentOffsetAtFrameStart, &aIter);
     const char32_t ch = aBuffer.ScalarValueAt(aIter.GetOriginalOffset());
     auto cls = TextAutospace::GetCharClass(ch);
     if (cls != TextAutospace::CharClass::CombiningMark) {
       return Some(cls);
     }
   }
+  return Nothing();
+}
+
+// Walk backward through the frame's content and return the first non-mark
+// autospace class. (Unlike the function above, this is usable when the frame
+// does not currently have a textrun.)
+static Maybe<TextAutospace::CharClass> LastNonMarkCharClass(
+    const nsTextFrame* aFrame) {
+  using CharClass = TextAutospace::CharClass;
+  bool trimSpace = aFrame->HasAnyStateBits(TEXT_TRIMMED_TRAILING_WHITESPACE);
+  const auto& buffer = aFrame->CharacterDataBuffer();
+  const uint32_t startOffset = aFrame->GetContentOffset();
+  uint32_t i = aFrame->GetContentEnd();
+  while (i > startOffset) {
+    // Get trailing character, decoding surrogate pair if necessary.
+    char32_t ch = buffer.CharAt(--i);
+    if (NS_IS_LOW_SURROGATE(ch) && i > startOffset) {
+      // Get potential high surrogate, and decode.
+      char32 hi = buffer.CharAt(i - 1);
+      if (NS_IS_HIGH_SURROGATE(hi)) {
+        ch = SURROGATE_TO_UCS4(hi, ch);
+        --i;
+      }
+    }
+    // Skip over trailing whitespace if the frame was trimmed.
+    if (trimSpace) {
+      if (IsTrimmableSpace(ch)) {
+        continue;
+      }
+      trimSpace = false;
+    }
+    // If it has a non-CombiningMark class, return it.
+    auto cls = TextAutospace::GetCharClass(ch);
+    if (cls != CharClass::CombiningMark) {
+      return Some(cls);
+    }
+  }
+  // No (non-mark, non-trimmed) characters were found.
   return Nothing();
 }
 
@@ -3909,11 +3950,24 @@ static Maybe<TextAutospace::CharClass> LastNonMarkCharClassInFrame(
   if (!aFrame->GetContentLength()) {
     return Nothing();
   }
-  gfxSkipCharsIterator iter = aFrame->EnsureTextRun(nsTextFrame::eInflated);
-  iter.SetOriginalOffset(aFrame->GetContentEnd());
-  Maybe<CharClass> prevClass =
-      LastNonMarkCharClass(iter, aFrame->GetTextRun(nsTextFrame::eInflated),
-                           aFrame->CharacterDataBuffer());
+  Maybe<CharClass> prevClass;
+  if (aFrame->GetTextRun(nsTextFrame::eInflated)) {
+    // If the frame has a textrun, we can use that to find the last cluster
+    // start character and return its class.
+    gfxSkipCharsIterator iter = aFrame->EnsureTextRun(nsTextFrame::eInflated);
+    iter.SetOriginalOffset(aFrame->GetContentEnd());
+    prevClass = LastNonMarkCharClass(iter, aFrame->GetContentOffset(),
+                                     aFrame->GetTextRun(nsTextFrame::eInflated),
+                                     aFrame->CharacterDataBuffer());
+  } else {
+    // We can't call EnsureTextRun if it would build new textruns, because that
+    // could destroy the glyph runs that we're currently iterating over. So
+    // instead we fall back to inspecting the content directly. This means we
+    // ignore CSS whitespace-collapsing, which could mean some of the content
+    // should be skipped, but in practice none of the characters that are
+    // relevant for autospace classes would be affected.
+    prevClass = LastNonMarkCharClass(aFrame);
+  }
   if (prevClass) {
     return prevClass;
   }
@@ -4066,7 +4120,8 @@ void nsTextFrame::PropertyProvider::GetSpacingInternal(Range aRange,
       Maybe<CharClass> prevClass;
       if (aRange.start > 0) {
         gfxSkipCharsIterator iter = start;
-        prevClass = LastNonMarkCharClass(iter, mTextRun, mCharacterDataBuffer);
+        prevClass = LastNonMarkCharClass(iter, mFrame->GetContentOffset(),
+                                         mTextRun, mCharacterDataBuffer);
       }
       // If no class was found, we need to look at the preceding content (if
       // any) to see what it ended with.
