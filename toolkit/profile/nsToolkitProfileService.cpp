@@ -41,6 +41,10 @@
 #  include "mozilla/WidgetUtilsGtk.h"
 #endif
 
+#if defined(MOZ_WIDGET_FELT)
+#  include "mozilla/toolkit/library/felt_ffi.h"
+#endif
+
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsNetCID.h"
@@ -1558,7 +1562,7 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
 #if defined(MOZ_WIDGET_FELT)
   auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
-  if (PR_GetEnv("MOZ_FELT_UI") && !forcedProfile) {
+  if (is_felt_ui() && !forcedProfile) {
     nsCOMPtr<nsIFile> file;
     MOZ_TRY(
         GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(file)));
