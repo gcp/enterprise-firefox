@@ -124,7 +124,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 }
             )
 
-        elif path == "/api/browser/hacks/policies":
+        elif path == "/api/browser/policies":
             auth = self.headers.get("Authorization")
             if not auth:
                 self.reply("", 401, "Authorization required")

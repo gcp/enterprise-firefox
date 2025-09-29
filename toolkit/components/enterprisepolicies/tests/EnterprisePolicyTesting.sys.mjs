@@ -61,6 +61,7 @@ export var EnterprisePolicyTesting = {
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
       Services.prefs.setStringPref("browser.policies.server", serverAddr);
+      Services.prefs.setStringPref("browser.policies.access_token", "token");
       registerCleanupFunction(async () => {
         await new Promise(resolve => this._httpd.stop(resolve));
         this._httpd = undefined;
@@ -69,7 +70,7 @@ export var EnterprisePolicyTesting = {
     }
 
     return new Promise(async (resolve, reject) => {
-      this._httpd.registerPathHandler("/policies", (req, resp, url) => {
+      this._httpd.registerPathHandler("/api/browser/policies", (req, resp, url) => {
         resp.setStatusLine(req.httpVersion, 200, "OK");
         resp.write(JSON.stringify(json));
         lazy.modifySchemaForTests(customSchema);

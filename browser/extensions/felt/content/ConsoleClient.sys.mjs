@@ -79,7 +79,7 @@ export const ConsoleClient = {
             SSO_CALLBACK: `${this.consoleAddr}/sso/callback?*`,
             REDIRECT_AFTER_SSO: `${this.consoleAddr}/redirect_after_sso`,
             DEFAULT_PREFS: `${this.consoleAddr}/api/browser/hacks/default`,
-            REMOTE_POLICIES: `${this.consoleAddr}/api/browser/hacks/policies`,
+            REMOTE_POLICIES: `${this.consoleAddr}/api/browser/policies`,
         };
     },
 
