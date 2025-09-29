@@ -674,6 +674,7 @@ class RemotePoliciesProvider {
     this._hasRemoteConnection = false;
     Services.prefs.addObserver("browser.policies.server", this);
     Services.prefs.addObserver("browser.policies.live_polling_freq", this);
+    Services.prefs.addObserver("browser.policies.access_token", this);
     this._poller = null;
     this._pollingFrequency = Services.prefs.getIntPref(
       "browser.policies.live_polling_freq",
@@ -681,6 +682,10 @@ class RemotePoliciesProvider {
     );
     this._serverAddr = Services.prefs.getStringPref(
       "browser.policies.server",
+      ""
+    );
+    this._accessToken = Services.prefs.getStringPref(
+      "browser.policies.access_token",
       ""
     );
     this._maybeStartPolling();
@@ -699,17 +704,30 @@ class RemotePoliciesProvider {
 
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
-      case "nsPref:changed":
-        console.debug(`RemotePoliciesProvider: nsPref:changed: ${aData}`);
-        this._serverAddr = Services.prefs.getStringPref(
-          "browser.policies.server",
-          ""
-        );
-        this._pollingFrequency = Services.prefs.getIntPref(
-          "browser.policies.live_polling_freq",
-          60000
-        );
-        this._maybeStartPolling();
+      case "nsPref:changed": {
+          if (aData.includes("browser.policies")) {
+          console.debug(`RemotePoliciesProvider: nsPref:changed: ${aData}`);
+          switch (aData) {
+            case "browser.policies.server":
+              this._serverAddr = Services.prefs.getStringPref("browser.policies.server", "");
+              break;
+
+            case "browser.policies.live_polling_freq":
+              const p = this._pollingFrequency;
+              this._pollingFrequency = Services.prefs.getIntPref("browser.policies.live_polling_freq", 60000);
+              if (p != this._pollingFrequency) {
+                this._stopPolling();
+              }
+              break;
+
+            case "browser.policies.access_token":
+              this._accessToken = Services.prefs.getStringPref("browser.policies.access_token", "");
+              break;
+          }
+
+          this._maybeStartPolling();
+          }
+        }
         break;
 
       case "xpcom-shutdown":
@@ -737,10 +755,11 @@ class RemotePoliciesProvider {
   _stopPolling() {
     this._hasRemoteConnection = false;
     lazy.clearInterval(this._poller);
+    this._poller = null;
   }
 
   _maybeStartPolling() {
-    if (this._serverAddr != "") {
+    if (this._serverAddr != "" && this._accessToken != "" && this._poller == null) {
       this._startPolling();
     } else {
       this._stopPolling();
@@ -786,11 +805,12 @@ class RemotePoliciesProvider {
         const serverAddr = Services.prefs.getStringPref(
           "browser.policies.server"
         );
-        const response = await fetch(`${serverAddr}/api/browser/hacks/policies`, {
+        const bearer = `Bearer ${this._accessToken}`;
+        const response = await fetch(`${serverAddr}/api/browser/policies`, {
           headers: {
-            "Authorization": `Bearer ${Services.prefs.getStringPref("browser.policies.access_token", "")}`
-	  }
-	});
+            "Authorization": bearer
+          }
+        });
         resolve(await response.json());
       } catch (error) {
         console.error(error.message);

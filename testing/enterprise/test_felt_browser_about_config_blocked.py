@@ -45,7 +45,7 @@ class BrowserAboutConfigBlocked(FeltTests):
         self.policy_block_about_config.value = 0
         self._logger.info("Changed BlockAboutConfig policy")
 
-        url = f"http://localhost:{self.console_port}/api/browser/hacks/policies"
+        url = f"http://localhost:{self.console_port}/api/browser/policies"
         max_try = 0
         while max_try < 20:
             max_try += 1
