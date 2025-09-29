@@ -556,10 +556,10 @@ jobs:
           pushd $OBJDIR/dist/hfs/
             ~/.mozbuild/dmg/hfsplus ../$HFSPLUS_FILE extractall
           popd
-          APP_FILE=$(find obj-*/dist/hfs/ -maxdepth 1 -type d -name "*.app")
+          APP_FILE="$(find obj-*/dist/hfs/ -maxdepth 1 -type d -name '*.app')"
           ./mach macos-sign -v -c nightly -e developer -r -f firefoxEnterprise.p12 -p firefoxEnterprise_pass.p12 -a "${APP_FILE}"
-          APP_FILENAME=$(basename $APP_FILE)
-          tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns $APP_FILENAME
+          APP_FILENAME="$(basename "$APP_FILE")"
+          tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns "$APP_FILENAME"
           ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
           rm $OBJDIR/dist/nightly_signed.tar.gz
 
@@ -598,7 +598,7 @@ jobs:
           echo "mount_dir='${MOUNT_DIR}'" >> "$GITHUB_OUTPUT"
           RUNTIME_PATH=$(find "${MOUNT_DIR}" -type f -name "firefox")
           echo "runtime_path=$RUNTIME_PATH" >> "$GITHUB_OUTPUT"
-          codesign -vv "$MOUNT_DIR/Firefox.app"
+          codesign -vv "$MOUNT_DIR/Firefox Enterprise.app"
 
       - name: "install python"
         run: |
