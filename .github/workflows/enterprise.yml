@@ -510,6 +510,11 @@ jobs:
       MOZCONFIG: ${{ github.workspace }}/build/macosx/mozconfig.enterprise
 
     steps:
+      - name: "clean state"
+        id: clean
+        run: |
+          rm -fr ./*
+
       - name: checkout
         uses: actions/checkout@v5
 
