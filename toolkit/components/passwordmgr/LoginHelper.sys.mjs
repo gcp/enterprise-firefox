@@ -1711,7 +1711,6 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-
     // We may need to unlock the internal softoken with the PrP.
     // If a primary password prompt is already open, just exit early and return false.
     // The user can re-trigger it after responding to the already open dialog.
