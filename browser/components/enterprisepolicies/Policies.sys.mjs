@@ -3221,7 +3221,7 @@ function installAddonFromURL(url, extensionID, addon) {
         lazy.log.error(
           `Installation failed - ${lazy.AddonManager.errorToString(
             install.error
-          )} - {url}`
+          )} - ${url}`
         );
       },
       /* eslint-disable-next-line no-shadow */
