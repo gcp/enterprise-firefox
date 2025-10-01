@@ -145,7 +145,7 @@ jobs:
 
       - name: setup
         run: |
-          rustup default 1.85
+          rustup default stable
 
       - name: build
         run: ./mach build
@@ -354,7 +354,7 @@ jobs:
 
       - name: setup
         run: |
-          rustup default 1.85
+          rustup default stable
           rustup target add x86_64-pc-windows-msvc
 
       - name: build
@@ -525,7 +525,7 @@ jobs:
 
       - name: setup
         run: |
-          rustup default 1.85
+          rustup default stable
           rustup target add aarch64-apple-darwin
 
       - name: build
