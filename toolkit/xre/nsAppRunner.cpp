@@ -5924,9 +5924,9 @@ nsresult XREMain::XRE_mainRun() {
 #endif
 
 #if defined(MOZ_WIDGET_FELT)
-  if (XRE_IsParentProcess() && !PR_GetEnv("MOZ_FELT_UI")) {
+  if (XRE_IsParentProcess() && is_felt_browser()) {
     // FELT IPC channel remainder
-    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv);
 
     if (felt.isSome()) {
       firefox_connect_to_felt(*felt);
@@ -5985,6 +5985,27 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
 #ifndef XP_LINUX
   NS_SetCurrentThreadName("MainThread");
+#endif
+
+#if defined(MOZ_WIDGET_FELT)
+  if (XRE_IsParentProcess()) {
+    Maybe<bool> feltUI = geckoargs::sFeltUI.Get(gArgc, gArgv, CheckArgFlag::None);
+
+    // FELT IPC channel
+    Maybe<const char*> felt =
+        geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
+    if (felt.isSome() || (feltUI.isSome() && *feltUI) || (mozFeltEnv && strcmp(mozFeltEnv, "1") == 0)) {
+      // Deal with env_logger and all. Too early for CookieService
+      felt_init();
+
+      // Remove, we dont need it anymore
+      Unused << geckoargs::sFeltUI.Get(gArgc, gArgv);
+      if (PR_GetEnv("MOZ_FELT_UI")) {
+        PR_SetEnv("MOZ_FELT_UI=");
+      }
+    }
+  }
 #endif
 
   AUTO_BASE_PROFILER_LABEL("XREMain::XRE_main (around Gecko Profiler)", OTHER);
@@ -6165,24 +6186,6 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     return NS_OK;
   });
 
-#if defined(MOZ_WIDGET_FELT)
-  if (XRE_IsParentProcess()) {
-    // FELT IPC channel
-    Maybe<const char*> felt =
-        geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
-    if (felt.isSome()) {
-      // Deal with env_logger and all. Too early for CookieService
-      felt_init();
-    }
-
-    // This will remove the arg from CLI
-    Maybe<bool> feltUI = geckoargs::sFeltUI.Get(gArgc, gArgv);
-    if (feltUI.isSome() && *feltUI) {
-      PR_SetEnv("MOZ_FELT_UI=1");
-    }
-  }
-#endif
-
   // startup
   result = XRE_mainStartup(&exit);
   if (result != 0 || exit) return result;
@@ -6269,15 +6272,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
 #if defined(MOZ_WIDGET_FELT)
   // Do not restart when running as Felt client (i.e. Enterprise browser)
-  bool skipRestart = false;
-  if (XRE_IsParentProcess()) {
-    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
-    if (felt.isSome()) {
-      skipRestart = true;
-    }
-  }
-
-  if (!skipRestart) {
+  if (!is_felt_browser()) {
 #endif
     mozilla::AppShutdown::MaybeDoRestart();
 #if defined(MOZ_WIDGET_FELT)

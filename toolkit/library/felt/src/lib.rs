@@ -28,6 +28,9 @@ mod utils;
 mod message;
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 
+pub static mut IS_FELT_UI: AtomicBool = AtomicBool::new(false);
+pub static mut IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
+
 pub struct FeltIpcClient {
     tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
     rx: Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>,
@@ -317,15 +320,19 @@ pub struct FeltXPCOM {
     >,
     tx: RefCell<Option<ipc_channel::ipc::IpcSender<FeltMessage>>>,
     rx: RefCell<Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>>,
+    is_felt_ui: bool,
+    is_felt_browser: bool,
 }
 
 #[allow(non_snake_case)]
 impl FeltXPCOM {
-    pub fn new() -> RefPtr<FeltXPCOM> {
+    pub fn new(_is_felt_ui: bool, _is_felt_browser: bool) -> RefPtr<FeltXPCOM> {
         FeltXPCOM::allocate(InitFeltXPCOM {
             one_shot_server: RefCell::new(None),
             tx: RefCell::new(None),
             rx: RefCell::new(None),
+            is_felt_ui: _is_felt_ui,
+            is_felt_browser: _is_felt_browser,
         })
     }
 
@@ -542,9 +549,15 @@ impl FeltXPCOM {
 
     fn IsFeltUI(&self, is_felt_ui: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: IsFeltUI");
-        let found_felt_ui_env = env::var("MOZ_FELT_UI").is_ok();
-        unsafe { *is_felt_ui = found_felt_ui_env; }
-        trace!("FeltXPCOM: IsFeltUI: found_felt_ui_env={}", found_felt_ui_env);
+        unsafe { *is_felt_ui = self.is_felt_ui; }
+        trace!("FeltXPCOM: IsFeltUI: {}", self.is_felt_ui);
+        NS_OK
+    }
+
+    fn IsFeltBrowser(&self, is_felt_browser: *mut bool) -> nserror::nsresult {
+        trace!("FeltXPCOM: IsFeltBrowser");
+        unsafe { *is_felt_browser = self.is_felt_browser; }
+        trace!("FeltXPCOM: IsFeltBrowser: {}", self.is_felt_browser);
         NS_OK
     }
 

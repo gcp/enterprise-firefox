@@ -6,6 +6,9 @@ use log::trace;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
+use std::sync::{atomic::AtomicBool, atomic::Ordering};
+use std::env;
+
 use felt;
 
 use env_logger;
@@ -14,7 +17,52 @@ use env_logger;
 pub extern "C" fn felt_init() {
     trace!("felt_init()");
     env_logger::init();
+
+    let found_felt_ui_env = match env::var("MOZ_FELT_UI") {
+        Ok(v) => v == "1",
+        Err(_) => false,
+    };
+
+    let found_felt_ui_arg = env::args()
+            .into_iter()
+            .any(|arg| {
+                arg
+                    .replace("-", "")
+                    .replace("/", "")
+                    .to_lowercase() == "feltui"
+            });
+
+    let is_felt_ui = found_felt_ui_arg || found_felt_ui_env;
+    trace!("felt_init(): is_felt_ui={}", is_felt_ui);
+    unsafe { felt::IS_FELT_UI.store(is_felt_ui, Ordering::Relaxed); }
+
+    let is_felt_browser = env::args()
+            .into_iter()
+            .any(|arg| {
+                arg
+                    .replace("-", "")
+                    .replace("/", "")
+                    .to_lowercase() == "felt"
+            });
+
+    trace!("felt_init(): is_felt_browser={}", is_felt_browser);
+    unsafe { felt::IS_FELT_BROWSER.store(is_felt_browser, Ordering::Relaxed); }
+
+    assert!(!(is_felt_browser && is_felt_ui), "Cannot have both -fletUI and -felt args");
+
     trace!("felt_init() done");
+}
+
+#[no_mangle]
+pub extern "C" fn is_felt_ui() -> bool {
+    trace!("is_felt_ui()");
+    return unsafe { felt::IS_FELT_UI.load(Ordering::Relaxed) }
+}
+
+#[no_mangle]
+pub extern "C" fn is_felt_browser() -> bool {
+    trace!("is_felt_browser()");
+    return unsafe { felt::IS_FELT_BROWSER.load(Ordering::Relaxed) }
 }
 
 #[no_mangle]
@@ -33,7 +81,9 @@ pub extern "C" fn felt_constructor(
     iid: *const xpcom::nsIID,
     result: *mut *mut xpcom::reexports::libc::c_void,
 ) -> nserror::nsresult {
-    let felt_xpcom = felt::FeltXPCOM::new();
+    let is_felt_ui = unsafe { felt::IS_FELT_UI.load(Ordering::Relaxed) };
+    let is_felt_browser = unsafe { felt::IS_FELT_BROWSER.load(Ordering::Relaxed) };
+    let felt_xpcom = felt::FeltXPCOM::new(is_felt_ui, is_felt_browser);
     unsafe { felt_xpcom.QueryInterface(iid, result) }
 }
 

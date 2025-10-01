@@ -11,6 +11,10 @@ extern "C" {
 
 void felt_init();
 
+bool is_felt_ui();
+
+bool is_felt_browser();
+
 void firefox_connect_to_felt(const char* server_name);
 
 nsresult felt_constructor(REFNSIID iid, void** result);
