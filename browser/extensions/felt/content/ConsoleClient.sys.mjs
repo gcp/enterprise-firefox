@@ -63,6 +63,7 @@ class ConsoleTokenData {
 }
 
 export const ConsoleClient = {
+    ENTERPRISE_PROFILE: "enterprise-profile",
 
     _consoleTokenData: null,
 

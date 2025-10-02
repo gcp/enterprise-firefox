@@ -27,12 +27,12 @@ export class FeltProcessParent extends JSProcessActorParent {
         console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
           case "felt-firefox-restarting":
-	    const restartDisabled = Services.prefs.getBoolPref("browser.felt.disable_restart", false);
+            const restartDisabled = Services.prefs.getBoolPref("browser.felt.disable_restart", false);
             if (!restartDisabled) {
                 Services.ppmm.broadcastAsyncMessage("FeltParent:RestartFirefox", {});
-	    } else {
+            } else {
                 console.debug(`FeltExtension: ParentProcess: restart is disabled`);
-	    }
+            }
             break;
 
           default:
@@ -119,93 +119,78 @@ export class FeltProcessParent extends JSProcessActorParent {
       });
   }
 
-  getProfileArgs() {
-    try {
-      const profilePath = Services.prefs.getStringPref(
-        "browser.felt.profile_path"
-      );
-      console.debug(`Felt: profilePath=${profilePath}`);
-      return ["--profile", profilePath];
-    } catch {
-      return ["-P", "enterprise-profile"];
-    }
-  }
+  async startFirefoxProcess() {
+    let socket = this.felt.oneShotIpcServer();
 
-  startFirefoxProcess() {
-    return new Promise(async (resolve, reject) => {
-      let socket = this.felt.oneShotIpcServer();
+    const firefoxBin = this.felt.binPath();
 
-      const firefoxBin = this.felt.binPath();
+    let profilePath = Services.prefs.getStringPref(
+      "browser.felt.profile_path",
+      ""
+    );
 
-      try {
-        Services.prefs.getStringPref("browser.felt.profile_path");
-      } catch {
-        const firefoxCreateProfileArgs = [
-          "-no-remote",
-          "-createprofile",
-          "enterprise-profile",
-        ];
+    if (!profilePath) {
+      let profileService = Cc[
+        "@mozilla.org/toolkit/profile-service;1"
+      ].getService(Ci.nsIToolkitProfileService);
 
-        const firefoxCreateProfile = {
-          command: firefoxBin,
-          arguments: firefoxCreateProfileArgs,
-          stdout: "stdout",
-          stderr: "stderr",
-          /* environmentAppend: true,
-          environment: env, */
-        };
-
-        let profileCreation = await lazy.Subprocess.call(firefoxCreateProfile)
-          .then(async proc => {
-            await proc.exitPromise;
-            return proc.exitCode === 0;
-          })
-          .catch(err => {
-            console.error(err instanceof Error ? err : err.message);
-            return false;
-          });
-
-        if (!profileCreation) {
-          console.debug(`startFirefox(): profileCreation failed`);
-          reject();
-          return;
+      let foundProfile = null;
+      for (let profile of profileService.profiles) {
+        if (profile.name === lazy.ConsoleClient.ENTERPRISE_PROFILE) {
+          foundProfile = profile;
+          break;
         }
       }
 
-      let extraRunArgs = [];
-      if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
-        extraRunArgs = [
-          "--marionette",
-          "--remote-allow-hosts",
-          "localhost",
-          "--remote-allow-system-access",
-        ];
+      if (!foundProfile) {
+        console.debug(
+          `FeltExtension: creating new ${lazy.ConsoleClient.ENTERPRISE_PROFILE} profile`
+        );
+        foundProfile = profileService.createProfile(null, lazy.ConsoleClient.ENTERPRISE_PROFILE);
+
+        await profileService.asyncFlush();
       }
 
-      const firefoxRunArgs = ["-no-remote", "-felt", socket].concat(
-        this.getProfileArgs().concat(extraRunArgs)
-      );
+      profilePath = foundProfile.rootDir.path;
+    }
 
-      const firefoxRun = {
-        command: firefoxBin,
-        arguments: firefoxRunArgs,
-        stdout: "stdout",
-        stderr: "stderr",
-        /* environmentAppend: true,
-        environment: env, */
-      };
+    let extraRunArgs = [];
+    if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
+      extraRunArgs = [
+        "--marionette",
+        "--remote-allow-hosts",
+        "localhost",
+        "--remote-allow-system-access",
+      ];
+    }
 
-      this.proc = await lazy.Subprocess.call(firefoxRun)
-        .then(proc => {
-          return proc;
-        })
-        .catch(err => {
-          console.error(err instanceof Error ? err : err.message);
-        });
+    const firefoxRunArgs = [
+      "--foreground",
+      "--profile",
+      profilePath,
+      "-felt",
+      socket,
+      ...extraRunArgs,
+    ];
 
-      this.felt.ipcChannel();
-      resolve();
-    });
+    const firefoxRun = {
+      command: firefoxBin,
+      arguments: firefoxRunArgs,
+      stdout: "stdout",
+      stderr: "stderr",
+      /* environmentAppend: true,
+      environment: env, */
+    };
+
+    this.proc = await lazy.Subprocess.call(firefoxRun)
+      .then(proc => {
+        return proc;
+      })
+      .catch(err => {
+        console.error(err instanceof Error ? err : err.message);
+      });
+
+    this.felt.ipcChannel();
   }
 
   receiveMessage(message) {
