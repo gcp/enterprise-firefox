@@ -289,7 +289,7 @@ static mozilla::LazyLogModule gDocShellAndDOMWindowLeakLogging(
 #endif
 static mozilla::LazyLogModule gDocShellLeakLog("nsDocShellLeak");
 extern mozilla::LazyLogModule gPageCacheLog;
-extern mozilla::LazyLogModule gNavigationLog;
+extern mozilla::LazyLogModule gNavigationAPILog;
 mozilla::LazyLogModule gSHLog("SessionHistory");
 extern mozilla::LazyLogModule gSHIPBFCacheLog;
 
@@ -9387,7 +9387,7 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
   // reference to avoid null derefs. See bug 914521.
   if (win) {
     if (RefPtr navigation = win->Navigation()) {
-      MOZ_LOG(gNavigationLog, LogLevel::Debug,
+      MOZ_LOG(gNavigationAPILog, LogLevel::Debug,
               ("nsDocShell %p triggering a navigation event from "
                "HandleSameDocumentNavigation",
                this));
@@ -12105,7 +12105,7 @@ nsresult nsDocShell::UpdateURLAndHistory(
   aDocument->SetStateObject(aData);
 
   if (RefPtr navigation = aDocument->GetInnerWindow()->Navigation()) {
-    MOZ_LOG(gNavigationLog, LogLevel::Debug,
+    MOZ_LOG(gNavigationAPILog, LogLevel::Debug,
             ("nsDocShell %p triggering a navigation event for a same-document "
              "navigation from UpdateURLAndHistory -> isReplace: %s",
              this, isReplace ? "true" : "false"));
@@ -14331,7 +14331,7 @@ void nsDocShell::MoveLoadingToActiveEntry(bool aExpired, uint32_t aCacheKey,
         navigation->InitializeHistoryEntries(loadingEntry->mContiguousEntries,
                                              mActiveEntry.get());
 
-        MOZ_LOG_FMT(gNavigationLog, LogLevel::Debug,
+        MOZ_LOG_FMT(gNavigationAPILog, LogLevel::Debug,
                     "Before creating NavigationActivation, "
                     "triggeringEntry={}, triggeringType={}",
                     fmt::ptr(loadingEntry->mTriggeringEntry
