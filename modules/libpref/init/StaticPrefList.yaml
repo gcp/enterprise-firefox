@@ -5547,6 +5547,17 @@
 #endif
   mirror: always
 
+# Is WebGPU allowed to run in the parent process? This should be false if
+# on a platform that supports the GPU process, else true.
+- name: dom.webgpu.allow-in-parent
+  type: bool
+#if defined(XP_WIN) || defined(ANDROID)
+  value: false
+#else
+  value: true
+#endif
+  mirror: once
+
 # Is support for the Web GPU API enabled on service workers?
 - name: dom.webgpu.service-workers.enabled
   type: RelaxedAtomicBool
@@ -9385,7 +9396,7 @@
   # making this mirror: once, and set_spidermonkey_pref: startup is
   # broken: See Bug 1989094
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
 
 # Whether to use the off-thread script compilation and decoding.
 - name: javascript.options.parallel_parsing
@@ -9523,6 +9534,13 @@
 #endif
   mirror: always
 
+# If true, allow the parent process as a fallback for compositing due to an
+# unstable GPU process, otherwise simply crash the parent process.
+- name: layers.gpu-process.allow-fallback-to-parent
+  type: bool
+  value: false
+  mirror: once
+
 - name: layers.gpu-process.allow-software
   type: bool
 #if defined(XP_WIN)
@@ -9602,7 +9620,7 @@
 # restarts.
 - name: layers.gpu-process.stable.min-uptime-ms
   type: RelaxedAtomicInt32
-  value: 4 * 60000
+  value: 30000
   mirror: always
 
 # Note: This pref will only be used if it is less than layers.gpu-process.max_restarts.
@@ -15289,11 +15307,7 @@
 # Has no effect unless security.tls.enable_kyber is true.
 - name: network.http.http3.enable_kyber
   type: RelaxedAtomicBool
-#ifdef ANDROID
-  value: @IS_NIGHTLY_BUILD@
-#else
   value: true
-#endif
   mirror: always
   rust: true
 
@@ -17360,17 +17374,13 @@
 
 - name: security.tls.enable_kyber
   type: RelaxedAtomicBool
-#ifdef ANDROID
-  value: @IS_NIGHTLY_BUILD@
-#else
   value: true
-#endif
   mirror: always
   rust: true
 
 - name: security.tls.client_hello.send_p256_keyshare
   type: RelaxedAtomicBool
-  value: true
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
