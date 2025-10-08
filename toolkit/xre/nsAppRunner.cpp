@@ -5477,6 +5477,16 @@ nsresult XREMain::XRE_mainRun() {
   // Ditto with the command line.
   nsCOMPtr<nsICommandLineRunner> cmdLine;
 
+#if defined(MOZ_WIDGET_FELT)
+  Maybe<const char*> felt = Nothing();
+  if (XRE_IsParentProcess() && is_felt_browser()) {
+    // Collect the value as early as possible to ensure it is removed from
+    // nsCommandLine and does not interfere. There were cases where the -felt
+    // argument's value could end up considered the URL to open
+    felt = geckoargs::sFelt.Get(gArgc, gArgv);
+  }
+#endif
+
   {
 #ifdef XP_MACOSX
     // In this scope, create an autorelease pool that will leave scope with
@@ -5925,9 +5935,6 @@ nsresult XREMain::XRE_mainRun() {
 
 #if defined(MOZ_WIDGET_FELT)
   if (XRE_IsParentProcess() && is_felt_browser()) {
-    // FELT IPC channel remainder
-    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv);
-
     if (felt.isSome()) {
       firefox_connect_to_felt(*felt);
     }
