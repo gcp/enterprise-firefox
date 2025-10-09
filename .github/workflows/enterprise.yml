@@ -663,3 +663,28 @@ jobs:
           pkill -f "${{ steps.attach.outputs.runtime_path }}"
           hdiutil unmount -force -whole ${{ steps.attach.outputs.mount_dir }}
           rm -fr ./obj-aarch64-apple-darwin/
+
+  lints:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 10
+
+      - name: Cache lint dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+            ~/.npm
+            ~/.mozbuild
+            node_modules
+          key: lint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'Cargo.lock') }}
+          restore-keys: |
+            lint-${{ runner.os }}-
+
+      - name: Run lint checks
+        run: |
+          ./mach lint --outgoing ${{ github.event.pull_request.base.sha }} --warnings
