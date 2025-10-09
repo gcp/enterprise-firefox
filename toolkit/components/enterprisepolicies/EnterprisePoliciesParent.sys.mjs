@@ -748,7 +748,6 @@ class RemotePoliciesProvider {
     switch (aTopic) {
       case "nsPref:changed":
         if (aData.includes("browser.policies")) {
-          console.debug(`RemotePoliciesProvider: nsPref:changed: ${aData}`);
           switch (aData) {
             case "browser.policies.server":
               this._serverAddr = Services.prefs.getStringPref(
@@ -828,7 +827,7 @@ class RemotePoliciesProvider {
         this._ingestPolicies(jsonResponse);
       })
       .catch(error => {
-        console.debug(
+        console.warn(
           `RemotePoliciesProvider: performPolling(): ${this._pollingFrequency}: error ${error}`
         );
         this._hasRemoteConnection = false;

@@ -610,7 +610,6 @@ BrowserGlue.prototype = {
       // Make sure that when FeltUI is requested, we do not try to open another
       // window.
       if (Services.felt.isFeltUI()) {
-        console.debug(`Felt: Found FeltUI in BrowserGlue.`);
         Services.startup.enterLastWindowClosingSurvivalArea();
         return false;
       }

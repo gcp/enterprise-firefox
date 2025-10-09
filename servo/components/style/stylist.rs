@@ -1228,7 +1228,9 @@ impl Stylist {
         } else {
             None
         };
-        let fallback_block = fallback_rule.as_ref().map(|r| &r.read_with(guards.author).block);
+        let fallback_block = fallback_rule
+            .as_ref()
+            .map(|r| &r.read_with(guards.author).block);
         let pseudo = style
             .pseudo()
             .or_else(|| element.implemented_pseudo_element());
@@ -1257,20 +1259,23 @@ impl Stylist {
             }
             inputs
         };
-        crate::style_resolver::with_default_parent_styles(element, |parent_style, layout_parent_style| {
-            Some(self.cascade_style_and_visited(
-                Some(element),
-                pseudo.as_ref(),
-                inputs,
-                guards,
-                parent_style,
-                layout_parent_style,
-                FirstLineReparenting::No,
-                name_and_try_tactic.try_tactic,
-                /* rule_cache = */ None,
-                &mut RuleCacheConditions::default(),
-            ))
-        })
+        crate::style_resolver::with_default_parent_styles(
+            element,
+            |parent_style, layout_parent_style| {
+                Some(self.cascade_style_and_visited(
+                    Some(element),
+                    pseudo.as_ref(),
+                    inputs,
+                    guards,
+                    parent_style,
+                    layout_parent_style,
+                    FirstLineReparenting::No,
+                    name_and_try_tactic.try_tactic,
+                    /* rule_cache = */ None,
+                    &mut RuleCacheConditions::default(),
+                ))
+            },
+        )
     }
 
     /// Computes a style using the given CascadeInputs.  This can be used to

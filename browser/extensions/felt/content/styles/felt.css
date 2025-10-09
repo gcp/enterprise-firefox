@@ -25,11 +25,10 @@ body {
 
 .felt-logo {
   display: flex;
-  background: linear-gradient(101deg, #1A3560 0%, #0C66B4 98.12%);
+  background: linear-gradient(101deg, #1a3560 0%, #0c66b4 98.12%);
   overflow: hidden;
   flex-direction: column;
   justify-content: center;
-
 }
 
 .felt-logo__container {
@@ -40,7 +39,7 @@ body {
   align-items: center;
   background-image: url("chrome://felt/content/assets/icon-fullColor.svg");
   background-repeat: no-repeat;
-  background-size: contain; 
+  background-size: contain;
   background-position: center;
 }
 
@@ -69,7 +68,6 @@ body {
   height: 117px;
 }
 
-
 .felt-form {
   display: flex;
   flex-direction: column;
@@ -78,13 +76,12 @@ body {
 }
 
 .felt-form__title {
-  color: var(--text-color, #15141A);
+  color: var(--text-color, #15141a);
   font-size: 42px;
   font-style: normal;
   font-weight: 274;
   line-height: normal;
 }
-
 
 .felt-form__elements {
   display: flex;
@@ -108,7 +105,7 @@ moz-input-text::part(label) {
   padding: 60px 5px;
 }
 
-.felt-login__sso>browser {
+.felt-login__sso > browser {
   height: 100%;
   width: 100%;
   flex: 1 1 auto;
