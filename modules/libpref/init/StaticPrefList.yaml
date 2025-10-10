@@ -294,11 +294,7 @@
 # * 2: Enable unless incompatible accessibility clients are detected.
 - name: accessibility.uia.enable
   type: uint32_t
-#ifdef NIGHTLY_BUILD
   value: 2
-#else
-  value: 0
-#endif
   mirror: always
   do_not_use_directly: true
 
@@ -1822,9 +1818,9 @@
 # Communicates the preferred content theme color to platform (for e.g.,
 # prefers-color-scheme).
 #
-# dark (0), light (1), system (2), or toolbar (3).
+# dark (0), light (1), or system (2)
 #
-# Default to "toolbar", the theming code sets it appropriately.
+# Default to "system", the theming code sets it appropriately.
 - name: browser.theme.content-theme
   type: RelaxedAtomicUint32
   value: 2
@@ -5005,7 +5001,7 @@
 
 - name: dom.text_fragments.create_text_fragment.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.text_fragments.create_text_fragment.timeout_seconds
@@ -9615,7 +9611,7 @@
 # during process launch, before any configuration is attempted.
 - name: layers.gpu-process.max_launch_attempts
   type: RelaxedAtomicInt32
-#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(XP_MACOSX)
   value: 2
 #else
   value: 0
@@ -9625,11 +9621,7 @@
 # How many unstable GPU process restarts we allow for a given configuration.
 - name: layers.gpu-process.max_restarts
   type: RelaxedAtomicInt32
-#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID)
   value: 6
-#else
-  value: 1
-#endif
   mirror: always
 
 # How many frames we must render before declaring the GPU process stable, and
