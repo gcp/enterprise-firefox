@@ -5,7 +5,6 @@
 
 import datetime
 import json
-import os
 import shutil
 import sys
 import time
@@ -108,15 +107,25 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.end_headers()
             return
         elif path == "/api/browser/hacks/default":
-            # Handling of Firefox NON FELT prefs
+            # Browser prefs that can be applied live
+            m = json.dumps(
+                {
+                    "prefs": [
+                        ["browser.sessionstore.restore_on_demand", False],
+                        ["browser.sessionstore.resume_from_crash", False],
+                        ["browser.policies.live_polling_freq", 500],
+                    ]
+                }
+            )
+        elif path == "/api/browser/hacks/startup":
+            # Browser prefs that needs to be set in the prefs.js file
             m = json.dumps(
                 {
                     "prefs": [
                         ["devtools.browsertoolbox.scope", "everything"],
-                        ["browser.sessionstore.restore_on_demand", False],
-                        ["browser.sessionstore.resume_from_crash", False],
                         ["marionette.port", 0],
-                        ["browser.policies.live_polling_freq", 500],
+                        ["browser.felt.test_float", 1.5],
+                        ["browser.felt.test_bool", True],
                     ]
                 }
             )
@@ -295,12 +304,6 @@ class FeltTests(EnterpriseTestsBase):
         )
         self._logger.info(f"Using browser profile at {self._child_profile_path}")
 
-        self._logger.info(
-            f"Setting prefs for browser profile {self._child_profile_path}"
-        )
-        with open(os.path.join(self._child_profile_path, "user.js"), "w") as user_pref:
-            user_pref.write('user_pref("marionette.port", 0);')
-
         # Pref does not like passing '\' ?
         if sys.platform == "win32":
             self._child_profile_path_value = self._child_profile_path.replace("\\", "/")
@@ -350,6 +353,16 @@ class FeltTests(EnterpriseTestsBase):
         )
         self._logger.info(f"Pref value: {rv}")
         self._driver.set_context("content")
+        return rv
+
+    def get_pref_child(self, pref_name, pref_get):
+        self._logger.info(f"Getting {pref_name}")
+        self._child_driver.set_context("chrome")
+        rv = self._child_driver.execute_script(
+            f"return Services.prefs.get{pref_get}Pref('{pref_name}');"
+        )
+        self._logger.info(f"Pref value: {rv}")
+        self._child_driver.set_context("content")
         return rv
 
     def set_bool_pref(self, pref_name, pref_value):

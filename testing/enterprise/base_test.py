@@ -286,6 +286,7 @@ class EnterpriseTestsBase:
 
         self._logger.info(f"Marionette PORT NEW: {new_marionette_port}")
         assert marionette_port == new_marionette_port, "STILL Valid marionette port"
+        assert marionette_port != 2828, "Marionette port should not be default value"
 
         self._child_driver = webdriver.Firefox(service=driver_service, options=options)
         self._child_wait = WebDriverWait(self._child_driver, self.get_timeout())

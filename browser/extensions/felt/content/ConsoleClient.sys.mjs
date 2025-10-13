@@ -87,6 +87,7 @@ export const ConsoleClient = {
       SSO: `${this.consoleAddr}/sso/login?target=browser`,
       SSO_CALLBACK: `${this.consoleAddr}/sso/callback?*`,
       REDIRECT_AFTER_SSO: `${this.consoleAddr}/redirect_after_sso`,
+      STARTUP_PREFS: `${this.consoleAddr}/api/browser/hacks/startup`,
       DEFAULT_PREFS: `${this.consoleAddr}/api/browser/hacks/default`,
       REMOTE_POLICIES: `${this.consoleAddr}/api/browser/policies`,
     };
@@ -102,8 +103,8 @@ export const ConsoleClient = {
       : this.ENDPOINTS.SSO_CALLBACK;
   },
 
-  async fetchPolicies(url) {
-    console.debug("ConsoleClient: fetchPolicies");
+  async fetch(url) {
+    console.debug("ConsoleClient: fetch");
 
     let res;
     try {
@@ -135,15 +136,24 @@ export const ConsoleClient = {
     }
   },
 
+  // prefs that needs to be read at startup, i.e., written to profile's
+  // prefs.js
+  async getStartupPrefs() {
+    console.debug("ConsoleClient: getStartupPrefs");
+    const payload = await this.fetch(this.ENDPOINTS.STARTUP_PREFS);
+    return payload;
+  },
+
+  // prefs that do not need to be written and can be sent during runtime
   async getDefaultPrefs() {
     console.debug("ConsoleClient: getDefaultPrefs");
-    const payload = await this.fetchPolicies(this.ENDPOINTS.DEFAULT_PREFS);
+    const payload = await this.fetch(this.ENDPOINTS.DEFAULT_PREFS);
     return payload;
   },
 
   async getRemotePolicies() {
     console.debug("ConsoleClient: getRemotePolicies");
-    const payload = await this.fetchPolicies(this.ENDPOINTS.REMOTE_POLICIES);
+    const payload = await this.fetch(this.ENDPOINTS.REMOTE_POLICIES);
     return payload;
   },
 

@@ -6,29 +6,12 @@
 import sys
 
 import portpicker
-from felt_tests import FeltTests
+from felt_browser_starts import FeltStartsBrowser
 
 
-class FeltStartsBrowserCli(FeltTests):
+class FeltStartsBrowserCli(FeltStartsBrowser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    def test_felt_3_browser_started(self, exp):
-        self.connect_child_browser()
-        self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
-
-        expected_cookie = list(
-            filter(
-                lambda x: x["name"] == self.cookie_name
-                and x["value"] == self.cookie_value,
-                self._child_driver.get_cookies(),
-            )
-        )
-        assert (
-            len(expected_cookie) == 1
-        ), f"Cookie {self.cookie_name} was properly set on Firefox started by FELT"
-
-        return True
 
 
 if __name__ == "__main__":

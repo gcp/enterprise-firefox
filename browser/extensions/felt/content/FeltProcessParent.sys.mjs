@@ -53,7 +53,42 @@ export class FeltProcessParent extends JSProcessActorParent {
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
   }
 
-  startFirefox(accessToken = null) {
+  sanitizePrefs(prefs) {
+    let sanitized = [];
+    prefs?.forEach(pref => {
+      const name = JSON.stringify(pref[0]);
+      console.debug(`Felt: sanitizePrefs() ${pref[0]} => ${name})`);
+      let value = pref[1];
+      switch (typeof pref[1]) {
+        case "string":
+          value = JSON.stringify(value);
+          break;
+
+        case "boolean":
+          break;
+
+        case "number":
+          if (!Number.isInteger(pref[1])) {
+            value = `"${pref[1]}"`;
+          } else {
+            value = Number(pref[1]);
+          }
+          break;
+
+        default:
+          console.warn(`Pref ${pref[0]} with value '${pref[1]}' not valid`);
+          value = null;
+          break;
+      }
+
+      if (value !== null) {
+        sanitized.push([name, value]);
+      }
+    });
+    return sanitized;
+  }
+
+  async startFirefox(accessToken = null) {
     this.restartReported = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
@@ -72,10 +107,13 @@ export class FeltProcessParent extends JSProcessActorParent {
             accessToken
           );
         }
-        const json = await lazy.ConsoleClient.getDefaultPrefs();
-        json.prefs.forEach(pref => {
+
+        const { prefs } = await lazy.ConsoleClient.getDefaultPrefs();
+        prefs.forEach(pref => {
           const name = pref[0];
           const value = pref[1];
+
+          console.debug(`Felt: Services.felt(${name}, ${value})`);
 
           switch (typeof value) {
             case "boolean":
@@ -166,6 +204,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       }
 
       profilePath = foundProfile.rootDir.path;
+    } else if (Services.appinfo.OS == "WINNT") {
+      profilePath = PathUtils.normalize(profilePath.replaceAll("/", "\\"));
     }
 
     let extraRunArgs = [];
@@ -177,6 +217,20 @@ export class FeltProcessParent extends JSProcessActorParent {
         "--remote-allow-system-access",
       ];
     }
+
+    const prefsJsFile = PathUtils.join(profilePath, "prefs.js");
+    let prefsJsContent = "";
+    if (await IOUtils.exists(prefsJsFile)) {
+      prefsJsContent = await IOUtils.readUTF8(prefsJsFile);
+    }
+
+    const startupPrefs = (await lazy.ConsoleClient.getStartupPrefs()).prefs;
+    this.sanitizePrefs(startupPrefs).forEach(pref => {
+      prefsJsContent += `\nuser_pref(${pref[0]}, ${pref[1]});`;
+    });
+    prefsJsContent += "\n";
+
+    await IOUtils.writeUTF8(prefsJsFile, prefsJsContent);
 
     const firefoxRunArgs = [
       "--foreground",
