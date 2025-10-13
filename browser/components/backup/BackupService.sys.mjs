@@ -100,7 +100,7 @@ ChromeUtils.defineLazyGetter(lazy, "BinaryInputStream", () =>
 
 ChromeUtils.defineLazyGetter(lazy, "gFluentStrings", function () {
   return new Localization(
-    ["branding/brand.ftl", "preview/backupSettings.ftl"],
+    ["branding/brand.ftl", "browser/backupSettings.ftl"],
     true
   );
 });
@@ -108,7 +108,7 @@ ChromeUtils.defineLazyGetter(lazy, "gFluentStrings", function () {
 ChromeUtils.defineLazyGetter(lazy, "gDOMLocalization", function () {
   return new DOMLocalization([
     "branding/brand.ftl",
-    "preview/backupSettings.ftl",
+    "browser/backupSettings.ftl",
   ]);
 });
 
@@ -3325,8 +3325,6 @@ export class BackupService extends EventTarget {
       );
     }
 
-    // TODO: Enforce other password rules here, such as ensuring that the
-    // password is not considered common.
     ({ instance: encState } =
       await lazy.ArchiveEncryptionState.initialize(password));
     if (!encState) {
