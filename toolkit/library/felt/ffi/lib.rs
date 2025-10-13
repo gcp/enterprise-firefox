@@ -7,7 +7,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 
 use std::env;
-use std::sync::atomic::Ordering;
+use std::sync::{atomic::Ordering, Mutex};
 
 use felt;
 
@@ -58,14 +58,39 @@ pub extern "C" fn is_felt_browser() -> bool {
     felt::IS_FELT_BROWSER.load(Ordering::Relaxed)
 }
 
+pub static FELT_CLIENT: Mutex<Option<felt::FeltClientThread>> = Mutex::new(None);
+
 #[no_mangle]
 pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
     let srv_name = unsafe { CStr::from_ptr(server_name) };
     let server_socket = String::from_utf8_lossy(srv_name.to_bytes()).to_string();
     trace!("firefox_connect_to_felt({})", server_socket);
-    let th = felt::FeltClientThread::new(server_socket);
-    th.start_thread();
-    th.wait_for_startup_requirements();
+    match felt::FeltClientThread::new(server_socket) {
+        Ok(client) => {
+            let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
+            trace!("firefox_connect_to_felt(): connected, storing client");
+            *state = Some(client);
+        }
+        Err(()) => {
+            trace!("firefox_connect_to_felt(): error");
+        }
+    }
+    trace!("firefox_connect_to_felt() done");
+}
+
+#[no_mangle]
+pub extern "C" fn firefox_felt_connection_start_thread() -> () {
+    let mut guard = FELT_CLIENT.lock().expect("Could not get lock");
+    match guard.take() {
+        Some(client) => {
+            trace!("firefox_connect_to_felt(): connected, starting thread");
+            client.start_thread();
+            // client.wait_for_startup_requirements();
+        }
+        None => {
+            trace!("firefox_connect_to_felt(): error");
+        }
+    }
     trace!("firefox_connect_to_felt() done");
 }
 

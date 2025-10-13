@@ -31,6 +31,7 @@ use crate::message::{FeltMessage, FELT_IPC_VERSION};
 pub static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 pub static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 
+#[derive(Default)]
 pub struct FeltIpcClient {
     tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
     rx: Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>,
@@ -128,21 +129,34 @@ impl FeltIpcClient {
 }
 
 pub struct FeltClientThread {
-    server_name: String,
+    ipc_client: RefCell<FeltIpcClient>,
     startup_ready: Arc<Barrier>,
 }
 
 impl FeltClientThread {
 
-    pub fn new(felt_server_name: String) -> Self {
-        Self {
-            server_name: felt_server_name,
-            startup_ready: Arc::new(Barrier::new(2)),
+    pub fn new(felt_server_name: String) -> Result<Self, ()> {
+        trace!("FeltClientThread::new(): connecting to {}", felt_server_name.clone());
+        let felt_client = FeltIpcClient::new(felt_server_name);
+        if felt_client.report_version() {
+            Ok(Self {
+                ipc_client: RefCell::new(felt_client),
+                startup_ready: Arc::new(Barrier::new(2)),
+            })
+        } else {
+            trace!("FeltClientThread::new(): failure to report version");
+            Err(())
         }
     }
 
     pub fn start_thread(&self) -> nserror::nsresult {
         trace!("FeltClientThread::start_thread()");
+        trace!("FeltClientThread::start_thread(): creating thread");
+        let Ok(thread) = moz_task::create_thread("felt_client") else {
+            trace!("FeltClientThread::start_thread(): felt_client thread error");
+            return NS_ERROR_FAILURE;
+        };
+        trace!("FeltClientThread::start_thread(): created thread");
 
         // Define an observer
         #[xpcom(implement(nsIObserver), nonatomic)]
@@ -171,7 +185,6 @@ impl FeltClientThread {
                             let mut data_len = 0;
                             let mut ptr: *const u16 = data;
                             while ptr != std::ptr::null() && *ptr != 0x0000 {
-                                dbg!(ptr);
                                 ptr = ptr.wrapping_offset(1);
                                 data_len += 1;
                             }
@@ -202,6 +215,7 @@ impl FeltClientThread {
             }
         }
 
+        trace!("FeltClientThread::start_thread(): get observer service");
         let obssvc: RefPtr<nsIObserverService> =
             xpcom::components::Observer::service().unwrap();
 
@@ -217,6 +231,7 @@ impl FeltClientThread {
             false,
         ) };
         assert!(rv.succeeded());
+        trace!("FeltClientThread::start_thread(): added observers");
 
         rv = unsafe { obssvc.AddObserver(
             observer.coerce::<nsIObserver>(),
@@ -225,84 +240,77 @@ impl FeltClientThread {
         ) };
         assert!(rv.succeeded());
 
-        if let Ok(thread) = moz_task::create_thread("felt_client").map_err(|_| {
-            trace!("FeltClientThread::start_thread(): felt_client thread error");
-        }) {
-            let srv = self.server_name.clone();
-            let barrier = self.startup_ready.clone();
-            let thread_stop_internal = thread_stop.clone();
-            let notify_restart_internal = notify_restart.clone();
-            let _ = moz_task::RunnableBuilder::new("felt_client::ipc_loop", move || {
-                trace!("FeltClientThread::start_thread(): felt_client thread runnable");
-                let mut felt_client = FeltIpcClient::new(srv);
-                if felt_client.report_version() {
-                    trace!("FeltClientThread::start_thread(): felt_client version OK");
-                    if let Some(rx) = felt_client.rx.take() {
-                        loop {
-                            if notify_restart_internal.load(Ordering::Relaxed) {
-                                notify_restart_internal.store(false, Ordering::Relaxed);
-                                trace!("FeltClientThread::felt_client::ipc_loop(): restart notification required!");
-                                felt_client.notify_restart();
-                            }
-
-                            match rx.try_recv_timeout(Duration::from_millis(250)) {
-                                Ok(FeltMessage::Cookie(felt_cookie)) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {}", felt_cookie.clone());
-                                    utils::inject_one_cookie(felt_cookie);
-                                },
-                                Ok(FeltMessage::BoolPreference((name, value))) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): BoolPreference({}, {})", name, value);
-                                    utils::inject_bool_pref(name, value);
-                                },
-                                Ok(FeltMessage::StringPreference((name, value))) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
-                                    utils::inject_string_pref(name, value);
-                                },
-                                Ok(FeltMessage::IntPreference((name, value))) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
-                                    utils::inject_int_pref(name, value);
-                                },
-                                Ok(FeltMessage::StartupReady) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
-                                    barrier.wait();
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady: unblocking");
-                                },
-                                Ok(FeltMessage::RestartForced) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
-                                    utils::notify_observers("felt-restart-forced".to_string());
-                                },
-                                Ok(msg) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
-                                },
-                                Err(ipc_channel::ipc::TryRecvError::IpcError(ipc_channel::ipc::IpcError::Disconnected)) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): DISCONNECTED");
-                                    break;
-                                },
-                                Err(ipc_channel::ipc::TryRecvError::IpcError(err)) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): TryRecvError: {}", err);
-                                },
-                                Err(ipc_channel::ipc::TryRecvError::Empty) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): NO DATA.");
-                                },
-                            }
-
-                            if thread_stop_internal.load(Ordering::Relaxed) {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): xpcom-shutdown-threads received!");
-                                break;
-                            }
+        let barrier = self.startup_ready.clone();
+        let thread_stop_internal = thread_stop.clone();
+        let notify_restart_internal = notify_restart.clone();
+        let mut felt_client = self.ipc_client.take();
+        trace!("FeltClientThread::start_thread(): started thread: build runnable");
+        let _ = moz_task::RunnableBuilder::new("felt_client::ipc_loop", move || {
+            trace!("FeltClientThread::start_thread(): felt_client thread runnable");
+                trace!("FeltClientThread::start_thread(): felt_client version OK");
+                if let Some(rx) = felt_client.rx.take() {
+                    loop {
+                        if notify_restart_internal.load(Ordering::Relaxed) {
+                            notify_restart_internal.store(false, Ordering::Relaxed);
+                            trace!("FeltClientThread::felt_client::ipc_loop(): restart notification required!");
+                            felt_client.notify_restart();
                         }
-                        trace!("FeltClientThread::felt_client::ipc_loop(): DONE");
-                    }
-                }
-                trace!("FeltClientThread::felt_client::ipc_loop(): THREAD END");
-            })
-            .may_block(true)
-            .dispatch(&thread);
 
-            NS_OK
-        } else {
-            NS_ERROR_FAILURE
-        }
+                        match rx.try_recv_timeout(Duration::from_millis(250)) {
+                            Ok(FeltMessage::Cookie(felt_cookie)) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {}", felt_cookie.clone());
+                                utils::inject_one_cookie(felt_cookie);
+                            },
+                            Ok(FeltMessage::BoolPreference((name, value))) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): BoolPreference({}, {})", name, value);
+                                utils::inject_bool_pref(name, value);
+                            },
+                            Ok(FeltMessage::StringPreference((name, value))) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
+                                utils::inject_string_pref(name, value);
+                            },
+                            Ok(FeltMessage::IntPreference((name, value))) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
+                                utils::inject_int_pref(name, value);
+                            },
+                            Ok(FeltMessage::StartupReady) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
+                                barrier.wait();
+                                trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady: unblocking");
+                            },
+                            Ok(FeltMessage::RestartForced) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
+                                utils::notify_observers("felt-restart-forced".to_string());
+                            },
+                            Ok(msg) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
+                            },
+                            Err(ipc_channel::ipc::TryRecvError::IpcError(ipc_channel::ipc::IpcError::Disconnected)) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): DISCONNECTED");
+                                break;
+                            },
+                            Err(ipc_channel::ipc::TryRecvError::IpcError(err)) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): TryRecvError: {}", err);
+                            },
+                            Err(ipc_channel::ipc::TryRecvError::Empty) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): NO DATA.");
+                            },
+                        }
+
+                        if thread_stop_internal.load(Ordering::Relaxed) {
+                            trace!("FeltClientThread::felt_client::ipc_loop(): xpcom-shutdown-threads received!");
+                            break;
+                        }
+                    }
+                    trace!("FeltClientThread::felt_client::ipc_loop(): DONE");
+                }
+            trace!("FeltClientThread::felt_client::ipc_loop(): THREAD END");
+        })
+        .may_block(true)
+        .dispatch(&thread);
+        trace!("FeltClientThread::start_thread(): runnable dispatched");
+
+        NS_OK
     }
 
     pub fn wait_for_startup_requirements(&self) {

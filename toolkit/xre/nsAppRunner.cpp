@@ -5473,16 +5473,6 @@ nsresult XREMain::XRE_mainRun() {
   // Ditto with the command line.
   nsCOMPtr<nsICommandLineRunner> cmdLine;
 
-#if defined(MOZ_ENTERPRISE)
-  Maybe<const char*> felt = Nothing();
-  if (XRE_IsParentProcess() && is_felt_browser()) {
-    // Collect the value as early as possible to ensure it is removed from
-    // nsCommandLine and does not interfere. There were cases where the -felt
-    // argument's value could end up considered the URL to open
-    felt = geckoargs::sFelt.Get(gArgc, gArgv);
-  }
-#endif
-
   {
 #ifdef XP_MACOSX
     // In this scope, create an autorelease pool that will leave scope with
@@ -5931,9 +5921,8 @@ nsresult XREMain::XRE_mainRun() {
 
 #if defined(MOZ_ENTERPRISE)
   if (XRE_IsParentProcess() && is_felt_browser()) {
-    if (felt.isSome()) {
-      firefox_connect_to_felt(*felt);
-    }
+    NS_WARNING("Checking for FELT: start thread");
+    firefox_felt_connection_start_thread();
   }
 #endif
 
@@ -6005,10 +5994,17 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
       felt_init();
 
       // Remove, we dont need it anymore
+      Unused << geckoargs::sFelt.Get(gArgc, gArgv);
       Unused << geckoargs::sFeltUI.Get(gArgc, gArgv);
+
       if (PR_GetEnv("MOZ_FELT_UI")) {
         PR_SetEnv("MOZ_FELT_UI=");
       }
+    }
+
+    NS_WARNING("Checking for FELT");
+    if (felt.isSome() && is_felt_browser()) {
+      firefox_connect_to_felt(*felt);
     }
   }
 #endif
