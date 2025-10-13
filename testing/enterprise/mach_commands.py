@@ -27,6 +27,12 @@ def get_test_parser():
         nargs="*",
         help="Tests files to run. If none, will run all.",
     )
+    parser.add_argument("--debugger", default=None, help="Name of debugger to use.")
+    parser.add_argument(
+        "--debugger-args",
+        default=None,
+        help="Command-line arguments to pass to the debugger itself",
+    )
     return parser
 
 
@@ -37,7 +43,7 @@ def get_test_parser():
     description="Running enterprise-tests against local build",
     parser=get_test_parser,
 )
-def run_tests(command_context, what, **kwargs):
+def run_tests(command_context, what, debugger, debugger_args, **kwargs):
     srcdir = os.path.realpath(command_context.topsrcdir)
     objdir = os.path.realpath(command_context.topobjdir)
 
@@ -94,13 +100,27 @@ def run_tests(command_context, what, **kwargs):
 
         final_json = os.path.join(enterprise_tests_dir, f"{instance}.json")
         if os.path.isfile(final_json):
-            cli = [
-                sys.executable,
-                test_file,
-                firefox_bin,
-                geckodriver_bin,
-                profiles_path,
-            ]
+            cli = None
+            if debugger:
+                cli = (
+                    [debugger]
+                    + debugger_args.split(" ")
+                    + [
+                        sys.executable,
+                        test_file,
+                        firefox_bin,
+                        geckodriver_bin,
+                        profiles_path,
+                    ]
+                )
+            else:
+                cli = [
+                    sys.executable,
+                    test_file,
+                    firefox_bin,
+                    geckodriver_bin,
+                    profiles_path,
+                ]
             print("Running", " ".join(cli))
             try:
                 subprocess.check_call(cli)
