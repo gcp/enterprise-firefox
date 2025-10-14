@@ -449,13 +449,36 @@ class FeltTests(EnterpriseTestsBase):
         return True
 
     def test_felt_2_ensure_sso_cookie_stored(self, exp):
-        expected_cookie = list(
+        # In private window we should still be able to extract the SSO cookies
+        # directly from the cookieManager
+        self._driver.set_context("chrome")
+        expected_cookie = self._driver.execute_script(
+            """
+            console.debug(`nsICookie: Finding ${arguments[0]}`);
+            return Services.cookies.getCookiesWithOriginAttributes(
+                  JSON.stringify({
+                    privateBrowsingId: 1,
+                  })
+                ).filter(cookie => {
+               console.debug(`nsICookie: Checking ${cookie.name} vs ${arguments[0]}`);
+               return cookie.name == arguments[0];
+            });
+            """,
+            self.cookie_name,
+        )
+        self._driver.set_context("content")
+        assert len(expected_cookie) == 1, f"Cookie {self.cookie_name} was properly set"
+
+        # In private window this one should not reflect
+        not_expected_cookie = list(
             filter(
                 lambda x: x["name"] == self.cookie_name
                 and x["value"] == self.cookie_value,
                 self._driver.get_cookies(),
             )
         )
-        assert len(expected_cookie) == 1, f"Cookie {self.cookie_name} was properly set"
+        assert (
+            len(not_expected_cookie) == 0
+        ), f"Cookie {self.cookie_name} was not properly set"
 
         return True

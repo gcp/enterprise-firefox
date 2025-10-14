@@ -120,7 +120,8 @@ this.felt = class extends ExtensionAPI {
 
   showWindow() {
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
-    let flags = "chrome,centerscreen,titlebar,resizable,width=727,height=744";
+    let flags =
+      "chrome,private,centerscreen,titlebar,resizable,width=727,height=744";
     this._win = Services.ww.openWindow(
       null,
       "chrome://felt/content/felt.xhtml",

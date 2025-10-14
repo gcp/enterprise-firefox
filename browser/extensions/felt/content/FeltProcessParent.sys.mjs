@@ -295,6 +295,10 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   getAllCookies() {
-    return Services.cookies.cookies;
+    return Services.cookies.getCookiesWithOriginAttributes(
+      JSON.stringify({
+        privateBrowsingId: 1,
+      })
+    );
   }
 }
