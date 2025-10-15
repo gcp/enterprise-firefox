@@ -665,7 +665,6 @@ jobs:
           rm -fr ./obj-aarch64-apple-darwin/
 
   lints:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
 
     steps:
