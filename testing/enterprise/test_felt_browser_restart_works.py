@@ -54,12 +54,14 @@ class BrowserRestartWorks(FeltTests):
         else:
             try:
                 process = psutil.Process(pid=self._browser_pid)
+                process_name = process.name()
+                process_exe = process.exe()
+                process_basename = os.path.basename(process_name)
+                process_cmdline = process.cmdline()
                 self._logger.info(
-                    f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}"
+                    f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                assert (
-                    os.path.basename(process.name()) != "firefox"
-                ), "Process is not Firefox"
+                assert process_basename != "firefox", "Process is not Firefox"
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")
                 return True

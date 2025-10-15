@@ -12,6 +12,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "chrome://felt/content/ConsoleClient.sys.mjs",
+  FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
 // Will at least make move forward marionette
@@ -38,8 +39,19 @@ function connectToConsole(email) {
   );
 
   console.debug("Load SSO Page: ", SOURCE_URI);
+  const uri = Services.io.newURI(SOURCE_URI);
+  console.debug(
+    `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
+  );
+  const contentPrincipal =
+    Services.scriptSecurityManager.createContentPrincipal(uri, {
+      privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+    });
+  console.debug(
+    `FeltExtension: created contentPrincipal with privateBrowsingId=${contentPrincipal.privateBrowsingId}`
+  );
   browser.fixupAndLoadURIString(SOURCE_URI, {
-    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    triggeringPrincipal: contentPrincipal,
   });
 
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
