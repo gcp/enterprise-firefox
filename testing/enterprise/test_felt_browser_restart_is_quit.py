@@ -16,7 +16,7 @@ from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 class BrowserRestartIsQuit(FeltTests):
     def __init__(self, *args, **kwargs):
         super().__init__(
-            *args, **kwargs, test_prefs=[["browser.felt.disable_restart", True]]
+            *args, **kwargs, test_prefs=[["enterprise.disable_restart", True]]
         )
 
     def test_felt_3_restart_is_quit(self, exp):

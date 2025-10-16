@@ -124,8 +124,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "prefs": [
                         ["devtools.browsertoolbox.scope", "everything"],
                         ["marionette.port", 0],
-                        ["browser.felt.test_float", 1.5],
-                        ["browser.felt.test_bool", True],
+                        ["enterprise.console.test_float", 1.5],
+                        ["enterprise.console.test_bool", True],
                     ]
                 }
             )
@@ -267,11 +267,8 @@ class FeltTests(EnterpriseTestsBase):
         self.sso_httpd.start()
 
         prefs = [
-            ["browser.felt.console", f"http://localhost:{self.console_port}"],
-            # Bug? matcher https://searchfox.org/firefox-main/source/toolkit/components/extensions/MatchPattern.cpp#370-384
-            # ends up with mDomain=localhost:8000 and aDomain=localhost
-            ["browser.felt.matches", "http://localhost/sso/callback?*"],
-            ["browser.felt.is_testing", True],
+            ["enterprise.console.address", f"http://localhost:{self.console_port}"],
+            ["enterprise.is_testing", True],
         ] + test_prefs
 
         super().__init__(
@@ -310,11 +307,9 @@ class FeltTests(EnterpriseTestsBase):
         else:
             self._child_profile_path_value = self._child_profile_path
 
-        # self.set_string_pref("browser.felt.console", console_addr)
-        self.set_string_pref(
-            "browser.felt.profile_path", self._child_profile_path_value
-        )
-        # self.set_bool_pref("browser.felt.is_testing", True)
+        # self.set_string_pref("enterprise.console.address", console_addr)
+        self.set_string_pref("enterprise.profile_path", self._child_profile_path_value)
+        # self.set_bool_pref("enterprise.is_testing", True)
 
         self._driver.set_context("chrome")
         windows = len(self._driver.window_handles)

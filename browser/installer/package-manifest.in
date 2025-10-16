@@ -253,6 +253,9 @@
 ; All the pref files must be part of base to prevent migration bugs
 @RESPATH@/browser/@PREF_DIR@/firefox.js
 @RESPATH@/browser/@PREF_DIR@/firefox-branding.js
+#ifdef MOZ_ENTERPRISE
+@RESPATH@/browser/@PREF_DIR@/firefox-enterprise.js
+#endif
 @RESPATH@/greprefs.js
 @RESPATH@/defaults/autoconfig/prefcalls.js
 @RESPATH@/browser/defaults/permissions

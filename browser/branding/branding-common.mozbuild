@@ -35,3 +35,8 @@ def FirefoxBranding():
             "default48.png",
             "default64.png",
         ]
+
+    if CONFIG["MOZ_ENTERPRISE"]:
+        JS_PREFERENCE_FILES += [
+            "pref/firefox-enterprise.js",
+        ]
