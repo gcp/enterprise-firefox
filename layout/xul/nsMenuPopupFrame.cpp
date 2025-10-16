@@ -329,6 +329,9 @@ void nsMenuPopupFrame::CreateWidget() {
     return;
   }
   mWidget->SetWidgetListener(this);
+  // TODO(emilio): Make all widgets look at widgetData.mTransparencyMode
+  // (maybe in BaseCreate?) then remove this call.
+  mWidget->SetTransparencyMode(mode);
   PropagateStyleToWidget();
 }
 
@@ -1083,7 +1086,12 @@ void nsMenuPopupFrame::HidePopup(bool aDeselectMenu, nsPopupState aNewState,
       PopupExpirationTracker::GetOrCreate().AddObject(this);
     }
     NS_DispatchToMainThread(
-        NewRunnableMethod<bool>("HideWidget", widget, &nsIWidget::Show, false));
+        NS_NewRunnableFunction("HideWidget", [widget = RefPtr{widget}] {
+          auto* frame = widget->GetPopupFrame();
+          if (!frame || !frame->IsVisibleOrShowing()) {
+            widget->Show(false);
+          }
+        }));
   }
 
   ClearPendingWidgetMoveResize();

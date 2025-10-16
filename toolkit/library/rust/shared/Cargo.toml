@@ -162,6 +162,7 @@ for_xul = [
     "rusqlite/in_gecko"
 ]
 felt = ["felt_ffi"]
+webrender_debugger = ["webrender_bindings/debugger"]
 
 [lib]
 path = "lib.rs"

@@ -636,8 +636,10 @@ class Settings(private val appContext: Context) : PreferencesHolder {
 
     /**
      * The maximum number of times the Terms of Use prompt should be displayed.
+     *
+     * Use a function to ensure the most up-to-date Nimbus value is retrieved.
      */
-    var termsOfUseMaxDisplayCount = FxNimbus.features.termsOfUsePrompt.value().maxDisplayCount
+    fun getTermsOfUseMaxDisplayCount() = FxNimbus.features.termsOfUsePrompt.value().maxDisplayCount
 
     /**
      * The total number of times the Terms of Use prompt has been displayed.
@@ -669,22 +671,6 @@ class Settings(private val appContext: Context) : PreferencesHolder {
         appContext.getPreferenceKey(R.string.pref_key_debug_terms_trigger_time),
         default = false,
         persistDefaultIfNotExists = true,
-    )
-
-    /**
-     * Used to determine users who have interacted with any links from the Terms of Use prompt.
-     */
-    var hasClickedTermOfUsePromptLink by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_terms_clicked_link),
-        default = false,
-    )
-
-    /**
-     * Used to determine users who clicked the "remind me later" action.
-     */
-    var hasClickedTermOfUsePromptRemindMeLater by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_terms_clicked_remind_me_later),
-        default = false,
     )
 
     /**

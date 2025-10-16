@@ -7616,7 +7616,11 @@
 
 - name: gfx.webrender.debug.enable-capture
   type: bool
+#ifdef MOZ_WEBRENDER_DEBUGGER
+  value: true
+#else
   value: false
+#endif
   mirror: once
 
 - name: gfx.webrender.debug.dl.dump-parent
@@ -8928,20 +8932,6 @@
   mirror: always
   # Non-startup pref because the WPT test harness sets prefs after startup.
   set_spidermonkey_pref: always
-
-# Experimental support for Duplicate Named Capture Groups in JavaScript.
-- name: javascript.options.experimental.regexp_duplicate_named_groups
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
-# Experimental support for Pattern Modifiers in JavaScript.
-- name: javascript.options.experimental.regexp_modifiers
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
 
 # Experimental support for Uint8Array base64/hex in JavaScript.
 - name: javascript.options.experimental.uint8array_base64
@@ -10467,7 +10457,7 @@
 # https://drafts.csswg.org/css-text-4/#text-autospace-property
 - name: layout.css.text-autospace.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Maximum number of lines to try balancing.
@@ -11112,7 +11102,7 @@
 # the writing mode is right to left.
 - name: mathml.rtl_operator_mirroring.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether to disable fallback for mathvariant=italic/bold/bold-italic via
@@ -11130,7 +11120,7 @@
 # Whether to enable support for the math-shift CSS property.
 - name: mathml.math_shift.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether to disable the MathML3 support for the mathvariant attribute. For
@@ -12177,6 +12167,7 @@
   mirror: always
 
 # This pref enabled sending ssl_grp_kem_mlkem768x25519 Key Share for WebRTC DTLS code.
+# When modifying this pref, please update the test_peerConnection_glean.html tests as well.
 - name: media.webrtc.send_mlkem_keyshare
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
