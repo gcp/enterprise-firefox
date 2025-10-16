@@ -7,6 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "chrome://felt/content/ConsoleClient.sys.mjs",
+  FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
@@ -88,7 +89,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     return sanitized;
   }
 
-  async startFirefox(accessToken = null) {
+  async startFirefox(accessToken = null, ssoCollectedCookies = []) {
     this.restartReported = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
@@ -130,7 +131,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
         });
 
-        Services.felt.sendCookies(this.getAllCookies());
+        Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();
         Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarted", {});
       })
@@ -267,7 +268,20 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     switch (message.name) {
       case "FeltChild:StartFirefox":
-        this.startFirefox(message.data?.access_token ?? null);
+        {
+          const ssoCollectedCookies = this.getAllCookies();
+          console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
+          // When a restart was reported we assume cookies were stored properly on the
+          // browser side?
+          if (!ssoCollectedCookies.length) {
+            throw new Error("Not enough cookies!!");
+          }
+
+          this.startFirefox(
+            message.data?.access_token ?? null,
+            ssoCollectedCookies
+          );
+        }
         break;
 
       case "FeltParent:RestartFirefox":
@@ -295,9 +309,12 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   getAllCookies() {
+    console.debug(
+      `FeltExtension: collecting cookies from privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
+    );
     return Services.cookies.getCookiesWithOriginAttributes(
       JSON.stringify({
-        privateBrowsingId: 1,
+        privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
       })
     );
   }
