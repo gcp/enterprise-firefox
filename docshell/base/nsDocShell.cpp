@@ -9815,9 +9815,6 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
           // Step 21.3
           RefPtr<nsIStructuredCloneContainer> navigationAPIStateForFiring =
               aLoadState->GetNavigationAPIState();
-          if (!navigationAPIStateForFiring) {
-            navigationAPIStateForFiring = nullptr;
-          }
 
           nsCOMPtr<nsIURI> destinationURL = aLoadState->URI();
           // Step 21.4
