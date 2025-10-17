@@ -1,8 +1,7 @@
-ac_add_options --with-branding=browser/branding/enterprise
 ac_add_options --enable-bootstrap
 ac_add_options --enable-application=browser
 ac_add_options --enable-warnings-as-errors
-ac_add_options --enable-felt
+ac_add_options --enable-enterprise
 
 ac_add_options --enable-strip
 

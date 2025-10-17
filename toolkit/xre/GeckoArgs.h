@@ -262,7 +262,7 @@ static CommandLineArg<UniqueFileHandle> sSignalPipe{"-signalPipe",
                                                     "signalpipe"};
 #endif
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
 static CommandLineArg<const char*> sFelt{"-felt", "felt"};
 static CommandLineArg<bool> sFeltUI{"-feltui", "feltui"};
 #endif

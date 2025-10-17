@@ -85,7 +85,7 @@ if CONFIG["MOZ_ICU4X"]:
 if CONFIG["USE_LIBZ_RS"]:
     gkrust_features += ["libz-rs-sys"]
 
-if CONFIG["MOZ_WIDGET_FELT"]:
+if CONFIG["MOZ_ENTERPRISE"]:
     gkrust_features += ["felt"]
 
 # This must remain last.

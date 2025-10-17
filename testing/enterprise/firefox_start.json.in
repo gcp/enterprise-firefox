@@ -3,6 +3,6 @@
         "version_box": "#RUNTIME_VERSION#"
     },
     "test_about_buildconfig_enterprise_branding": {
-        "branding": "--with-branding=browser/branding/enterprise"
+        "enterprise": "--enable-enterprise"
     }
 }

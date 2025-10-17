@@ -193,7 +193,7 @@ jobs:
 
       - name: "test firefox start"
         run: |
-          RUNTIME_VERSION=$(${{ steps.unpack.outputs.runtime_path }} --version | awk '{ print $3 }')
+          RUNTIME_VERSION=$(${{ steps.unpack.outputs.runtime_path }} --version | awk '{ print $4 }')
           sed -e "s/#RUNTIME_VERSION#/${RUNTIME_VERSION}/g" < firefox_start.json.in > firefox_start.json
           mkdir -p ./profiles/
           . venv_tests/bin/activate
@@ -617,7 +617,7 @@ jobs:
 
       - name: "test firefox start"
         run: |
-          RUNTIME_VERSION=$("${{ steps.attach.outputs.runtime_path }}" --version | awk '{ print $3 }')
+          RUNTIME_VERSION=$("${{ steps.attach.outputs.runtime_path }}" --version | awk '{ print $4 }')
           sed -e "s/#RUNTIME_VERSION#/${RUNTIME_VERSION}/g" < firefox_start.json.in > firefox_start.json
           mkdir -p ./profiles/
           . venv_tests/bin/activate

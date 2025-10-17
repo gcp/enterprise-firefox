@@ -776,7 +776,7 @@ CookieService::AddForAddOn(const nsACString& aHost, const nsACString& aPath,
   return NS_OK;
 }
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
 NS_IMETHODIMP
 CookieService::AddNativeForFelt(
     const nsACString& aHost, const nsACString& aPath, const nsACString& aName,
@@ -803,7 +803,7 @@ CookieService::AddNativeForFelt(
   MOZ_ASSERT_UNREACHABLE("AddNativeForFelt is not expected to be called");
   return NS_ERROR_FAILURE;
 }
-#endif // defined(MOZ_WIDGET_FELT)
+#endif  // defined(MOZ_ENTERPRISE)
 
 NS_IMETHODIMP_(nsresult)
 CookieService::AddNative(nsIURI* aCookieURI, const nsACString& aHost,

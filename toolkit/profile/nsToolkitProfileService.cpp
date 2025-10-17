@@ -41,7 +41,7 @@
 #  include "mozilla/WidgetUtilsGtk.h"
 #endif
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
 #  include "mozilla/toolkit/library/felt_ffi.h"
 #endif
 
@@ -1560,7 +1560,7 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     return NS_OK;
   }
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
   if (is_felt_ui() && !forcedProfile) {
     nsCOMPtr<nsIFile> file;

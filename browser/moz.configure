@@ -19,21 +19,28 @@ imply_option("MOZ_APP_ID", "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}")
 imply_option("MOZ_DEVTOOLS", "all")
 imply_option("BROWSER_CHROME_URL", "chrome://browser/content/browser.xhtml")
 
+
 option(
-    "--enable-felt",
+    "--enable-enterprise",
     default=False,
-    help="Felt support",
+    help="Build with enterprise support",
 )
 
 
-@depends("--enable-felt")
-def enable_felt(value):
+@depends("--enable-enterprise")
+def enable_enterprise(value):
     if value:
         return True
 
 
-set_config("MOZ_WIDGET_FELT", enable_felt)
-set_define("MOZ_WIDGET_FELT", enable_felt)
+set_config("MOZ_ENTERPRISE", enable_enterprise)
+set_define("MOZ_ENTERPRISE", enable_enterprise)
+imply_option("--with-app-basename", "Firefox Enterprise", when="--enable-enterprise")
+imply_option("--with-app-name", "firefox", when="--enable-enterprise")
+imply_option(
+    "--with-branding", "browser/branding/enterprise", when="--enable-enterprise"
+)
+
 
 option(
     "--disable-browser-newtab-as-addon",

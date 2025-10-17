@@ -14,9 +14,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 class EnterpriseTests(EnterpriseTestsBase):
     def __init__(self, firefox, geckodriver, profile_root):
-        super(__class__, self).__init__(
-            "firefox_start.json", firefox, geckodriver, profile_root
-        )
+        super().__init__("firefox_start.json", firefox, geckodriver, profile_root)
 
     def setup(self):
         pass
@@ -32,6 +30,7 @@ class EnterpriseTests(EnterpriseTestsBase):
         )
         self._wait.until(lambda d: len(version_box.text) > 0)
         self._logger.info(f"about:support version: {version_box.text}")
+        self._logger.info(f"expected version: {exp['version_box']}")
         assert version_box.text == exp["version_box"], "version text should match"
 
         return True
@@ -45,7 +44,7 @@ class EnterpriseTests(EnterpriseTestsBase):
         self._wait.until(lambda d: len(build_flags_box.text) > 0)
         self._logger.info(f"about:buildconfig buildflags: {build_flags_box.text}")
         assert (
-            exp["branding"] in build_flags_box.text
+            exp["enterprise"] in build_flags_box.text
         ), "enterprise branding build flag should be there"
 
         return True

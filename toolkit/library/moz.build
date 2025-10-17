@@ -139,7 +139,7 @@ DIRS += [
     "buildid_reader",
 ]
 
-if CONFIG["MOZ_WIDGET_FELT"]:
+if CONFIG["MOZ_ENTERPRISE"]:
     DIRS += ["felt"]
 
 TEST_DIRS += ["gtest"]
@@ -380,7 +380,7 @@ if CONFIG["OS_ARCH"] == "WINNT":
             "uiautomationcore",
         ]
 
-    if CONFIG["MOZ_WIDGET_FELT"]:
+    if CONFIG["MOZ_ENTERPRISE"]:
         OS_LIBS += [
             "mincore",
         ]

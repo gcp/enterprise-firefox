@@ -57,8 +57,8 @@ export var AppConstants = Object.freeze({
   false,
 #endif
 
-  MOZ_WIDGET_FELT:
-#ifdef MOZ_WIDGET_FELT
+  MOZ_ENTERPRISE:
+#ifdef MOZ_ENTERPRISE
   true,
 #else
   false,

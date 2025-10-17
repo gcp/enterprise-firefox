@@ -46,7 +46,7 @@
 #include "BaseProfiler.h"
 #include "mozJSModuleLoader.h"
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
 #  include "mozilla/toolkit/library/felt_ffi.h"
 #endif
 
@@ -5473,7 +5473,7 @@ nsresult XREMain::XRE_mainRun() {
   // Ditto with the command line.
   nsCOMPtr<nsICommandLineRunner> cmdLine;
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   Maybe<const char*> felt = Nothing();
   if (XRE_IsParentProcess() && is_felt_browser()) {
     // Collect the value as early as possible to ensure it is removed from
@@ -5929,7 +5929,7 @@ nsresult XREMain::XRE_mainRun() {
   }
 #endif
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   if (XRE_IsParentProcess() && is_felt_browser()) {
     if (felt.isSome()) {
       firefox_connect_to_felt(*felt);
@@ -5990,7 +5990,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   NS_SetCurrentThreadName("MainThread");
 #endif
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   if (XRE_IsParentProcess()) {
     Maybe<bool> feltUI =
         geckoargs::sFeltUI.Get(gArgc, gArgv, CheckArgFlag::None);
@@ -6274,12 +6274,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   }
 #endif
 
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   // Do not restart when running as Felt client (i.e. Enterprise browser)
   if (!is_felt_browser()) {
 #endif
     mozilla::AppShutdown::MaybeDoRestart();
-#if defined(MOZ_WIDGET_FELT)
+#if defined(MOZ_ENTERPRISE)
   }
 #endif
 
