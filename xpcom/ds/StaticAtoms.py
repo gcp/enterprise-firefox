@@ -77,6 +77,7 @@ STATIC_ATOMS = [
     Atom("actuate", "actuate"),
     Atom("address", "address"),
     Atom("adoptedsheetclones", "adoptedsheetclones"),
+    Atom("adult", "adult"),
     Atom("after", "after"),
     Atom("align", "align"),
     Atom("alink", "alink"),
@@ -608,6 +609,7 @@ STATIC_ATOMS = [
     Atom("label", "label"),
     Atom("lang", "lang"),
     Atom("language", "language"),
+    Atom("largestContentfulPaint", "largest-contentful-paint"),
     Atom("last", "last"),
     Atom("layer", "layer"),
     Atom("LayerActivity", "LayerActivity"),
@@ -1070,6 +1072,7 @@ STATIC_ATOMS = [
     Atom("radioLabel", "radio-label"),
     Atom("radiogroup", "radiogroup"),
     Atom("range", "range"),
+    Atom("rating", "rating"),
     Atom("readonly", "readonly"),
     Atom("rect", "rect"),
     Atom("rectangle", "rectangle"),
@@ -1092,6 +1095,9 @@ STATIC_ATOMS = [
     Atom("resizer", "resizer"),
     Atom("resolution", "resolution"),
     Atom("resources", "resources"),
+    # legacy string from an unknown ontology, but used by several sites and
+    # respected by Google Search, for <meta name="rating"> content attributes
+    Atom("restrictToAdults", "RTA-5042-1996-1400-1577-RTA"),
     Atom("result", "result"),
     Atom("resultPrefix", "result-prefix"),
     Atom("retargetdocumentfocus", "retargetdocumentfocus"),
