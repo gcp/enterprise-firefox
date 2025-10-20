@@ -151,11 +151,23 @@ jobs:
         run: ./mach build
 
       - name: package
-        run: ./mach package
+        run: |
+          ./mach package
 
       - uses: actions/upload-artifact@v4
         with:
           name: firefox-linux-amd64
+          path: obj-*/dist/firefox-*.tar*
+          compression-level: 0
+
+      - name: "package gcp-eu"
+        run: |
+          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          ./mach package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-linux-amd64-gcpEU
           path: obj-*/dist/firefox-*.tar*
           compression-level: 0
 
@@ -370,6 +382,17 @@ jobs:
           path: obj-*/dist/firefox-*.en-US.win64.zip
           compression-level: 0
 
+      - name: "package gcp-eu"
+        run: |
+          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          ./mach package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-amd64-gcpEU
+          path: obj-*/dist/firefox-*.en-US.win64.zip
+          compression-level: 0
+
   windows-test:
     runs-on: [self-hosted, WinNative, X64]
     needs: [ windows-test-vm, package-tests ]
@@ -567,10 +590,44 @@ jobs:
           tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns "$APP_FILENAME"
           ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
           rm $OBJDIR/dist/nightly_signed.tar.gz
+          rm -fr $OBJDIR/dist/hfs/
 
       - uses: actions/upload-artifact@v4
         with:
           name: firefox-macOS-signed-aarch64
+          path: obj-*/dist/firefox-*.signed.dmg*
+          compression-level: 0
+
+      - name: "package gcp-eu"
+        run: |
+          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          ./mach package
+
+      - name: "signature gcp-eu"
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          echo -n "$(uuidgen)" > firefoxEnterprise_pass.p12
+          DMG_FILE=$(find obj-*/dist/ -type f -name "*.mac.dmg")
+          DMG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.dmg/g")
+          HFSPLUS_FILE="$(basename $DMG_FILE .dmg).hfsplus"
+          OBJDIR=$(find obj-* -maxdepth 0 -type d)
+          rcodesign generate-self-signed-certificate --person-name FirefoxEnterprise --p12-file firefoxEnterprise.p12 --p12-password "$(cat firefoxEnterprise_pass.p12)"
+          ~/.mozbuild/dmg/dmg extract $DMG_FILE $OBJDIR/dist/$HFSPLUS_FILE
+          mkdir $OBJDIR/dist/hfs/
+          pushd $OBJDIR/dist/hfs/
+            ~/.mozbuild/dmg/hfsplus ../$HFSPLUS_FILE extractall
+          popd
+          APP_FILE="$(find obj-*/dist/hfs/ -maxdepth 1 -type d -name '*.app')"
+          ./mach macos-sign -v -c nightly -e developer -r -f firefoxEnterprise.p12 -p firefoxEnterprise_pass.p12 -a "${APP_FILE}"
+          APP_FILENAME="$(basename "$APP_FILE")"
+          tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns "$APP_FILENAME"
+          ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
+          rm $OBJDIR/dist/nightly_signed.tar.gz
+          rm -fr $OBJDIR/dist/hfs/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-macOS-signed-aarch64-gcpEU
           path: obj-*/dist/firefox-*.signed.dmg*
           compression-level: 0
 

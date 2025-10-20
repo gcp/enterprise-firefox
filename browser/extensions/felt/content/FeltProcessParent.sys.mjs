@@ -7,6 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "chrome://felt/content/ConsoleClient.sys.mjs",
+  isTesting: "chrome://felt/content/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
@@ -28,7 +29,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         switch (aTopic) {
           case "felt-firefox-restarting": {
             const restartDisabled = Services.prefs.getBoolPref(
-              "browser.felt.disable_restart",
+              "enterprise.disable_restart",
               false
             );
             if (!restartDisabled) {
@@ -96,7 +97,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.firefox
       .then(async () => {
         const consoleAddr = lazy.ConsoleClient.consoleAddr;
-        Services.felt.sendStringPreference("browser.felt.console", consoleAddr);
+        Services.felt.sendStringPreference(
+          "enterprise.console.address",
+          consoleAddr
+        );
         Services.felt.sendStringPreference(
           "browser.policies.server",
           consoleAddr
@@ -175,7 +179,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     const firefoxBin = Services.felt.binPath();
 
     let profilePath = Services.prefs.getStringPref(
-      "browser.felt.profile_path",
+      "enterprise.profile_path",
       ""
     );
 
@@ -210,7 +214,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     let extraRunArgs = [];
-    if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
+    if (lazy.isTesting()) {
       extraRunArgs = [
         "--marionette",
         "--remote-allow-hosts",

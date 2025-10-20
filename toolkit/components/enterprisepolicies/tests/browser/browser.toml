@@ -2,7 +2,7 @@
 head = "head.js"
 support-files = ["config_broken_json.json"]
 prefs = [
-  "browser.felt.console=",
+  "enterprise.console.address=",
   "browser.policies.testUseHttp=false",
   "browser.policies.live_polling_freq=500",
 ]

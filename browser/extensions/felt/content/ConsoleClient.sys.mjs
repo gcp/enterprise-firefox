@@ -9,12 +9,11 @@
  */
 
 const PREFS = {
-  CONSOLE_ADDRESS: "browser.felt.console",
-  IS_TESTING_ENVIRONMENT: "browser.felt.is_testing",
-  SSO_CALLBACK: "browser.felt.matches",
+  CONSOLE_ADDRESS: "enterprise.console.address",
+  IS_TESTING_ENVIRONMENT: "enterprise.is_testing",
 };
 
-const isTesting = () => {
+export const isTesting = () => {
   return Services.prefs.getBoolPref(PREFS.IS_TESTING_ENVIRONMENT, false);
 };
 
@@ -77,15 +76,26 @@ export const ConsoleClient = {
   },
 
   get consoleAddr() {
-    return isTesting()
-      ? Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS, "")
-      : "https://console.enterfox.eu";
+    return Services.prefs.getStringPref(
+      PREFS.CONSOLE_ADDRESS,
+      "https://console.enterfox.eu"
+    );
+  },
+
+  get consoleAddrMatchingCallback() {
+    // Dropping the port is required here because the matcher being used by
+    // JSActors code relies on WebExtensions MatchPattern
+    // https://searchfox.org/firefox-main/source/toolkit/components/extensions/MatchPattern.cpp#370-384
+    // The match pattern should then NOT use any port otherwise matching would
+    // not happen.
+    const uri = Services.io.newURI(this.consoleAddr);
+    return `${uri.scheme}://${uri.host}`;
   },
 
   get ENDPOINTS() {
     return {
       SSO: `${this.consoleAddr}/sso/login?target=browser`,
-      SSO_CALLBACK: `${this.consoleAddr}/sso/callback?*`,
+      SSO_CALLBACK: `${this.consoleAddrMatchingCallback}/sso/callback?*`,
       REDIRECT_AFTER_SSO: `${this.consoleAddr}/redirect_after_sso`,
       STARTUP_PREFS: `${this.consoleAddr}/api/browser/hacks/startup`,
       DEFAULT_PREFS: `${this.consoleAddr}/api/browser/hacks/default`,
@@ -98,9 +108,7 @@ export const ConsoleClient = {
   },
 
   get ssoCallbackUri() {
-    return isTesting()
-      ? Services.prefs.getStringPref(PREFS.SSO_CALLBACK, "")
-      : this.ENDPOINTS.SSO_CALLBACK;
+    return this.ENDPOINTS.SSO_CALLBACK;
   },
 
   async fetch(url) {

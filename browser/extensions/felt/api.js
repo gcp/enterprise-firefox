@@ -6,6 +6,12 @@
 
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  isTesting: "chrome://felt/content/ConsoleClient.sys.mjs",
+});
+
 this.felt = class extends ExtensionAPI {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
@@ -50,15 +56,16 @@ this.felt = class extends ExtensionAPI {
   }
 
   onStartup() {
-    // In tests if we close too early we lose the browser context
-    if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
-      this.windowCloseMessage = "FeltParent:FirefoxStarted";
-    } else {
-      this.windowCloseMessage = "FeltParent:FirefoxStarting";
-    }
-
     if (Services.felt.isFeltUI()) {
       this.registerChrome();
+
+      // In tests if we close too early we lose the browser context
+      if (lazy.isTesting()) {
+        this.windowCloseMessage = "FeltParent:FirefoxStarted";
+      } else {
+        this.windowCloseMessage = "FeltParent:FirefoxStarting";
+      }
+
       this.registerActors();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
