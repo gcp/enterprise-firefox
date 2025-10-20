@@ -3270,6 +3270,25 @@
       }
     ]
   },
+  "1902520": {
+    "label": "www.keisan.nta.go.jp",
+    "bugs": {
+      "1902520": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://www.keisan.nta.go.jp/kyoutu/ky/sm/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["mac"],
+        "ua_string": ["Safari_with_FxQuantum"]
+      },
+      {
+        "platforms": ["windows"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "1902527": {
     "label": "app.gather.town",
     "bugs": {
@@ -3780,6 +3799,25 @@
       {
         "platforms": ["all"],
         "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "1927121": {
+    "label": "southerndevilhd.com",
+    "bugs": {
+      "1927121": {
+        "issue": "broken-images",
+        "matches": ["*://www.southerndevilhd.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "js": [
+            "bug1927121-southerndevilhd.com-shim-WebkitMutationObserver.js"
+          ]
+        }
       }
     ]
   },
@@ -4683,6 +4721,23 @@
       }
     ]
   },
+  "1959598": {
+    "label": "signal-tech.com",
+    "bugs": {
+      "1959598": {
+        "issue": "broken-scrolling",
+        "matches": ["*://www.signal-tech.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "content_scripts": {
+          "js": ["bug1959598-www.signal-tech.com-round-pageYOffset.js"]
+        }
+      }
+    ]
+  },
   "1960316": {
     "label": "wms.sso.biglobe.ne.jp",
     "bugs": {
@@ -5184,6 +5239,23 @@
       }
     ]
   },
+  "1981995": {
+    "label": "mygeha.com",
+    "bugs": {
+      "1981995": {
+        "issue": "broken-layout",
+        "matches": ["*://www.mygeha.com/tpa-ap-web/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["1981995_www.mygeha.com-fix-location-layout.css"]
+        }
+      }
+    ]
+  },
   "1982295": {
     "label": "hall.ssjj.cn",
     "bugs": {
@@ -5250,6 +5322,23 @@
       }
     ]
   },
+  "1986438": {
+    "label": "gamma.app",
+    "bugs": {
+      "1986438": {
+        "issue": "unsupported-warning",
+        "matches": ["*://gamma.app/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "content_scripts": {
+          "js": ["1986438-gamma.app-hide-unsupported.js"]
+        }
+      }
+    ]
+  },
   "1987351": {
     "label": "mirage.decart.ai",
     "bugs": {
@@ -5310,6 +5399,21 @@
       {
         "platforms": ["all"],
         "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "1991941": {
+    "label": "brawlstats.com",
+    "bugs": {
+      "1991941": {
+        "issue": "desktop-layout-not-mobile",
+        "matches": ["*://brawlstats.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["android"],
+        "ua_string": ["Chrome_with_FxQuantum"]
       }
     ]
   },
