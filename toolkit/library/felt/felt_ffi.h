@@ -17,6 +17,8 @@ bool is_felt_browser();
 
 void firefox_connect_to_felt(const char* server_name);
 
+void firefox_felt_connection_start_thread();
+
 nsresult felt_constructor(REFNSIID iid, void** result);
 
 nsresult felt_restartforced_constructor(REFNSIID iid, void** result);
