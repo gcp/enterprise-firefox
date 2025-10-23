@@ -5991,8 +5991,8 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
       felt_init();
 
       // Remove, we dont need it anymore
-      Unused << geckoargs::sFelt.Get(gArgc, gArgv);
-      Unused << geckoargs::sFeltUI.Get(gArgc, gArgv);
+      (void)geckoargs::sFelt.Get(gArgc, gArgv);
+      (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
 
       if (PR_GetEnv("MOZ_FELT_UI")) {
         PR_SetEnv("MOZ_FELT_UI=");

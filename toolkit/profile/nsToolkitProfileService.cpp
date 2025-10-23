@@ -1584,7 +1584,7 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     *aProfile = nullptr;
 
     // consume -profile
-    Unused << geckoargs::sProfile.Get(gArgc, gArgv);
+    (void)geckoargs::sProfile.Get(gArgc, gArgv);
 
     return NS_OK;
   }
