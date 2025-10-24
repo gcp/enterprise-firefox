@@ -16,6 +16,8 @@ add_setup(async function test_set_http_server_usage() {
   assertOverHttp();
 });
 
+add_task(test_simple_policies);
+
 add_task(async function test_policy_cleanup() {
   await EnterprisePolicyTesting.servePolicyWithJson({}, {});
   assert_policy_cleanup();

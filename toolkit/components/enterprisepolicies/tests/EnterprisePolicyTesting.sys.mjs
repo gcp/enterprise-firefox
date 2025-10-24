@@ -74,7 +74,7 @@ export var EnterprisePolicyTesting = {
     this._httpd.registerPathHandler("/api/browser/policies", (req, resp) => {
       resp.setStatusLine(req.httpVersion, 200, "OK");
       resp.write(JSON.stringify(json));
-      lazy.modifySchemaForTests(customSchema);
+      lazy.modifySchemaForTests(customSchema || null);
       lazy.setTimeout(() => {
         resolve();
       }, 100);

@@ -7,6 +7,8 @@ add_setup(function test_set_local_file_usage() {
   SpecialPowers.pushPrefEnv({ set: [["browser.policies.testUseHttp", false]] });
 });
 
+add_task(test_simple_policies);
+
 add_task(async function test_policy_cleanup() {
   await EnterprisePolicyTesting.setupPolicyEngineWithJson("");
   assert_policy_cleanup();
