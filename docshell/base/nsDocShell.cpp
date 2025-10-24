@@ -16,7 +16,6 @@
 #  include <unistd.h>  // for getpid()
 #endif
 
-#include "mozilla/ArrayUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/BasePrincipal.h"
@@ -805,7 +804,8 @@ nsresult nsDocShell::LoadURI(nsDocShellLoadState* aLoadState,
     // FIXME Null check aLoadState->GetLoadingSessionHistoryInfo()?
     return LoadHistoryEntry(*aLoadState->GetLoadingSessionHistoryInfo(),
                             aLoadState->LoadType(),
-                            aLoadState->HasValidUserGestureActivation());
+                            aLoadState->HasValidUserGestureActivation(),
+                            aLoadState->NotifiedBeforeUnloadListeners());
   }
 
   // On history navigation via Back/Forward buttons, don't execute
@@ -3937,7 +3937,8 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
 nsresult nsDocShell::ReloadNavigable(
     mozilla::Maybe<NotNull<JSContext*>> aCx, uint32_t aReloadFlags,
     nsIStructuredCloneContainer* aNavigationAPIState,
-    UserNavigationInvolvement aUserInvolvement) {
+    UserNavigationInvolvement aUserInvolvement,
+    NavigationAPIMethodTracker* aNavigationAPIMethodTracker) {
   if (!IsNavigationAllowed()) {
     return NS_OK;  // JS may not handle returning of an error code
   }
@@ -3988,7 +3989,8 @@ nsresult nsDocShell::ReloadNavigable(
             /* aIsSameDocument */ false, Some(aUserInvolvement),
             /* aSourceElement*/ nullptr, /* aFormDataEntryList */ nullptr,
             destinationNavigationAPIState,
-            /* aClassiCHistoryAPIState */ nullptr)) {
+            /* aClassiCHistoryAPIState */ nullptr,
+            aNavigationAPIMethodTracker)) {
       return NS_OK;
     }
   }
@@ -5626,10 +5628,40 @@ static bool IsFollowupPartOfMultipart(nsIRequest* aRequest) {
          !firstPart;
 }
 
+static void GetPreviousContiguousEntries(
+    nsIDocumentViewer* aDocumentViewer,
+    nsTArray<SessionHistoryInfo>& aContiguousEntries) {
+  if (!aDocumentViewer || !aDocumentViewer->GetDocument() ||
+      !aDocumentViewer->GetDocument()->GetWindow() ||
+      !aDocumentViewer->GetDocument()->GetWindow()->GetCurrentInnerWindow() ||
+      !aDocumentViewer->GetDocument()
+           ->GetWindow()
+           ->GetCurrentInnerWindow()
+           ->Navigation()) {
+    return;
+  }
+
+  nsTArray<RefPtr<NavigationHistoryEntry>> entries;
+  RefPtr navigation = aDocumentViewer->GetDocument()
+                          ->GetWindow()
+                          ->GetCurrentInnerWindow()
+                          ->Navigation();
+  navigation->Entries(entries);
+  for (const auto& entry : entries) {
+    aContiguousEntries.AppendElement(*entry->SessionHistoryInfo());
+  }
+}
+
 nsresult nsDocShell::Embed(nsIDocumentViewer* aDocumentViewer,
                            WindowGlobalChild* aWindowActor,
                            bool aIsTransientAboutBlank, nsIRequest* aRequest,
                            nsIURI* aPreviousURI) {
+  nsTArray<SessionHistoryInfo> oldContiguousEntries;
+  if (mozilla::SessionHistoryInParent() &&
+      IsFollowupPartOfMultipart(aRequest)) {
+    GetPreviousContiguousEntries(mDocumentViewer, oldContiguousEntries);
+  }
+
   // Save the LayoutHistoryState of the previous document, before
   // setting up new document
   PersistLayoutHistoryState();
@@ -5681,6 +5713,13 @@ nsresult nsDocShell::Embed(nsIDocumentViewer* aDocumentViewer,
 
     MOZ_LOG(gSHLog, LogLevel::Debug, ("document %p Embed", this));
     MoveLoadingToActiveEntry(expired, cacheKey, aPreviousURI);
+  } else if (mozilla::SessionHistoryInParent() &&
+             IsFollowupPartOfMultipart(aRequest)) {
+    if (RefPtr navigation =
+            GetWindow()->GetCurrentInnerWindow()->Navigation()) {
+      navigation->InitializeHistoryEntries(oldContiguousEntries,
+                                           mActiveEntry.get());
+    }
   }
 
   bool updateHistory = true;
@@ -9001,13 +9040,14 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
       if (jsapi.Init(window)) {
         RefPtr<Element> sourceElement = aLoadState->GetSourceElement();
         // Step 4
+        RefPtr apiMethodTracker = aLoadState->GetNavigationAPIMethodTracker();
         bool shouldContinue = navigation->FirePushReplaceReloadNavigateEvent(
             jsapi.cx(), aLoadState->GetNavigationType(), newURI,
             /* aIsSameDocument */ true,
             Some(aLoadState->UserNavigationInvolvement()), sourceElement,
             /* aFormDataEntryList */ nullptr,
             /* aNavigationAPIState */ destinationNavigationAPIState,
-            /* aClassicHistoryAPIState */ nullptr);
+            /* aClassicHistoryAPIState */ nullptr, apiMethodTracker);
 
         // Step 5
         if (!shouldContinue) {
@@ -9829,12 +9869,13 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
 
           nsCOMPtr<nsIURI> destinationURL = aLoadState->URI();
           // Step 21.4
+          RefPtr apiMethodTracker = aLoadState->GetNavigationAPIMethodTracker();
           bool shouldContinue = navigation->FirePushReplaceReloadNavigateEvent(
               jsapi.cx(), aLoadState->GetNavigationType(), destinationURL,
               /* aIsSameDocument */ false,
               Some(aLoadState->UserNavigationInvolvement()), sourceElement,
               formData, navigationAPIStateForFiring,
-              /* aClassicHistoryAPIState */ nullptr);
+              /* aClassicHistoryAPIState */ nullptr, apiMethodTracker);
 
           // Step 21.5
           if (!shouldContinue) {
@@ -12638,14 +12679,16 @@ nsresult nsDocShell::LoadHistoryEntry(nsISHEntry* aEntry, uint32_t aLoadType,
 }
 
 nsresult nsDocShell::LoadHistoryEntry(const LoadingSessionHistoryInfo& aEntry,
-                                      uint32_t aLoadType,
-                                      bool aUserActivation) {
+                                      uint32_t aLoadType, bool aUserActivation,
+                                      bool aNotifiedBeforeUnloadListeners) {
   RefPtr<nsDocShellLoadState> loadState = aEntry.CreateLoadInfo();
   loadState->SetHasValidUserGestureActivation(
       loadState->HasValidUserGestureActivation() || aUserActivation);
 
   loadState->SetTextDirectiveUserActivation(
       loadState->GetTextDirectiveUserActivation() || aUserActivation);
+
+  loadState->SetNotifiedBeforeUnloadListeners(aNotifiedBeforeUnloadListeners);
 
   return LoadHistoryEntry(loadState, aLoadType, aEntry.mLoadingCurrentEntry);
 }

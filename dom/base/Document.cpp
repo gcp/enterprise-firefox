@@ -45,7 +45,6 @@
 #include "mozIThirdPartyUtil.h"
 #include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/ArrayIterator.h"
-#include "mozilla/ArrayUtils.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/AttributeStyles.h"
 #include "mozilla/Base64.h"
@@ -8078,10 +8077,10 @@ static int32_t FindSheet(const nsTArray<RefPtr<StyleSheet>>& aSheets,
                          nsIURI* aSheetURI) {
   for (int32_t i = aSheets.Length() - 1; i >= 0; i--) {
     bool bEqual;
-    nsIURI* uri = aSheets[i]->GetSheetURI();
-
-    if (uri && NS_SUCCEEDED(uri->Equals(aSheetURI, &bEqual)) && bEqual)
+    nsIURI* uri = aSheets[i]->GetOriginalURI();
+    if (uri && NS_SUCCEEDED(uri->Equals(aSheetURI, &bEqual)) && bEqual) {
       return i;
+    }
   }
 
   return -1;
@@ -8092,8 +8091,9 @@ nsresult Document::LoadAdditionalStyleSheet(additionalSheetType aType,
   MOZ_ASSERT(aSheetURI, "null arg");
 
   // Checking if we have loaded this one already.
-  if (FindSheet(mAdditionalSheets[aType], aSheetURI) >= 0)
+  if (FindSheet(mAdditionalSheets[aType], aSheetURI) >= 0) {
     return NS_ERROR_INVALID_ARG;
+  }
 
   // Loading the sheet sync.
   RefPtr<css::Loader> loader = new css::Loader(GetDocGroup());

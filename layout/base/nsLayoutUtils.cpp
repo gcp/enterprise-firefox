@@ -33,7 +33,6 @@
 #include "imgIContainer.h"
 #include "imgIRequest.h"
 #include "mozilla/AccessibleCaretEventHub.h"
-#include "mozilla/ArrayUtils.h"
 #include "mozilla/Baseline.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -1389,7 +1388,9 @@ static nsIFrame* GetNearestScrollableOrOverflowClipFrame(
     if ((aFlags & nsLayoutUtils::SCROLLABLE_FIXEDPOS_FINDS_ROOT) &&
         f->StyleDisplay()->mPosition == StylePositionProperty::Fixed &&
         nsLayoutUtils::IsReallyFixedPos(f)) {
-      return f->PresShell()->GetRootScrollContainerFrame();
+      if (nsIFrame* root = f->PresShell()->GetRootScrollContainerFrame()) {
+        return root;
+      }
     }
   }
   return nullptr;
@@ -2184,9 +2185,9 @@ static Rect TransformGfxRectToAncestor(
   }
   const nsIFrame* ancestor = aOutAncestor ? *aOutAncestor : aAncestor.mFrame;
   float factor = ancestor->PresContext()->AppUnitsPerDevPixel();
-  Rect maxBounds =
-      Rect(float(nscoord_MIN) / factor * 0.5, float(nscoord_MIN) / factor * 0.5,
-           float(nscoord_MAX) / factor, float(nscoord_MAX) / factor);
+  Rect maxBounds = Rect(
+      float(nscoord_MIN) / factor, float(nscoord_MIN) / factor,
+      float(nscoord_MAX) / factor * 2.0, float(nscoord_MAX) / factor * 2.0);
   return ctm.TransformAndClipBounds(aRect, maxBounds);
 }
 
@@ -2390,13 +2391,8 @@ nsRect nsLayoutUtils::TransformFrameRectToAncestor(
       aMatrixCache, aStopAtStackingContextAndDisplayPortAndOOFFrame,
       aOutAncestor);
 
-  float destAppUnitsPerDevPixel =
-      aAncestor.mFrame->PresContext()->AppUnitsPerDevPixel();
-  return nsRect(
-      NSFloatPixelsToAppUnits(float(result.x), destAppUnitsPerDevPixel),
-      NSFloatPixelsToAppUnits(float(result.y), destAppUnitsPerDevPixel),
-      NSFloatPixelsToAppUnits(float(result.width), destAppUnitsPerDevPixel),
-      NSFloatPixelsToAppUnits(float(result.height), destAppUnitsPerDevPixel));
+  return ScaleThenRoundGfxRectToAppRect(
+      result, aAncestor.mFrame->PresContext()->AppUnitsPerDevPixel());
 }
 
 LayoutDeviceIntPoint nsLayoutUtils::WidgetToWidgetOffset(nsIWidget* aFrom,

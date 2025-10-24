@@ -134,6 +134,7 @@ jobs:
     needs: linux-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/unix/mozconfig.enterprise
+      TASKCLUSTER_ROOT_URL: "https://firefox-ci-tc.services.mozilla.com"
 
     steps:
       - uses: actions/checkout@v5
@@ -354,6 +355,7 @@ jobs:
     needs: windows-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/win64/mozconfig.enterprise
+      TASKCLUSTER_ROOT_URL: "https://firefox-ci-tc.services.mozilla.com"
 
     steps:
       - name: checkout
@@ -531,6 +533,7 @@ jobs:
     needs: macos-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/macosx/mozconfig.enterprise
+      TASKCLUSTER_ROOT_URL: "https://firefox-ci-tc.services.mozilla.com"
 
     steps:
       - name: "clean state"
