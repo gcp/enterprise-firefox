@@ -158,7 +158,7 @@ EnterprisePoliciesManager.prototype = {
 
     let jsonProvider = new JSONPoliciesProvider();
     jsonProvider.onPoliciesChanges(handler);
-    let remoteProvider = new RemotePoliciesProvider();
+    let remoteProvider = RemotePoliciesProvider.createInstance();
     remoteProvider.onPoliciesChanges(handler);
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
@@ -774,6 +774,14 @@ class RemotePoliciesProvider {
   POLLING_FREQUENCY_PREF = "browser.policies.live_polling.frequency";
   POLLING_FREQUENCY_FALLBACK = 60_000;
   POLLING_ENABLED_PREF = "browser.policies.live_polling.enabled";
+
+  static #instance = null;
+  static createInstance() {
+    if (!RemotePoliciesProvider.#instance) {
+      RemotePoliciesProvider.#instance = new RemotePoliciesProvider();
+    }
+    return RemotePoliciesProvider.#instance;
+  }
 
   constructor() {
     this._changesHandlers = [];
