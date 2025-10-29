@@ -27,6 +27,7 @@
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/RuntimeExceptionModule.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -5631,6 +5632,16 @@ nsresult XREMain::XRE_mainRun() {
       xpc::InitializeJSContext();
     }
 
+#if defined(MOZ_ENTERPRISE)
+    if (XRE_IsParentProcess() && is_felt_browser()) {
+      NS_WARNING("Checking for FELT: start thread");
+      firefox_felt_connection_start_thread();
+
+      SpinEventLoopUntil("Waiting for FELT startup to complete"_ns,
+                         []() { return firefox_felt_is_startup_complete(); });
+    }
+#endif
+
     // Finally, now that JS has been initialized, we can finish pref loading.
     // This needs to happen after JS and XPConnect initialization because
     // AutoConfig files require JS execution. Note that this means AutoConfig
@@ -5912,13 +5923,6 @@ nsresult XREMain::XRE_mainRun() {
 
     rv = BackgroundTasks::RunBackgroundTask(cmdLine);
     NS_ENSURE_SUCCESS(rv, rv);
-  }
-#endif
-
-#if defined(MOZ_ENTERPRISE)
-  if (XRE_IsParentProcess() && is_felt_browser()) {
-    NS_WARNING("Checking for FELT: start thread");
-    firefox_felt_connection_start_thread();
   }
 #endif
 

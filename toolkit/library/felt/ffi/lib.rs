@@ -80,18 +80,29 @@ pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
 
 #[no_mangle]
 pub extern "C" fn firefox_felt_connection_start_thread() -> () {
-    let mut guard = FELT_CLIENT.lock().expect("Could not get lock");
-    match guard.take() {
+    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    match &*guard {
         Some(client) => {
             trace!("firefox_connect_to_felt(): connected, starting thread");
             client.start_thread();
-            // client.wait_for_startup_requirements();
         }
         None => {
             trace!("firefox_connect_to_felt(): error");
         }
     }
     trace!("firefox_connect_to_felt() done");
+}
+
+#[no_mangle]
+pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
+    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    match &*guard {
+        Some(client) => client.is_startup_complete(),
+        None => {
+            trace!("firefox_felt_is_startup_complete(): missing client");
+            true
+        }
+    }
 }
 
 #[unsafe(no_mangle)]

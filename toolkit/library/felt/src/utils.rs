@@ -131,9 +131,10 @@ pub fn notify_observers(name: String) {
     });
 }
 
-fn do_main_thread<F>(name: &'static str, future: F)
-where F: Future + Send + 'static,
-      F::Output: Send + 'static,
+pub fn do_main_thread<F>(name: &'static str, future: F)
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
 {
     if let Ok(main_thread) = moz_task::get_main_thread() {
         trace!("FeltThread::do_main_thread() {}", name);

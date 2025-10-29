@@ -14,7 +14,7 @@ use nserror::{NS_ERROR_FAILURE, NS_OK, nsresult};
 use nsstring::{nsACString, nsCString, nsString};
 use std::cell::RefCell;
 use std::env;
-use std::sync::{Arc, Barrier, atomic::AtomicBool, atomic::Ordering};
+use std::sync::{Arc, atomic::AtomicBool, atomic::Ordering};
 use std::ffi::{c_char, CStr, CString};
 use thin_vec::ThinVec;
 use xpcom::interfaces::{nsICookie, nsIContentPolicy, nsISupports, nsIObserver, nsIObserverService, nsIURI, nsILoadInfo, nsICategoryManager};
@@ -130,7 +130,7 @@ impl FeltIpcClient {
 
 pub struct FeltClientThread {
     ipc_client: RefCell<FeltIpcClient>,
-    startup_ready: Arc<Barrier>,
+    startup_ready: Arc<AtomicBool>,
 }
 
 impl FeltClientThread {
@@ -141,7 +141,7 @@ impl FeltClientThread {
         if felt_client.report_version() {
             Ok(Self {
                 ipc_client: RefCell::new(felt_client),
-                startup_ready: Arc::new(Barrier::new(2)),
+                startup_ready: Arc::new(AtomicBool::new(false)),
             })
         } else {
             trace!("FeltClientThread::new(): failure to report version");
@@ -275,7 +275,12 @@ impl FeltClientThread {
                             },
                             Ok(FeltMessage::StartupReady) => {
                                 trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
-                                barrier.wait();
+                                let barrier = barrier.clone();
+                                // We spawn this onto the main thread to ensure that any other tasks spawned to the main thread
+                                // previously (e.g. setting preferences) are completed before we set the startup_ready flag.
+                                utils::do_main_thread("felt_notify_observers", async move {
+                                    barrier.store(true, Ordering::Release);
+                                });
                                 trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady: unblocking");
                             },
                             Ok(FeltMessage::RestartForced) => {
@@ -313,11 +318,9 @@ impl FeltClientThread {
         NS_OK
     }
 
-    pub fn wait_for_startup_requirements(&self) {
+    pub fn is_startup_complete(&self) -> bool {
         // Wait for the thread to start up.
-        trace!("FeltClientThread::wait_for_startup_requirements() WAITING ON MAIN THREAD");
-        let _ = &self.startup_ready.wait();
-        trace!("FeltClientThread::wait_for_startup_requirements() WAITING ON MAIN THREAD FINISHED");
+        self.startup_ready.load(Ordering::Acquire)
     }
 }
 
