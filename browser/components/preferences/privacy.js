@@ -4073,12 +4073,18 @@ var gPrivacyPane = {
   _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
+    // Check if enterprise storage encryption is managing the primary password
+    var isEnterpriseStorageEncryption =
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
+      Services.prefs.getStringPref("browser.policies.access_token", "");
+
     var button = document.getElementById("changeMasterPassword");
-    button.disabled = noMP;
+    button.disabled = noMP || isEnterpriseStorageEncryption;
 
     var checkbox = document.getElementById("useMasterPassword");
     checkbox.checked = !noMP;
     checkbox.disabled =
+      isEnterpriseStorageEncryption ||
       (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
       (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
   },
@@ -4089,6 +4095,17 @@ var gPrivacyPane = {
    * one is set.
    */
   async updateMasterPasswordButton() {
+    // Check if enterprise storage encryption is managing the primary password
+    var isEnterpriseStorageEncryption =
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
+      Services.prefs.getStringPref("browser.policies.access_token", "");
+
+    // If enterprise storage encryption is active, prevent any changes
+    if (isEnterpriseStorageEncryption) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     var checkbox = document.getElementById("useMasterPassword");
     var button = document.getElementById("changeMasterPassword");
     button.disabled = !checkbox.checked;
@@ -4113,6 +4130,17 @@ var gPrivacyPane = {
    * UI is automatically updated.
    */
   async _removeMasterPassword() {
+    // Check if enterprise storage encryption is managing the primary password
+    var isEnterpriseStorageEncryption =
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
+      Services.prefs.getStringPref("browser.policies.access_token", "");
+
+    // If enterprise storage encryption is active, prevent any changes
+    if (isEnterpriseStorageEncryption) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     var secmodDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
       Ci.nsIPKCS11ModuleDB
     );
@@ -4132,6 +4160,16 @@ var gPrivacyPane = {
    * Displays a dialog in which the primary password may be changed.
    */
   async changeMasterPassword() {
+    // Check if enterprise storage encryption is managing the primary password
+    var isEnterpriseStorageEncryption =
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
+      Services.prefs.getStringPref("browser.policies.access_token", "");
+
+    // If enterprise storage encryption is active, prevent any changes
+    if (isEnterpriseStorageEncryption) {
+      return;
+    }
+
     // Require OS authentication before the user can set a Primary Password.
     // OS reauthenticate functionality is not available on Linux yet (bug 1527745)
     if (!LoginHelper.isPrimaryPasswordSet() && LoginHelper.getOSAuthEnabled()) {
