@@ -2,6 +2,7 @@
 clippy:
     description: Lint rust
     include:
+        - browser/extensions/felt/rust/
         - build/workspace-hack/
         - dom/midi/midir_impl/
         - dom/media/gtest/
@@ -41,7 +42,6 @@ clippy:
         - toolkit/components/gecko-trace/
         - toolkit/components/glean/
         - toolkit/components/uniffi-bindgen-gecko-js/
-        - toolkit/library/felt/
         - toolkit/library/rust/
         - tools/fuzzing/rust/
         - tools/profiler/rust-api/

@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef felt_ffi_h
-#define felt_ffi_h
+#ifndef felt_h
+#define felt_h
 
 #include "nsISupportsUtils.h"  // for nsresult, etc.
 
@@ -27,4 +27,4 @@ nsresult felt_restartforced_constructor(REFNSIID iid, void** result);
 
 }  // extern "C"
 
-#endif  // felt_ffi_h
+#endif  // felt_h

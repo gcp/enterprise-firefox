@@ -3,12 +3,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use cookie;
-use std::ffi::CString;
 use nserror::NS_OK;
 use nsstring::nsCString;
-use xpcom::interfaces::{nsICookie, nsICookieManager, nsIPrefBranch, nsIObserverService};
-use xpcom::RefPtr;
+use std::{ffi::CString, future::Future};
 use time::OffsetDateTime;
+use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
+use xpcom::RefPtr;
 
 use log::trace;
 
@@ -17,18 +17,20 @@ pub fn inject_one_cookie(raw_cookie: String) {
     match cookie::Cookie::parse(raw_cookie) {
         Ok(cookie) => {
             let cookie2 = cookie.clone();
-            trace!("inject_one_cookie() name:{} value:{} domain:{:?} path:{:?}", cookie2.name(), cookie2.value(), cookie2.domain(), cookie2.path());
+            trace!(
+                "inject_one_cookie() name:{} value:{} domain:{:?} path:{:?}",
+                cookie2.name(),
+                cookie2.value(),
+                cookie2.domain(),
+                cookie2.path()
+            );
             do_main_thread("felt_inject_one_cookie", async move {
-
                 let host: nsCString = cookie.domain().unwrap_or("").into();
                 let path: nsCString = cookie.path().unwrap_or("").into();
                 let name: nsCString = cookie.name().into();
                 let value: nsCString = cookie.value().into();
                 let expiry: i64 = if let Some(exp) = cookie.expires() {
-                    exp
-                        .datetime()
-                        .unwrap()
-                        .unix_timestamp() * 1000
+                    exp.datetime().unwrap().unix_timestamp() * 1000
                 } else {
                     0
                 };
@@ -48,13 +50,21 @@ pub fn inject_one_cookie(raw_cookie: String) {
                 }
                 .try_into()
                 .unwrap();
-                trace!("inject_one_cookie() cookie.same_site():{:?}", cookie.same_site());
+                trace!(
+                    "inject_one_cookie() cookie.same_site():{:?}",
+                    cookie.same_site()
+                );
                 trace!("inject_one_cookie() same_site:{:?}", same_site);
 
-                let is_session = cookie.expires().unwrap_or(cookie::Expiration::from(None)).is_session();
+                let is_session = cookie
+                    .expires()
+                    .unwrap_or(cookie::Expiration::from(None))
+                    .is_session();
                 trace!("inject_one_cookie() is_session:{}", is_session);
 
-                let cookie_manager = xpcom::get_service::<nsICookieManager>(cstr!("@mozilla.org/cookiemanager;1")).unwrap();
+                let cookie_manager =
+                    xpcom::get_service::<nsICookieManager>(cstr!("@mozilla.org/cookiemanager;1"))
+                        .unwrap();
                 let rv = unsafe {
                     cookie_manager.AddNativeForFelt(
                         &*host,
@@ -72,9 +82,16 @@ pub fn inject_one_cookie(raw_cookie: String) {
                 };
 
                 if rv == NS_OK {
-                  trace!("inject_one_cookie() AddNativeForFelt({}) SUCCESS", cookie.name());
+                    trace!(
+                        "inject_one_cookie() AddNativeForFelt({}) SUCCESS",
+                        cookie.name()
+                    );
                 } else {
-                  trace!("inject_one_cookie() AddNativeForFelt({}) FAILED: {}", cookie.name(), rv);
+                    trace!(
+                        "inject_one_cookie() AddNativeForFelt({}) FAILED: {}",
+                        cookie.name(),
+                        rv
+                    );
                 }
             });
         }
@@ -89,9 +106,17 @@ pub fn inject_bool_pref(name: String, value: bool) {
         let c_name = CString::new(name.clone()).unwrap().into_raw();
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
         if unsafe { prefs.SetBoolPref(c_name, value) } == NS_OK {
-            trace!("inject_bool_pref(): BoolPreference({}, {}) NS_OK", name, value);
+            trace!(
+                "inject_bool_pref(): BoolPreference({}, {}) NS_OK",
+                name,
+                value
+            );
         } else {
-            trace!("inject_bool_pref(): BoolPreference({}, {}) ERROR", name, value);
+            trace!(
+                "inject_bool_pref(): BoolPreference({}, {}) ERROR",
+                name,
+                value
+            );
         }
     });
 }
@@ -102,9 +127,17 @@ pub fn inject_string_pref(name: String, value: String) {
         let c_value: nsCString = value.clone().into();
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
         if unsafe { prefs.SetStringPref(c_name, &*c_value) } == NS_OK {
-            trace!("inject_string_pref(): StringPreference({}, {}) NS_OK", name, value);
+            trace!(
+                "inject_string_pref(): StringPreference({}, {}) NS_OK",
+                name,
+                value
+            );
         } else {
-            trace!("inject_string_pref(): StringPreference({}, {}) ERROR", name, value);
+            trace!(
+                "inject_string_pref(): StringPreference({}, {}) ERROR",
+                name,
+                value
+            );
         }
     });
 }
@@ -114,17 +147,24 @@ pub fn inject_int_pref(name: String, value: i32) {
         let c_name = CString::new(name.clone()).unwrap().into_raw();
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
         if unsafe { prefs.SetIntPref(c_name, value) } == NS_OK {
-            trace!("inject_int_pref(): IntPreference({}, {}) NS_OK", name, value);
+            trace!(
+                "inject_int_pref(): IntPreference({}, {}) NS_OK",
+                name,
+                value
+            );
         } else {
-            trace!("inject_int_pref(): IntPreference({}, {}) ERROR", name, value);
+            trace!(
+                "inject_int_pref(): IntPreference({}, {}) ERROR",
+                name,
+                value
+            );
         }
     });
 }
 
 pub fn notify_observers(name: String) {
     do_main_thread("felt_notify_observers", async move {
-        let obssvc: RefPtr<nsIObserverService> =
-            xpcom::components::Observer::service().unwrap();
+        let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
         let topic = CString::new(name.clone()).unwrap().into_raw();
         let rv = unsafe { obssvc.NotifyObservers(std::ptr::null(), topic, std::ptr::null()) };
         assert!(rv.succeeded());

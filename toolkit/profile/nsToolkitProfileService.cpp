@@ -41,7 +41,7 @@
 #endif
 
 #if defined(MOZ_ENTERPRISE)
-#  include "mozilla/toolkit/library/felt_ffi.h"
+#  include "mozilla/browser/extensions/felt/felt.h"
 #endif
 
 #include "nsAppDirectoryServiceDefs.h"

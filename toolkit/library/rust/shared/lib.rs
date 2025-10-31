@@ -28,7 +28,7 @@ extern crate data_storage;
 extern crate dom_fragmentdirectives;
 extern crate encoding_glue;
 #[cfg(feature = "felt")]
-extern crate felt_ffi;
+extern crate felt;
 extern crate fog_control;
 extern crate gecko_profiler;
 extern crate gkrust_utils;

@@ -1990,6 +1990,7 @@ version = "0.1.0"
 dependencies = [
  "cookie",
  "cstr",
+ "env_logger",
  "ipc-channel",
  "log",
  "moz_task",
@@ -1999,17 +2000,6 @@ dependencies = [
  "serde_json",
  "thin-vec",
  "time",
- "xpcom",
-]
-
-[[package]]
-name = "felt_ffi"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "felt",
- "log",
- "nserror",
  "xpcom",
 ]
 
@@ -2618,7 +2608,7 @@ dependencies = [
  "dom_fragmentdirectives",
  "encoding_glue",
  "etagere",
- "felt_ffi",
+ "felt",
  "fluent",
  "fluent-fallback",
  "fluent-ffi",

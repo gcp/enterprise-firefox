@@ -47,7 +47,7 @@
 #include "mozJSModuleLoader.h"
 
 #if defined(MOZ_ENTERPRISE)
-#  include "mozilla/toolkit/library/felt_ffi.h"
+#  include "mozilla/browser/extensions/felt/felt.h"
 #endif
 
 #include "nsAppRunner.h"
