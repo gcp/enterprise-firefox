@@ -1,0 +1,2 @@
+. "$topsrcdir/build/macosx/mozconfig.enterprise"
+. "$topsrcdir/build/mozconfig.common-ci.enterprise"

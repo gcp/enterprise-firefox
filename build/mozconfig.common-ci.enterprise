@@ -1,0 +1,2 @@
+ac_add_options --enable-bootstrap
+ac_add_options --enable-warnings-as-errors

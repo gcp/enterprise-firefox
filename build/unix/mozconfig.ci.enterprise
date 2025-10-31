@@ -1,0 +1,2 @@
+. "$topsrcdir/build/unix/mozconfig.enterprise"
+. "$topsrcdir/build/mozconfig.common-ci.enterprise"
