@@ -9,6 +9,7 @@ on:
 jobs:
   package-tests:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +31,7 @@ jobs:
 
   linux-build-vm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     outputs:
       instance_name: ${{ steps.create_vm.outputs.instance_name }}
@@ -56,6 +58,7 @@ jobs:
 
   linux-build-vm-clean:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ linux-build-vm, linux-build-opt ]
     if: "always()"
@@ -80,6 +83,7 @@ jobs:
 
   linux-test-vm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ linux-build-opt ]
     outputs:
@@ -107,6 +111,7 @@ jobs:
 
   linux-test-vm-clean:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ linux-test-vm, linux-test ]
     if: "always()"
@@ -131,6 +136,7 @@ jobs:
 
   linux-build-opt:
     runs-on: [ self-hosted, LinuxNative, X64 ]
+    timeout-minutes: 30
     needs: linux-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/unix/mozconfig.ci.enterprise
@@ -173,6 +179,7 @@ jobs:
 
   linux-test:
     runs-on: [self-hosted, LinuxNative, X64]
+    timeout-minutes: 20
     needs: [ linux-test-vm, package-tests ]
 
     steps:
@@ -247,6 +254,7 @@ jobs:
 
   windows-build-vm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     outputs:
       instance_name: ${{ steps.create_vm.outputs.instance_name }}
@@ -273,6 +281,7 @@ jobs:
 
   windows-build-vm-clean:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ windows-build-vm, windows-build-opt ]
     if: "always()"
@@ -297,6 +306,7 @@ jobs:
 
   windows-test-vm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ windows-build-opt ]
     outputs:
@@ -327,6 +337,7 @@ jobs:
 
   windows-test-vm-clean:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ windows-test-vm, windows-test ]
     if: "always()"
@@ -351,6 +362,7 @@ jobs:
 
   windows-build-opt:
     runs-on: [ self-hosted, WinCross, X64 ]
+    timeout-minutes: 30
     needs: windows-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/win64/mozconfig.ci.enterprise
@@ -395,6 +407,7 @@ jobs:
 
   windows-test:
     runs-on: [self-hosted, WinNative, X64]
+    timeout-minutes: 20
     needs: [ windows-test-vm, package-tests ]
 
     steps:
@@ -479,6 +492,7 @@ jobs:
 
   macOS-build-vm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     outputs:
       instance_name: ${{ steps.create_vm.outputs.instance_name }}
@@ -504,6 +518,7 @@ jobs:
 
   macOS-build-vm-clean:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: Credentials
     needs: [ macOS-build-vm, macOS-build-opt ]
     if: "always()"
@@ -528,6 +543,7 @@ jobs:
 
   macOS-build-opt:
     runs-on: [ self-hosted, MacCross, ARM64 ]
+    timeout-minutes: 30
     needs: macos-build-vm
     env:
       MOZCONFIG: ${{ github.workspace }}/build/macosx/mozconfig.ci.enterprise
@@ -632,6 +648,7 @@ jobs:
           compression-level: 0
 
   macOS-test:
+    timeout-minutes: 20
     runs-on: [self-hosted, MacNative, ARM64]
     needs: [ macOS-build-opt, package-tests ]
 
@@ -723,6 +740,7 @@ jobs:
 
   lints:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
