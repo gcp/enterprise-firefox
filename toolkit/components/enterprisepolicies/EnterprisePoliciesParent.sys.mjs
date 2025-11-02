@@ -789,6 +789,7 @@ class RemotePoliciesProvider {
         }
         Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
         Services.prefs.removeObserver(this.POLLING_ENABLED_PREF, this);
+        Services.obs.removeObserver(this, "xpcom-shutdown");
         break;
     }
   }
