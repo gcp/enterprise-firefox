@@ -115,6 +115,7 @@ EnterprisePoliciesManager.prototype = {
       // Because security.enterprise_roots.enabled is true by default, we can
       // ignore attempts by Antivirus to try to set it via policy.
       if (
+        provider.policies &&
         Object.keys(provider.policies).length === 1 &&
         provider.policies.Certificates &&
         Object.keys(provider.policies.Certificates).length === 1 &&
@@ -186,7 +187,7 @@ EnterprisePoliciesManager.prototype = {
 
     this._parsedPolicies = {};
 
-    const policyNames = Object.keys(unparsedPolicies);
+    const policyNames = Object.keys(unparsedPolicies || {});
 
     for (let policyName of policyNames) {
       let policySchema = schema.properties[policyName];
