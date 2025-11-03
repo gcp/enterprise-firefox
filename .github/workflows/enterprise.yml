@@ -247,6 +247,11 @@ jobs:
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_restart_works.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
+      - name: "test device posture"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_device_posture.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+
       - uses: actions/upload-artifact@v4
         with:
           name: linux-tests-results
@@ -488,6 +493,12 @@ jobs:
           . venv_tests\Scripts\activate
           $Env:MOZ_LOG="console:5"
           python3 test_felt_browser_restart_works.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+
+      - name: "test device posture"
+        run: |
+          . venv_tests\Scripts\activate
+          $Env:MOZ_LOG="console:5"
+          python3 test_felt_device_posture.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -733,6 +744,11 @@ jobs:
         run: |
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_restart_works.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+
+      - name: "test device posture"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_device_posture.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
       - uses: actions/upload-artifact@v4
         with:

@@ -2,6 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
+});
+
 /**
  * ConsoleClient takes care of all communication with the remote enterprise console.
  */
@@ -212,6 +218,7 @@ export const ConsoleClient = {
       DEFAULT_PREFS: "/api/browser/hacks/default",
       REMOTE_POLICIES: "/api/browser/policies",
       TOKEN: "/sso/token",
+      DEVICE_POSTURE: "/sso/device_posture",
     };
   },
 
@@ -231,12 +238,13 @@ export const ConsoleClient = {
    * Constructs the SSO login URL for the provided email.
    *
    * @param {string} email - Email address to prefill for SSO initiation.
+   * @param {string} devicePostureToken - Token received for device posture
    * @returns {nsIURI}
    */
-  constructSsoLoginURI(email) {
+  constructSsoLoginURI(email, devicePostureToken) {
     const url = this.consoleBaseURI;
     url.pathname = this._paths.SSO;
-    url.search = `target=browser&email=${email}`;
+    url.search = `target=browser&email=${email}&devicePostureToken=${devicePostureToken}`;
 
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
@@ -282,6 +290,32 @@ export const ConsoleClient = {
   async getRemotePolicies() {
     const payload = await this._get(this._paths.REMOTE_POLICIES);
     return payload;
+  },
+
+  /**
+   * Collect the device posture data and send them to the console.
+   *
+   * @returns {Promise<{posture: string}>} Token reported by console.
+   */
+  async sendDevicePosture() {
+    const devicePosture = this._collectDevicePosture();
+    const url = this.constructURI(this._paths.DEVICE_POSTURE);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(devicePosture),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+
+    const text = await res.text().catch(() => "");
+    throw new Error(`Post failed (${res.status}): ${text}`);
   },
 
   /**
@@ -414,6 +448,40 @@ export const ConsoleClient = {
       this._refreshPromise = null;
     });
     return this._refreshPromise;
+  },
+
+  /**
+   * @typedef {object} DeviceNetwork
+   * @property {null} ipv4 IPv4 address, TBD
+   * @property {null} ipv6 IPv6 address, TBD
+   */
+
+  /**
+   * @typedef {object} DevicePosture
+   * @property {object} os Telemetry-reported os information.
+   * @property {object|undefined} security Telemetry-reported security software info (windows only)
+   * @property {object} build Telemetry-reported build info info
+   * @property {DeviceNetwork} network Network posture (placeholders for now).
+   */
+
+  /**
+   * Collects the device posture from TelemetryEnvironment.currentEnvironment
+   * and others data sources.
+   *
+   * @returns {DevicePosture} devicePosture
+   */
+  _collectDevicePosture() {
+    const devicePosturePayload = {
+      os: lazy.TelemetryEnvironment.currentEnvironment.system.os,
+      security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
+      build: lazy.TelemetryEnvironment.currentEnvironment.build,
+      // TODO: Client posture IP addr is P2, to be filled later.
+      network: {
+        ipv4: null,
+        ipv6: null,
+      },
+    };
+    return devicePosturePayload;
   },
 
   /**

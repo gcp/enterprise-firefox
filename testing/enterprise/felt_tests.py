@@ -10,7 +10,7 @@ import sys
 import time
 import urllib.parse
 import uuid
-from ctypes import c_wchar_p  # c_wchar_p
+from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Manager, Process, Value
 
@@ -38,6 +38,11 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def forbidden(self, path=None):
+        self.send_response(403, "Forbidden")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -100,6 +105,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         print("path: ", path)
 
         if path == "/sso/login":
+            query = urllib.parse.parse_qs(parsed.query)
+            if not "devicePostureToken" in query.keys():
+                self.forbidden()
+                return
+
+            if query["devicePostureToken"][0] != self.server.device_posture_token:
+                print(
+                    f"Incorrect token. Expected '{self.server.device_posture_token}' received '{query['devicePostureToken'][0]}'"
+                )
+                self.forbidden()
+                return
+
             location = f"http://localhost:{self.server.sso_port}/sso_url"
             self.send_response(302, "Found")  # or 301/308 as needed
             self.send_header("Location", location)
@@ -160,13 +177,31 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 m = json.dumps({"policies": {}})
 
         elif path == "/sso/callback":
+            policy_access_token = self.server.policy_access_token.value
+            policy_refresh_token = self.server.policy_refresh_token.value
+
+            """
+            TODO: Behavior is not yet clearly defined
+            with self.server.device_posture_reply_forbidden.get_lock():
+                if self.server.device_posture_reply_forbidden.value == 1:
+                    policy_access_token = ""
+                    policy_refresh_token = ""
+            """
+
+            obj = json.dumps(
+                {
+                    "access_token": f"{policy_access_token}",
+                    "token_type": "bearer",
+                    "expires_in": 71999,
+                    "refresh_token": f"{policy_refresh_token}",
+                }
+            )
+
             m = f"""
 <html>
 <head>
     <title>Callback!</title>
-    <script id="token_data" type="application/json">
-        {{"access_token":"{self.server.policy_access_token.value}","token_type":"bearer","expires_in":71999,"refresh_token":"{self.server.policy_refresh_token.value}"}}
-    </script>
+    <script id="token_data" type="application/json">{obj}</script>
 </head>
 <body>
     <h1>Welcome!</h1>
@@ -184,6 +219,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </body>
 </html>
             """
+
+        # Not a real end point, just used for tests
+        elif path == "/sso/get_device_posture":
+            m = json.dumps(self.server.device_posture_payload)
+
         if m is not None:
             self.reply(m)
         else:
@@ -208,6 +248,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "refresh_token": self.server.policy_refresh_token.value,
                 }
             )
+
+        elif path == "/sso/device_posture":
+            self.server.device_posture_payload = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            )
+            self.server.device_posture_token = str(uuid.uuid4())
+            m = json.dumps({"posture": self.server.device_posture_token})
+
         if m is not None:
             self.reply(m)
         else:
@@ -224,6 +272,8 @@ def serve(
     policy_block_about_config=None,
     policy_access_token=None,
     policy_refresh_token=None,
+    # TODO: Behavior is not yet clearly defined
+    # device_posture_reply_forbidden=None,
 ):
     httpd = HTTPServer(("", port), classname)
     httpd.sso_port = sso_port
@@ -238,6 +288,11 @@ def serve(
         httpd.policy_access_token = policy_access_token
     if policy_refresh_token:
         httpd.policy_refresh_token = policy_refresh_token
+    """
+    TODO: Behavior is not yet clearly defined
+    if device_posture_reply_forbidden is not None:
+        httpd.device_posture_reply_forbidden = device_posture_reply_forbidden
+    """
     print(
         f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
@@ -264,6 +319,10 @@ class FeltTests(EnterpriseTestsBase):
         self.console_port = console
         self.sso_port = sso_server
         self.policy_block_about_config = Value("B", 1)
+        """
+        TODO: Behavior is not yet clearly defined
+        self.device_posture_reply_forbidden = Value("B", 0)
+        """
 
         manager = Manager()
         self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
@@ -279,6 +338,8 @@ class FeltTests(EnterpriseTestsBase):
                 policy_block_about_config=self.policy_block_about_config,
                 policy_access_token=self.policy_access_token,
                 policy_refresh_token=self.policy_refresh_token,
+                # TODO: Behavior is not yet clearly defined
+                # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),
         )
         self.console_httpd.start()
@@ -412,6 +473,9 @@ class FeltTests(EnterpriseTestsBase):
             return self._wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, e))
             )
+
+    def find_elem_by_id(self, e):
+        return self._driver.find_element(By.ID, e)
 
     def get_elem_child(self, e):
         # Windows is slower?

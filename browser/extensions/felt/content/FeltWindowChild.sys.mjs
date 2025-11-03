@@ -18,14 +18,20 @@ export class FeltWindowChild extends JSWindowActorChild {
       return;
     }
 
-    console.debug("FeltWindowChild: Extracting token data");
-    const consoleTokenData = JSON.parse(
-      event.target.querySelector("#token_data").textContent
-    );
-
-    console.debug(
-      "FeltWindowChild: Sending token data to ConsoleClient and starting Firefox"
-    );
-    this.actor.sendAsyncMessage("FeltChild:StartFirefox", consoleTokenData);
+    const tokenData = event.target.querySelector("#token_data");
+    if (tokenData) {
+      console.debug("FeltWindowChild: Extracting token data");
+      const consoleTokenData = JSON.parse(tokenData.textContent);
+      if (
+        consoleTokenData &&
+        "access_token" in consoleTokenData &&
+        consoleTokenData.access_token !== ""
+      ) {
+        console.debug(
+          "FeltWindowChild: Sending token data to ConsoleClient and starting Firefox"
+        );
+        this.actor.sendAsyncMessage("FeltChild:StartFirefox", consoleTokenData);
+      }
+    }
   }
 }

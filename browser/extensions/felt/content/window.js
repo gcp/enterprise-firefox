@@ -18,13 +18,22 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // Will at least make move forward marionette
 Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
-function connectToConsole(email) {
+async function connectToConsole(email) {
+  const posture = await lazy.ConsoleClient.sendDevicePosture();
+  if (!posture) {
+    // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
+    return;
+  }
+
   let browser = document.getElementById("browser");
 
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
 
-  const ssoLoginURI = lazy.ConsoleClient.constructSsoLoginURI(email);
+  const ssoLoginURI = lazy.ConsoleClient.constructSsoLoginURI(
+    email,
+    posture.posture
+  );
 
   browser.setAttribute(
     "remoteType",
@@ -41,9 +50,9 @@ function connectToConsole(email) {
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
   );
   const contentPrincipal =
-  Services.scriptSecurityManager.createContentPrincipal(ssoLoginURI, {
-    privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
-  });
+    Services.scriptSecurityManager.createContentPrincipal(ssoLoginURI, {
+      privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+    });
   console.debug(
     `FeltExtension: created contentPrincipal with privateBrowsingId=${contentPrincipal.privateBrowsingId}`
   );
