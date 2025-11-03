@@ -10,6 +10,9 @@ const { EnterprisePolicyTesting, PoliciesPrefTracker } =
   );
 
 PoliciesPrefTracker.start();
+registerCleanupFunction(() => {
+  PoliciesPrefTracker.stop();
+});
 
 async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
