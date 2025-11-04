@@ -17,9 +17,9 @@
 ## https://mozilla-l10n.github.io/styleguides/mozilla_general/#brands-copyright-and-trademark
 
 -brand-shorter-name = Firefox
--brand-short-name = Firefox for Enterprise
--brand-shortcut-name = Firefox for Enterprise
--brand-full-name = Mozilla Firefox for Enterprise
+-brand-short-name = Firefox Enterprise
+-brand-shortcut-name = Firefox Enterprise
+-brand-full-name = Firefox Enterprise
 # This brand name can be used in messages where the product name needs to
 # remain unchanged across different versions (Nightly, Beta, etc.).
 -brand-product-name = Firefox
