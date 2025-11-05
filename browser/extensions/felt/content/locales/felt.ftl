@@ -12,6 +12,7 @@ felt-sso-input-email =
 felt-sso-continue-btn =
     .label = Continue
 felt-powered-by =
-    Powered by Mozilla
+    Powered by { -vendor-short-name }
+# $version is the version of Felt, not Firefox/Enterprise Browser.
 felt-version =
     Version { $version }
