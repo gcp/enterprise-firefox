@@ -7,8 +7,5 @@
 "use strict";
 
 browser.runtime.onUpdateAvailable.addListener(_details => {
-  // The New Tab built-in add-on is not designed to be updated at runtime.
-  //
-  // By listening to but ignoring this event, any updates will
-  // be delayed until the next browser restart.
+  // The Felt built-in add-on is not designed to be updated at runtime.
 });

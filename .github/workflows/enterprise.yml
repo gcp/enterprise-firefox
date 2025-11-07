@@ -157,6 +157,8 @@ jobs:
         run: ./mach build
 
       - name: package
+        env:
+          RUN_FIND_DUPES: 1
         run: |
           ./mach package
 
@@ -167,6 +169,8 @@ jobs:
           compression-level: 0
 
       - name: "package gcp-eu"
+        env:
+          RUN_FIND_DUPES: 1
         run: |
           echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
           ./mach package
@@ -386,6 +390,8 @@ jobs:
           ./mach build
 
       - name: package
+        env:
+          RUN_FIND_DUPES: 1
         run: ./mach package
 
       - uses: actions/upload-artifact@v4
@@ -395,6 +401,8 @@ jobs:
           compression-level: 0
 
       - name: "package gcp-eu"
+        env:
+          RUN_FIND_DUPES: 1
         run: |
           echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
           ./mach package
@@ -573,6 +581,8 @@ jobs:
           ./mach build
 
       - name: "package unsigned"
+        env:
+          RUN_FIND_DUPES: 1
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
           ./mach package
@@ -615,6 +625,8 @@ jobs:
           compression-level: 0
 
       - name: "package gcp-eu"
+        env:
+          RUN_FIND_DUPES: 1
         run: |
           echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
           ./mach package

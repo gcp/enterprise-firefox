@@ -249,6 +249,17 @@ def check_networking(binary):
     if PLATFORM == "WINNT":
         networking_functions |= socket_functions
 
+    if buildconfig.substs.get("MOZ_ENTERPRISE"):
+        # Used by ipc-channel for Felt/Browser communication
+        felt_socket_functions = set(
+            [
+                "send",
+                "recv",
+            ]
+        )
+
+        networking_functions = networking_functions.difference(felt_socket_functions)
+
     bad_occurences_names = set()
 
     try:
