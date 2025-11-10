@@ -114,6 +114,10 @@ PER_PROJECT_PARAMETERS = {
     "staging-firefox": {
         "target_tasks_method": "default",
     },
+    "enterprise-firefox": {
+        "target_tasks_method": "enterprise_firefox_tasks",
+        "release_type": "nightly-enterprise",
+    },
     # the default parameters are used for projects that do not match above.
     "default": {
         "target_tasks_method": "default",

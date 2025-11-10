@@ -36,6 +36,8 @@ RELEASE_PROJECTS = {
     "maple",
     # bug 1988213: cypress project branch
     "cypress",
+    # https://github.com/mozilla/enterprise-firefox
+    # "enterprise-firefox",
 }
 
 RELEASE_PROMOTION_PROJECTS = {
@@ -73,6 +75,7 @@ RUN_ON_PROJECT_ALIASES = {
     "autoland-only": lambda project: project == "autoland",
     "mozilla-central": lambda project: project in ("mozilla-central", "toolchains"),
     "mozilla-central-only": lambda project: project == "mozilla-central",
+    "enterprise-firefox": lambda project: project == "enterprise-firefox",
 }
 
 _COPYABLE_ATTRIBUTES = (

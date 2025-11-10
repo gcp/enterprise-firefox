@@ -450,6 +450,50 @@ def target_tasks_mozilla_central(full_task_graph, parameters, graph_config):
     return [l for l in filtered_for_project if filter(full_task_graph[l])]
 
 
+@register_target_task("enterprise_firefox_tasks")
+def target_tasks_enterprise_firefox(full_task_graph, parameters, graph_config):
+    """In addition to doing the filtering by project that the 'default'
+    filter does, also remove any tests running against regular (aka not shippable,
+    asan, etc.) opt builds."""
+    filtered_for_project = target_tasks_default(
+        full_task_graph, parameters, graph_config
+    )
+
+    def filter(task):
+        # Only keep builds that have been explicitely flagged
+        if task.kind == "build" and "all" in task.attributes.get("run_on_projects"):
+            return False
+
+        if task.kind not in TEST_KINDS:
+            return True
+
+        build_platform = task.attributes.get("build_platform")
+        build_type = task.attributes.get("build_type")
+        shippable = task.attributes.get("shippable", False)
+
+        if not build_platform or not build_type:
+            return True
+
+        family = platform_family(build_platform)
+        # We need to know whether this test is against a "regular" opt build
+        # (which is to say, not shippable, asan, tsan, or any other opt build
+        # with other properties). There's no positive test for this, so we have to
+        # do it somewhat hackily. Android doesn't have variants other than shippable
+        # so it is pretty straightforward to check for. Other platforms have many
+        # variants, but none of the regular opt builds we're looking for have a "-"
+        # in their platform name, so this works (for now).
+        is_regular_opt = (
+            family == "android" and not shippable
+        ) or "-" not in build_platform
+
+        if build_type != "opt" or not is_regular_opt:
+            return True
+
+        return False
+
+    return [l for l in filtered_for_project if filter(full_task_graph[l])]
+
+
 @register_target_task("graphics_tasks")
 def target_tasks_graphics(full_task_graph, parameters, graph_config):
     """In addition to doing the filtering by project that the 'default'

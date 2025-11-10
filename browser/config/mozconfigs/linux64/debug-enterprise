@@ -1,0 +1,10 @@
+ac_add_options --enable-debug
+
+. $topsrcdir/build/unix/mozconfig.linux
+
+# Needed to enable breakpad in application.ini
+export MOZILLA_OFFICIAL=1
+
+ac_add_options --enable-enterprise
+
+. "$topsrcdir/build/mozconfig.common.override"
