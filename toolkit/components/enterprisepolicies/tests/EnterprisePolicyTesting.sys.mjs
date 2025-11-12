@@ -61,11 +61,39 @@ export var EnterprisePolicyTesting = {
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
       Services.prefs.setStringPref("browser.policies.server", serverAddr);
-      Services.prefs.setStringPref("enterprise.console.refresh_token", "token");
+      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
+
+      // Set up mock token endpoint for ConsoleClient (token refresh never hits it yet)
+      this._httpd.registerPathHandler("/sso/token", (req, resp) => {
+        resp.setStatusLine(req.httpVersion, 200, "OK");
+        resp.setHeader("Content-Type", "application/json");
+        resp.write(
+          JSON.stringify({
+            access_token: "test_access_token",
+            refresh_token: "test_refresh_token",
+            expires_in: 3600,
+            token_type: "Bearer",
+          })
+        );
+      });
+
+      // Initialize ConsoleClient with valid token data for testing
+      const { ConsoleClient } = ChromeUtils.importESModule(
+        "resource:///modules/enterprise/ConsoleClient.sys.mjs"
+      );
+      ConsoleClient.ensureTokenData({
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      });
+
       registerCleanupFunction(async () => {
         await new Promise(resolve => this._httpd.stop(resolve));
         this._httpd = undefined;
         Services.prefs.setStringPref("browser.policies.server", "");
+        Services.prefs.clearUserPref("enterprise.console.address");
+        ConsoleClient.clearTokenData();
       });
     }
 
