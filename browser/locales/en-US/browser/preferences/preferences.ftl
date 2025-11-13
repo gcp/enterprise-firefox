@@ -788,10 +788,6 @@ home-prefs-weather-header =
 home-prefs-weather-description = Today’s forecast at a glance
 home-prefs-weather-learn-more-link = Learn more
 
-home-prefs-trending-search-header =
-    .label = Trending searches
-home-prefs-trending-search-description = Popular and frequently searched topics
-
 # Lists is a widget on New Tab, similar to a to-do widget
 home-prefs-lists-header =
     .label = Lists
@@ -1227,8 +1223,14 @@ history-remember-option-never =
 history-remember-option-custom =
     .label = Use custom settings for history
 
-history-remember-description = { -brand-short-name } will remember your browsing, download, form, and search history.
-history-dontremember-description = { -brand-short-name } will use the same settings as private browsing, and will not remember any history as you browse the Web.
+history-remember-description2 =
+    .description ={ -brand-short-name } will remember your browsing, download, form, and search history.
+
+history-dontremember-description2 =
+    .description = { -brand-short-name } will use the same settings as private browsing, and will not remember any history as you browse the Web.
+
+history-custom-description =
+    .description = { -brand-short-name } will use custom settings for your browsing, download, form and search history.
 
 history-private-browsing-permanent =
     .label = Always use private browsing mode

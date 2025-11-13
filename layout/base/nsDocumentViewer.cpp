@@ -25,6 +25,7 @@
 #include "nsCOMPtr.h"
 #include "nsCRT.h"
 #include "nsContentUtils.h"
+#include "nsDeviceContext.h"
 #include "nsFrameSelection.h"
 #include "nsGenericHTMLElement.h"
 #include "nsIContent.h"
@@ -1918,7 +1919,7 @@ nsDocumentViewer::SetBoundsWithFlags(const LayoutDeviceIntRect& aBounds,
     nscoord height = NSIntPixelsToAppUnits(mBounds.height, p2a);
     nsView* rootView = mViewManager->GetRootView();
     if (boundsChanged && rootView) {
-      nsRect viewDims = rootView->GetDimensions();
+      nsRect viewDims = rootView->GetBounds();
       // If the view/frame tree and prescontext visible area already has the new
       // size but we did not, then it's likely that we got reflowed in response
       // to a call to GetContentSize. Thus there is a disconnect between the
@@ -2180,12 +2181,10 @@ void nsDocumentViewer::MakeWindow(const nsSize& aSize) {
     return;
   }
 
-  mViewManager = new nsViewManager(mPresContext->DeviceContext());
+  mViewManager = new nsViewManager();
 
-  // The root view is always at 0,0.
-  nsRect tbounds(nsPoint(), aSize);
   // Create a view
-  nsView* view = mViewManager->CreateView(tbounds, nullptr);
+  nsView* view = mViewManager->CreateView(aSize);
 
   // Create a widget if we were given a parent widget or don't have a
   // container view that we can hook up to without a widget.

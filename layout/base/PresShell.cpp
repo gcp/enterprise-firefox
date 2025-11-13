@@ -4017,43 +4017,6 @@ void PresShell::SchedulePaint() {
   }
 }
 
-void PresShell::ClearMouseCaptureOnView(nsView* aView) {
-  if (nsIContent* capturingContent = GetCapturingContent()) {
-    if (aView) {
-      // if a view was specified, ensure that the captured content is within
-      // this view.
-      nsIFrame* frame = capturingContent->GetPrimaryFrame();
-      if (frame) {
-        nsView* view = frame->GetClosestView();
-        // if there is no view, capturing won't be handled any more, so
-        // just release the capture.
-        if (view) {
-          do {
-            if (view == aView) {
-              ReleaseCapturingContent();
-              // the view containing the captured content likely disappeared so
-              // disable capture for now.
-              AllowMouseCapture(false);
-              break;
-            }
-
-            view = view->GetParent();
-          } while (view);
-          // return if the view wasn't found
-          return;
-        }
-      }
-    }
-
-    ReleaseCapturingContent();
-  }
-
-  // disable mouse capture until the next mousedown as a dialog has opened
-  // or a drag has started. Otherwise, someone could start capture during
-  // the modal dialog or drag.
-  AllowMouseCapture(false);
-}
-
 void PresShell::ClearMouseCapture() {
   ReleaseCapturingContent();
   AllowMouseCapture(false);
@@ -4836,10 +4799,9 @@ nsresult PresShell::RenderDocument(const nsRect& aRect,
   }
   if (aFlags & RenderDocumentFlags::UseWidgetLayers) {
     // We only support using widget layers on display root's with widgets.
-    nsView* view = rootFrame->GetView();
-    if (view && view->GetWidget() &&
-        nsLayoutUtils::GetDisplayRootFrame(rootFrame) == rootFrame) {
-      WindowRenderer* renderer = view->GetWidget()->GetWindowRenderer();
+    nsIWidget* widget = rootFrame->GetOwnWidget();
+    if (widget && nsLayoutUtils::GetDisplayRootFrame(rootFrame) == rootFrame) {
+      WindowRenderer* renderer = widget->GetWindowRenderer();
       // WebRenderLayerManagers in content processes
       // don't support taking snapshots.
       if (renderer &&
@@ -5808,10 +5770,6 @@ static nsView* FindViewContaining(nsView* aRelativeToView,
                                   nsView* aView, nsPoint aPt) {
   MOZ_ASSERT(aRelativeToView->GetFrame());
 
-  if (aView->GetVisibility() == ViewVisibility::Hide) {
-    return nullptr;
-  }
-
   nsIFrame* frame = aView->GetFrame();
   if (frame) {
     if (!frame->PresShell()->IsActive() ||
@@ -5828,14 +5786,9 @@ static nsView* FindViewContaining(nsView* aRelativeToView,
     // none of them can be between the root frame and the zoom boundary.
     bool crossingZoomBoundary = false;
     if (aRelativeToViewportType == ViewportType::Visual) {
-      if (!aRelativeToView->GetParent() ||
-          aRelativeToView->GetViewManager() !=
-              aRelativeToView->GetParent()->GetViewManager()) {
-        if (aRelativeToView->GetFrame()
-                ->PresContext()
-                ->IsRootContentDocumentCrossProcess()) {
-          crossingZoomBoundary = true;
-        }
+      if (nsIFrame* f = aRelativeToView->GetFrame();
+          f && f->PresContext()->IsRootContentDocumentCrossProcess()) {
+        crossingZoomBoundary = true;
       }
     }
 
@@ -5865,21 +5818,13 @@ static nsView* FindViewContaining(nsView* aRelativeToView,
     // hittesting against the view of the subdocument frame that contains us
     // already happened and succeeded before getting here.
     if (!crossingZoomBoundary) {
-      if (!aView->GetDimensions().Contains(aPt)) {
+      if (!aView->GetBounds().Contains(aPt)) {
         return nullptr;
       }
     }
 
     aRelativeToView = aView;
     aRelativeToViewportType = nextRelativeToViewportType;
-  }
-
-  for (nsView* v = aView->GetFirstChild(); v; v = v->GetNextSibling()) {
-    nsView* r =
-        FindViewContaining(aRelativeToView, aRelativeToViewportType, v, aPt);
-    if (r) {
-      return r;
-    }
   }
 
   return frame ? aView : nullptr;
@@ -5890,11 +5835,6 @@ static BrowserBridgeChild* GetChildBrowser(nsView* aView) {
     return nullptr;
   }
   nsIFrame* frame = aView->GetFrame();
-  if (!frame && aView->GetParent()) {
-    // If frame is null then view is an anonymous inner view, and we want
-    // the frame from the corresponding outer view.
-    frame = aView->GetParent()->GetFrame();
-  }
   if (!frame || !frame->GetContent()) {
     return nullptr;
   }
@@ -6020,9 +5960,7 @@ void PresShell::ProcessSynthMouseOrPointerMoveEvent(
   if (rootView->GetFrame()) {
     popupFrame = FindPopupFrame(mPresContext, rootView->GetWidget(),
                                 LayoutDeviceIntPoint::FromAppUnitsToNearest(
-                                    aPointerInfo.mLastRefPointInRootDoc +
-                                        rootView->ViewToWidgetOffset(),
-                                    APD));
+                                    aPointerInfo.mLastRefPointInRootDoc, APD));
     if (popupFrame) {
       pointShell = popupFrame->PresShell();
       widget = popupFrame->GetWidget();
@@ -6046,8 +5984,7 @@ void PresShell::ProcessSynthMouseOrPointerMoveEvent(
     // pointView can be null in situations related to mouse capture
     pointShell = (pointView ? pointView : rootView)->GetPresShell();
     bbc = GetChildBrowser(pointView);
-    refpoint =
-        aPointerInfo.mLastRefPointInRootDoc + rootView->ViewToWidgetOffset();
+    refpoint = aPointerInfo.mLastRefPointInRootDoc;
   }
   NS_ASSERTION(widget, "view should have a widget here");
   Maybe<WidgetMouseEvent> mouseMoveEvent;
@@ -6583,8 +6520,9 @@ void PresShell::PaintAndRequestComposite(nsIFrame* aFrame,
     // The fallback renderer doesn't do any retaining, so we just need to
     // notify the view and widget that we're invalid, and we'll do a
     // paint+composite from the PaintWindow callback.
-    if (auto* view = aFrame ? aFrame->GetView() : nullptr) {
-      GetViewManager()->InvalidateView(view);
+    if (nsIWidget* widget = aFrame ? aFrame->GetOwnWidget() : nullptr) {
+      auto bounds = widget->GetBounds();
+      widget->Invalidate(LayoutDeviceIntRect({}, bounds.Size()));
     }
     return;
   }
@@ -7208,16 +7146,7 @@ nsIFrame* PresShell::GetClosestAncestorFrameForAncestorView() const {
     return nullptr;
   }
   nsView* view = vm->GetRootView();
-  while (view && !view->GetFrame()) {
-    view = view->GetParent();
-  }
-
-  nsIFrame* frame = nullptr;
-  if (view) {
-    frame = view->GetFrame();
-  }
-
-  return frame;
+  return view ? view->GetFrame() : nullptr;
 }
 
 static CallState FlushThrottledStyles(Document& aDocument) {
@@ -10741,16 +10670,6 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
   NS_ASSERTION(status.IsEmpty(), "reflow roots should never split");
 
   target->SetSize(boundsRelativeToTarget.Size());
-
-  // Always use boundsRelativeToTarget here, not desiredSize.InkOverflowRect(),
-  // because for root frames (where they could be different, since root frames
-  // are allowed to have overflow) the root view bounds need to match the
-  // viewport bounds; the view manager "window dimensions" code depends on it.
-  if (auto* view = target->GetView()) {
-    nsContainerFrame::SyncFrameViewAfterReflow(mPresContext, target, view,
-                                               boundsRelativeToTarget);
-  }
-
   target->DidReflow(mPresContext, nullptr);
   if (target->IsInScrollAnchorChain()) {
     ScrollAnchorContainer* container = ScrollAnchorContainer::FindFor(target);
@@ -11948,7 +11867,6 @@ void PresShell::UpdateAnchorPosForScroll(
       // Update positioned frame's overflow, then the absolute containing
       // block's.
       positioned->UpdateOverflow();
-      nsContainerFrame::PlaceFrameView(positioned);
       positioned->GetParent()->UpdateOverflow();
       referenceData->mDefaultScrollShift = offset;
       return true;
