@@ -1071,15 +1071,12 @@ BrowserGlue.prototype = {
       {
         name: "EnterpriseStorageEncryption.load",
         condition:
+          AppConstants.MOZ_ENTERPRISE &&
           Services.prefs.getBoolPref(
             "security.storage.encryption.enabled",
             false
-          ) &&
-          (lazy.ConsoleClient.tokenData?.accessToken ||
-            lazy.ConsoleClient.refreshTokenBackup),
+          ),
         task: async () => {
-          console.debug("EnterpriseStorageEncryption.load: Starting task");
-
           // Get the primary secret from the console backend
           // The API returns { data: "secret_value" }
           let primary_secret;
@@ -1087,12 +1084,17 @@ BrowserGlue.prototype = {
             const payload = await lazy.ConsoleClient.getPrimarySecret();
             primary_secret = payload.data;
             if (!primary_secret) {
-              console.error("EnterpriseStorageEncryption.load: No data field in payload:", payload);
+              console.error(
+                "EnterpriseStorageEncryption.load: No data field in payload:",
+                payload
+              );
               return;
             }
-            console.log("EnterpriseStorageEncryption.load: primary_secret retreived from the console backend");
           } catch (e) {
-            console.error("EnterpriseStorageEncryption.load: Failed to get primary secret:", e);
+            console.error(
+              "EnterpriseStorageEncryption.load: Failed to get primary secret:",
+              e
+            );
             return;
           }
 
@@ -1105,7 +1107,9 @@ BrowserGlue.prototype = {
           try {
             pk11token = tokenDB.getInternalKeyToken();
           } catch (e) {
-            console.error("EnterpriseStorageEncryption.load: Error getting PK11 token: " + e);
+            console.error(
+              "EnterpriseStorageEncryption.load: Error getting PK11 token: " + e
+            );
             return;
           }
 
@@ -1113,19 +1117,21 @@ BrowserGlue.prototype = {
           if (pk11token.needsUserInit) {
             try {
               pk11token.initPassword(primary_secret);
-              console.log("EnterpriseStorageEncryption.load: PK11 token password initialized with primary_secret.");
             } catch (e) {
-              console.error("EnterpriseStorageEncryption.load: Failed to initialize PK11 token password: " + e);
-              return;
+              console.error(
+                "EnterpriseStorageEncryption.load: Failed to initialize PK11 token password: " +
+                  e
+              );
             }
           } else if (!pk11token.needsLogin()) {
             // Token doesn't need login (empty password), set it to primary_secret
             try {
               pk11token.changePassword("", primary_secret);
-              console.log("EnterpriseStorageEncryption.load: PK11 token password changed from empty to primary_secret.");
             } catch (e) {
-              console.error("EnterpriseStorageEncryption.load: Failed to change password from empty to primary_secret: " + e);
-              return;
+              console.error(
+                "EnterpriseStorageEncryption.load: Failed to change password from empty to primary_secret: " +
+                  e
+              );
             }
           } else {
             // Token needs login - verify the password matches primary_secret
@@ -1133,21 +1139,19 @@ BrowserGlue.prototype = {
             try {
               isPasswordValid = pk11token.checkPassword(primary_secret);
             } catch (e) {
-              console.error("EnterpriseStorageEncryption.load: Error checking password against PK11 token: " + e);
+              console.error(
+                "EnterpriseStorageEncryption.load: Error checking password against PK11 token: " +
+                  e
+              );
               return;
             }
-
-            console.log(`EnterpriseStorageEncryption.load: Password validation result: ${isPasswordValid}`);
 
             if (!isPasswordValid) {
-              console.error("EnterpriseStorageEncryption.load: Password against the PK11 token is not valid");
-              return;
-            } else {
-              console.log("EnterpriseStorageEncryption.load: Password against the PK11 token is valid");
+              console.error(
+                "EnterpriseStorageEncryption.load: Password against the PK11 token is not valid"
+              );
             }
           }
-
-          console.log("EnterpriseStorageEncryption.load: Done");
         },
       },
     ];

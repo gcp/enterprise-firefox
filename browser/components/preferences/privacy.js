@@ -62,12 +62,6 @@ ChromeUtils.defineLazyGetter(lazy, "gParentalControlsService", () =>
     : null
 );
 
-if (AppConstants.MOZ_ENTERPRISE) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  });
-}
-
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "TrackingDBService",
@@ -4070,22 +4064,6 @@ var gPrivacyPane = {
     );
   },
 
-  _isEnterpriseStorageEncryptionActive() {
-    if (
-      !Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
-    ) {
-      return false;
-    }
-    if (!AppConstants.MOZ_ENTERPRISE || !lazy.ConsoleClient) {
-      return false;
-    }
-
-    const consoleClient = lazy.ConsoleClient;
-    return Boolean(
-      consoleClient.tokenData?.accessToken || consoleClient.refreshTokenBackup
-    );
-  },
-
   /**
    * Initializes master password UI: the "use master password" checkbox, selects
    * the master password button to show, and enables/disables it as necessary.
@@ -4096,8 +4074,8 @@ var gPrivacyPane = {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
     // Check if enterprise storage encryption is managing the primary password
-    var isEnterpriseStorageEncryption =
-      this._isEnterpriseStorageEncryptionActive();
+    const isEnterpriseStorageEncryption =
+      LoginHelper.isEnterpriseManagedPrimaryPassword();
 
     var button = document.getElementById("changeMasterPassword");
     button.disabled = noMP || isEnterpriseStorageEncryption;
@@ -4116,12 +4094,8 @@ var gPrivacyPane = {
    * one is set.
    */
   async updateMasterPasswordButton() {
-    // Check if enterprise storage encryption is managing the primary password
-    var isEnterpriseStorageEncryption =
-      this._isEnterpriseStorageEncryptionActive();
-
     // If enterprise storage encryption is active, prevent any changes
-    if (isEnterpriseStorageEncryption) {
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
       this._initMasterPasswordUI();
       return;
     }
@@ -4150,12 +4124,8 @@ var gPrivacyPane = {
    * UI is automatically updated.
    */
   async _removeMasterPassword() {
-    // Check if enterprise storage encryption is managing the primary password
-    var isEnterpriseStorageEncryption =
-      this._isEnterpriseStorageEncryptionActive();
-
     // If enterprise storage encryption is active, prevent any changes
-    if (isEnterpriseStorageEncryption) {
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
       this._initMasterPasswordUI();
       return;
     }
@@ -4179,12 +4149,8 @@ var gPrivacyPane = {
    * Displays a dialog in which the primary password may be changed.
    */
   async changeMasterPassword() {
-    // Check if enterprise storage encryption is managing the primary password
-    var isEnterpriseStorageEncryption =
-      this._isEnterpriseStorageEncryptionActive();
-
     // If enterprise storage encryption is active, prevent any changes
-    if (isEnterpriseStorageEncryption) {
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
       return;
     }
 

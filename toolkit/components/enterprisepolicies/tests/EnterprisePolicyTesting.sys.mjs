@@ -60,7 +60,6 @@ export var EnterprisePolicyTesting = {
       this._httpd = new lazy.HttpServer();
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
-      Services.prefs.setStringPref("browser.policies.server", serverAddr);
       Services.prefs.setStringPref("enterprise.console.address", serverAddr);
 
       // Set up mock token endpoint for ConsoleClient (token refresh never hits it yet)
@@ -91,7 +90,6 @@ export var EnterprisePolicyTesting = {
       registerCleanupFunction(async () => {
         await new Promise(resolve => this._httpd.stop(resolve));
         this._httpd = undefined;
-        Services.prefs.setStringPref("browser.policies.server", "");
         Services.prefs.clearUserPref("enterprise.console.address");
         ConsoleClient.clearTokenData();
       });

@@ -10,22 +10,16 @@
  * of nsILoginManager and nsILoginManagerStorage.
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { Logic } from "resource://gre/modules/LoginManager.shared.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   NewPasswordModel: "resource://gre/modules/shared/NewPasswordModel.sys.mjs",
 });
-
-if (lazy.AppConstants.MOZ_ENTERPRISE) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  });
-}
 
 export class ParentAutocompleteOption {
   image;
@@ -1606,24 +1600,16 @@ export const LoginHelper = {
     return false;
   },
 
-  _isEnterpriseManagedPrimaryPassword() {
-    if (
-      !lazy.AppConstants.MOZ_ENTERPRISE ||
-      !Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
-    ) {
-      return false;
-    }
-    const consoleClient = lazy.ConsoleClient;
-    if (!consoleClient) {
-      return false;
-    }
-    return Boolean(
-      consoleClient.tokenData?.accessToken || consoleClient.refreshTokenBackup
+  isEnterpriseManagedPrimaryPassword() {
+    return (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
     );
   },
 
   /**
    * Shows OS auth dialog if enabled.
+   *
    * @param {Element} browser
    *        The <browser> that the prompt should be shown on
    * @param OSReauthEnabled Boolean indicating if OS reauth should be tried
@@ -1713,7 +1699,7 @@ export const LoginHelper = {
     }
 
     const enterpriseManagedPrimaryPassword =
-      this._isEnterpriseManagedPrimaryPassword();
+      this.isEnterpriseManagedPrimaryPassword();
     // If enterprise storage management is enabled but the token is still locked,
     // bail out without prompting so callers can retry after the enterprise secret
     // (which the user does not know) becomes available.
