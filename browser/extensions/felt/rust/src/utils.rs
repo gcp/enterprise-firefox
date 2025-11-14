@@ -103,9 +103,9 @@ pub fn inject_one_cookie(raw_cookie: String) {
 
 pub fn inject_bool_pref(name: String, value: bool) {
     do_main_thread("felt_inject_bool_pref", async move {
-        let c_name = CString::new(name.clone()).unwrap().into_raw();
+        let c_name = CString::new(name.as_str()).expect("Pref name contained a null byte");
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
-        if unsafe { prefs.SetBoolPref(c_name, value) } == NS_OK {
+        if unsafe { prefs.SetBoolPref(c_name.as_ptr(), value) } == NS_OK {
             trace!(
                 "inject_bool_pref(): BoolPreference({}, {}) NS_OK",
                 name,
@@ -123,10 +123,10 @@ pub fn inject_bool_pref(name: String, value: bool) {
 
 pub fn inject_string_pref(name: String, value: String) {
     do_main_thread("felt_inject_string_pref", async move {
-        let c_name = CString::new(name.clone()).unwrap().into_raw();
-        let c_value: nsCString = value.clone().into();
+        let c_name = CString::new(name.as_str()).expect("Pref name contained a null byte");
+        let c_value: nsCString = value.as_str().into();
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
-        if unsafe { prefs.SetStringPref(c_name, &*c_value) } == NS_OK {
+        if unsafe { prefs.SetStringPref(c_name.as_ptr(), &*c_value) } == NS_OK {
             trace!(
                 "inject_string_pref(): StringPreference({}, {}) NS_OK",
                 name,
@@ -144,9 +144,9 @@ pub fn inject_string_pref(name: String, value: String) {
 
 pub fn inject_int_pref(name: String, value: i32) {
     do_main_thread("felt_inject_int_pref", async move {
-        let c_name = CString::new(name.clone()).unwrap().into_raw();
+        let c_name = CString::new(name.as_str()).expect("Pref name contained a null byte");
         let prefs: RefPtr<nsIPrefBranch> = xpcom::components::Preferences::service().unwrap();
-        if unsafe { prefs.SetIntPref(c_name, value) } == NS_OK {
+        if unsafe { prefs.SetIntPref(c_name.as_ptr(), value) } == NS_OK {
             trace!(
                 "inject_int_pref(): IntPreference({}, {}) NS_OK",
                 name,
@@ -165,8 +165,8 @@ pub fn inject_int_pref(name: String, value: i32) {
 pub fn notify_observers(name: String) {
     do_main_thread("felt_notify_observers", async move {
         let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
-        let topic = CString::new(name.clone()).unwrap().into_raw();
-        let rv = unsafe { obssvc.NotifyObservers(std::ptr::null(), topic, std::ptr::null()) };
+        let topic = CString::new(name).expect("Topic name contained a null byte");
+        let rv = unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) };
         assert!(rv.succeeded());
     });
 }
