@@ -126,13 +126,6 @@ class nsView final : public nsIWidgetListener {
   nsViewManager* GetViewManager() const { return mViewManager; }
 
   /**
-   * Find the view for the given widget, if there is one.
-   * @return the view the widget belongs to, or null if the widget doesn't
-   * belong to any view.
-   */
-  static nsView* GetViewFor(const nsIWidget* aWidget);
-
-  /**
    * Destroy the view.
    *
    * The view destroys its child views, and destroys and releases its
@@ -217,17 +210,6 @@ class nsView final : public nsIWidgetListener {
 
   void SetNeedsWindowPropertiesSync();
 
-  /**
-   * Make aWidget direct its events to this view.
-   * The caller must call DetachWidgetEventHandler before this view
-   * is destroyed.
-   */
-  void AttachWidgetEventHandler(nsIWidget* aWidget);
-  /**
-   * Stop aWidget directing its events to this view.
-   */
-  void DetachWidgetEventHandler(nsIWidget* aWidget);
-
 #ifdef DEBUG
   /**
    * Output debug info to FILE
@@ -255,6 +237,9 @@ class nsView final : public nsIWidgetListener {
   // nsIWidgetListener
   mozilla::PresShell* GetPresShell() override;
   nsView* GetView() override { return this; }
+  bool IsPaintSuppressed() const override {
+    return IsPrimaryFramePaintSuppressed();
+  }
   bool WindowResized(nsIWidget* aWidget, int32_t aWidth,
                      int32_t aHeight) override;
 #ifdef MOZ_WIDGET_ANDROID
@@ -272,7 +257,6 @@ class nsView final : public nsIWidgetListener {
   void DidCompositeWindow(mozilla::layers::TransactionId aTransactionId,
                           const mozilla::TimeStamp& aCompositeStart,
                           const mozilla::TimeStamp& aCompositeEnd) override;
-  void RequestRepaint() override;
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsEventStatus HandleEvent(mozilla::WidgetGUIEvent* aEvent,
                             bool aUseAttachedEvents) override;
@@ -280,7 +264,7 @@ class nsView final : public nsIWidgetListener {
 
   virtual ~nsView();
 
-  bool IsPrimaryFramePaintSuppressed();
+  bool IsPrimaryFramePaintSuppressed() const;
 
  private:
   explicit nsView(nsViewManager* = nullptr);
@@ -297,11 +281,6 @@ class nsView final : public nsIWidgetListener {
    */
   void SetDimensions(const nsRect& aRect);
 
-  bool IsDirty() const { return mIsDirty; }
-  void SetIsDirty(bool aDirty) { mIsDirty = aDirty; }
-
-  void AssertNoWindow();
-
   void CallOnAllRemoteChildren(
       const std::function<mozilla::CallState(mozilla::dom::BrowserParent*)>&
           aCallback);
@@ -314,7 +293,6 @@ class nsView final : public nsIWidgetListener {
   nsRect mDimBounds;
   bool mWidgetIsTopLevel;
   bool mForcedRepaint;
-  bool mNeedsWindowPropertiesSync;
   bool mIsDirty = false;
 };
 

@@ -767,6 +767,10 @@ home-prefs-stories-header =
     .label = Stories
 home-prefs-stories-description = Personalized stories based on your activity
 
+home-prefs-stories-header2 =
+    .label = Stories
+    .description = Exceptional content curated by the { -brand-product-name } family
+
 ##
 
 home-prefs-recommended-by-learn-more = How it works
@@ -787,6 +791,9 @@ home-prefs-weather-header =
   .label = Weather
 home-prefs-weather-description = Today’s forecast at a glance
 home-prefs-weather-learn-more-link = Learn more
+
+home-prefs-widgets-header =
+    .label = Widgets
 
 # Lists is a widget on New Tab, similar to a to-do widget
 home-prefs-lists-header =
