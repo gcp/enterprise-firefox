@@ -754,8 +754,7 @@ CookieService::AddNativeForFelt(
   nsresult rv = AddInternal(nullptr, aHost, aPath, aName, aValue, aIsSecure,
                             aIsHttpOnly, aIsSession, aExpiry, &attrs, aSameSite,
                             aSchemeMap, aIsPartitioned, /* from-http: */
-                            true, nullptr, /* reject when invalid: */ true,
-                            getter_AddRefs(validation));
+                            true, nullptr, getter_AddRefs(validation));
   return rv;
 }
 #else
