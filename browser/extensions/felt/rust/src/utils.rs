@@ -206,7 +206,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie {
+pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
     let mut name = nsCString::new();
     unsafe {
         cookie.GetName(&mut *name);
