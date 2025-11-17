@@ -1079,11 +1079,11 @@ BrowserGlue.prototype = {
         task: async () => {
           // Get the primary secret from the console backend
           // The API returns { data: "secret_value" }
-          let primary_secret;
+          let primarySecret;
           try {
             const payload = await lazy.ConsoleClient.getPrimarySecret();
-            primary_secret = payload.data;
-            if (!primary_secret) {
+            primarySecret = payload.data;
+            if (!primarySecret) {
               console.error(
                 "EnterpriseStorageEncryption.load: No data field in payload:",
                 payload
@@ -1116,7 +1116,7 @@ BrowserGlue.prototype = {
           // Check if the PK11 token needs initialization
           if (pk11token.needsUserInit) {
             try {
-              pk11token.initPassword(primary_secret);
+              pk11token.initPassword(primarySecret);
             } catch (e) {
               console.error(
                 "EnterpriseStorageEncryption.load: Failed to initialize PK11 token password: " +
@@ -1124,20 +1124,20 @@ BrowserGlue.prototype = {
               );
             }
           } else if (!pk11token.needsLogin()) {
-            // Token doesn't need login (empty password), set it to primary_secret
+            // Token doesn't need login (empty password), set it to primarySecret
             try {
-              pk11token.changePassword("", primary_secret);
+              pk11token.changePassword("", primarySecret);
             } catch (e) {
               console.error(
-                "EnterpriseStorageEncryption.load: Failed to change password from empty to primary_secret: " +
+                "EnterpriseStorageEncryption.load: Failed to change password from empty to primarySecret: " +
                   e
               );
             }
           } else {
-            // Token needs login - verify the password matches primary_secret
+            // Token needs login - verify the password matches primarySecret
             let isPasswordValid;
             try {
-              isPasswordValid = pk11token.checkPassword(primary_secret);
+              isPasswordValid = pk11token.checkPassword(primarySecret);
             } catch (e) {
               console.error(
                 "EnterpriseStorageEncryption.load: Error checking password against PK11 token: " +

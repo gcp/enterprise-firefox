@@ -4074,16 +4074,16 @@ var gPrivacyPane = {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
     // Check if enterprise storage encryption is managing the primary password
-    const isEnterpriseStorageEncryption =
+    const isEnterpriseManagedPrimaryPassword =
       LoginHelper.isEnterpriseManagedPrimaryPassword();
 
     var button = document.getElementById("changeMasterPassword");
-    button.disabled = noMP || isEnterpriseStorageEncryption;
+    button.disabled = noMP || isEnterpriseManagedPrimaryPassword;
 
     var checkbox = document.getElementById("useMasterPassword");
-    checkbox.checked = !noMP;
+    checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
     checkbox.disabled =
-      isEnterpriseStorageEncryption ||
+      isEnterpriseManagedPrimaryPassword ||
       (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
       (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
   },
@@ -4151,6 +4151,7 @@ var gPrivacyPane = {
   async changeMasterPassword() {
     // If enterprise storage encryption is active, prevent any changes
     if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
       return;
     }
 

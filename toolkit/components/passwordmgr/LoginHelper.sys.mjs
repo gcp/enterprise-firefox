@@ -1698,7 +1698,7 @@ export const LoginHelper = {
       };
     }
 
-    const enterpriseManagedPrimaryPassword =
+    const isEnterpriseManagedPrimaryPassword =
       this.isEnterpriseManagedPrimaryPassword();
     // If enterprise storage management is enabled but the token is still locked,
     // bail out without prompting so callers can retry after the enterprise secret
