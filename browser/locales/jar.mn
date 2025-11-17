@@ -22,7 +22,7 @@
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
 #ifdef MOZ_ENTERPRISE
   preview/felt.ftl                                 (../extensions/felt/content/locales/felt.ftl)
-  preview/enterprise.ftl                      (../components/enterprise/content/enterprise.ftl)
+  preview/enterprise.ftl                           (../components/enterprise/content/enterprise.ftl)
 #endif
 
 @AB_CD@.jar:

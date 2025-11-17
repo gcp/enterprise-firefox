@@ -5,7 +5,6 @@
 browser.jar:
   content/browser/enterprise/enterprise-badge.css           (content/enterprise-badge.css)
   content/browser/enterprise/enterprise-badge.inc.xhtml     (content/enterprise-badge.inc.xhtml)
-  content/browser/enterprise/enterprise.ftl            (content/enterprise.ftl)
   content/browser/enterprise/EnterpriseHandler.js            (content/EnterpriseHandler.js)
   content/browser/enterprise/mozilla-badge.svg              (content/icons/mozilla-badge.svg)
   content/browser/enterprise/alert.svg                      (content/icons/alert.svg)
