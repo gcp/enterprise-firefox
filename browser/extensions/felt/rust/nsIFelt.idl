@@ -6,7 +6,7 @@
 #include "nsISupports.idl"
 #include "nsICookie.idl"
 
-[scriptable, uuid(53c53451-3b93-440c-b27b-9759ccb29da6)]
+[scriptable, uuid(373195cb-bbb9-4e01-b276-b799a18ca355)]
 interface nsIFelt : nsISupports {
   [must_use]
   ACString oneShotIpcServer();
@@ -43,4 +43,10 @@ interface nsIFelt : nsISupports {
 
   [must_use]
   void sendRestartForced();
+
+  [must_use]
+  void sendExtensionReady();
+
+  [must_use]
+  void openURL(in ACString url);
 };
