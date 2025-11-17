@@ -125,11 +125,10 @@ ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
 });
 
 if (AppConstants.MOZ_ENTERPRISE) {
-  XPCOMUtils.defineLazyScriptGetter(
-    this,
-    "gEnterpriseHandler",
-    "chrome://browser/content/enterprise/EnterpriseHandler.js"
-  );
+  ChromeUtils.defineESModuleGetters(this, {
+    EnterpriseHandler:
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+  });
 }
 
 XPCOMUtils.defineLazyScriptGetter(

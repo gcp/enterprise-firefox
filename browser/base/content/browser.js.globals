@@ -238,5 +238,5 @@
   "ToolbarDropHandler",
   "ProfilesDatastoreService",
   "gTrustPanelHandler",
-  "gEnterpriseHandler"
+  "EnterpriseHandler"
 ]

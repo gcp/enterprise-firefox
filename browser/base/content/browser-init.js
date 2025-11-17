@@ -185,10 +185,6 @@ var gBrowserInit = {
       }
     });
 
-    if (AppConstants.MOZ_ENTERPRISE) {
-      gEnterpriseHandler.init();
-    }
-
     updateFxaToolbarMenu(gFxaToolbarEnabled, true);
 
     updatePrintCommands(gPrintEnabled);

@@ -146,7 +146,7 @@ document.addEventListener(
           break;
 
         case "enterprise-badge-toolbar-button":
-          gEnterpriseHandler.openPanel(element, event);
+          EnterpriseHandler.openPanel(element, event);
           break;
 
         default:

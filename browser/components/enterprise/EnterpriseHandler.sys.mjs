@@ -4,8 +4,7 @@
 
 "use strict";
 
-// Declare var to avoid redeclaration syntax error
-var gEnterpriseHandler = {
+export const EnterpriseHandler = {
   /**
    * @typedef {object} User
    * @property {string} name name
@@ -13,8 +12,10 @@ var gEnterpriseHandler = {
    * @property {string} pictureUrl picture url
    */
   _signedInUser: null,
+  _document: null,
 
-  async init() {
+  async init(window) {
+    this._document = window.document;
     this.hideFxaToolbarButton();
 
     await this.initUser();
@@ -30,15 +31,15 @@ var gEnterpriseHandler = {
   },
 
   updateBadge() {
-    document.querySelector("#enterprise-user-icon").style["list-style-image"] =
+    this._document.querySelector("#enterprise-user-icon").style["list-style-image"] =
       `url(${this._signedInUser.pictureURL})`;
   },
 
   openPanel(element, event) {
-    PanelUI.showSubView("panelUI-enterprise", element, event);
-    const emailSpan = document.querySelector(".panelUI-enterprise__email");
+    this._document.ownerGlobal.PanelUI.showSubView("panelUI-enterprise", element, event);
+    const emailSpan = this._document.querySelector(".panelUI-enterprise__email");
     if (!emailSpan.textContent) {
-      document.querySelector(".panelUI-enterprise__email").textContent =
+      this._document.querySelector(".panelUI-enterprise__email").textContent =
         this._signedInUser.email;
     }
   },
@@ -50,9 +51,9 @@ var gEnterpriseHandler = {
    *       with Fxa and Sync to be determined.
    */
   hideFxaToolbarButton() {
-    document.getElementById("fxa-toolbar-menu-button").style.display = "none";
+    this._document.getElementById("fxa-toolbar-menu-button").style.display = "none";
   },
 
   // TODO: Open signout dialog
-  onSignOut() {},
+  onSignOut() { },
 };

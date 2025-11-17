@@ -188,7 +188,7 @@ document.addEventListener(
             gGestureSupport.rotateEnd();
             break;
           case "cmd_signoutEnterpriseUser":
-            gEnterpriseHandler.onSignOut();
+            EnterpriseHandler.onSignOut();
             break;
           case "Browser:OpenLocation":
             openLocation(event);
