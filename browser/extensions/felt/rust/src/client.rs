@@ -68,21 +68,6 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_restart(&self) {
-        trace!("FeltIpcClient::notify_restart()");
-        let msg = FeltMessage::Restarting;
-        if let Some(tx) = &self.tx {
-            match tx.send(msg) {
-                Ok(()) => {
-                    trace!("FeltIpcClient::notify_restart() SENT");
-                }
-                Err(err) => {
-                    trace!("FeltIpcClient::notify_restart() TX ERROR: {}", err);
-                }
-            }
-        }
-    }
-
     pub fn send_extension_ready(&self) {
         trace!("FeltIpcClient::send_extension_ready()");
         let msg = FeltMessage::ExtensionReady;
@@ -256,7 +241,7 @@ impl FeltClientThread {
         let thread_stop = Arc::new(AtomicBool::new(false));
 
         // Clone tx for the observer to send restart messages directly
-        let mut client = self.ipc_client.borrow_mut();
+        let client = self.ipc_client.borrow_mut();
         let tx_for_observer = client.tx.clone();
         drop(client);
 
