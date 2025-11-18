@@ -37,15 +37,20 @@ fn arg_matches(target: &str) -> bool {
         .any(|arg| normalize_arg(arg) == target)
 }
 
+fn has_env(target: &str) -> bool {
+    match env::var(target) {
+        Ok(v) => v == "1",
+        Err(_) => false,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn felt_init() {
     trace!("felt_init()");
     env_logger::init();
 
-    let found_felt_ui_env = match env::var("MOZ_FELT_UI") {
-        Ok(v) => v == "1",
-        Err(_) => false,
-    };
+    let found_felt_ui_env = has_env("MOZ_FELT_UI");
+    let bypass_env = has_env("MOZ_BYPASS_FELT");
 
     let felt_ui_requested = arg_matches("feltui") || found_felt_ui_env;
     let is_felt_browser = arg_matches("felt");
@@ -54,7 +59,7 @@ pub extern "C" fn felt_init() {
         panic!("Cannot have both -feltUI and -felt args");
     }
 
-    let is_felt_ui = !is_felt_browser;
+    let is_felt_ui = !is_felt_browser && !bypass_env;
     trace!("felt_init(): is_felt_ui={}", is_felt_ui);
     IS_FELT_UI.store(is_felt_ui, Ordering::Relaxed);
 
