@@ -408,5 +408,4 @@
          modifiers="accel,alt"
          internal="true"/>
 #endif
-
   </keyset>
