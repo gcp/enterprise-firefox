@@ -5,6 +5,7 @@
 
 import datetime
 import json
+import random
 import shutil
 import sys
 import time
@@ -309,15 +310,13 @@ class FeltTests(EnterpriseTestsBase):
         firefox,
         geckodriver,
         profile_root,
-        console,
-        sso_server,
         test_prefs=[],
         cli_args=[],
         env_vars={},
     ):
         self._manually_closed_child = False
-        self.console_port = console
-        self.sso_port = sso_server
+        self.console_port = random.randrange(10000, 20000)
+        self.sso_port = random.randrange(10000, 20000)
         self.policy_block_about_config = Value("B", 1)
         """
         TODO: Behavior is not yet clearly defined
