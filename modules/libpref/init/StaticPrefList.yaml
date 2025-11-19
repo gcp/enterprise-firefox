@@ -3452,6 +3452,14 @@
   mirror: always
 #endif
 
+# This controls whether JS IPC messages are sent from child to parent using
+# the typeable JSIPCValue encoding, or simply sent using structured cloning.
+# This being true is necessary to type check messages.
+- name: dom.jsipc.send_typed
+  type: bool
+  value: false
+  mirror: always
+
 # Support for input type=month, type=week. By default, disabled.
 - name: dom.forms.datetime.others
   type: bool
@@ -7705,7 +7713,7 @@
 - name: gfx.webrender.layer-compositor
   type: bool
 #if defined(XP_WIN)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -10162,17 +10170,6 @@
 #endif
   mirror: always
   rust: true
-
-# Enable the new multi-pass grid track sizing algorithm.
-# This features implements two aspects from the CSS Grid Level 2 spec:
-# 1. Percent-valued row track size re-resolution:
-#    https://drafts.csswg.org/css-grid-2/#track-sizes
-# 2. Multi-pass grid sizing algorithm:
-#    https://drafts.csswg.org/css-grid-2/#algo-grid-sizing
-- name: layout.css.grid-multi-pass-track-sizing.enabled
-  type: bool
-  value: true
-  mirror: always
 
 # Is support for :heading and :heading() pseudo classes enabled?
 - name: layout.css.heading-selector.enabled
@@ -15438,6 +15435,13 @@
   type: RelaxedAtomicUint32
   value: 30
   mirror: always
+
+# Whether to enable Packetization Layer Path MTU Discovery.
+- name: network.http.http3.pmtud
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
 
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
