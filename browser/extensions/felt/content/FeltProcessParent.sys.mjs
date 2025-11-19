@@ -27,7 +27,7 @@ export function queueURL(url) {
   ) {
     gFeltProcessParentInstance.sendURLToFirefox(url);
     // Ensure Felt launcher stays hidden when forwarding to running Firefox
-    Services.felt.makeBackgroundProcess();
+    Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
     gFeltPendingURLs.push(url);
