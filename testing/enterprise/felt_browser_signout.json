@@ -7,7 +7,7 @@
     ]
   },
   "test_felt_1_perform_sso_auth": {},
-  "test_felt_3_connect": {},
+  "test_felt_3_browser_ui_state_when_user_is_logged_in": {},
   "test_felt_4_perform_signout": {},
   "test_felt_5_whoami": {},
   "test_felt_6_browser_exited_show_sso": {},

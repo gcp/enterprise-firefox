@@ -19,10 +19,6 @@ class BrowserSignout(FeltTests):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def test_felt_3_connect(self, exp):
-        self.connect_child_browser()
-        return True
-
     def felt_whoami(self):
         self._child_driver.set_context("chrome")
         rv = self._child_driver.execute_script(
@@ -59,19 +55,45 @@ class BrowserSignout(FeltTests):
         )
         self._driver.set_context("content")
         return private_cookies
+    
+    def test_felt_3_browser_ui_state_when_user_is_logged_in(self, exp):
+        self.connect_child_browser()
+
+        whoami = self.felt_whoami()
+        self._logger.info(whoami)
+
+        self._child_driver.set_context("chrome")
+
+        self._logger.info("Checking for enterprise badge.")
+        badge = self.get_elem_child("#enterprise-badge-toolbar-button")
+
+        self._logger.info("Checking user icon is updated in badge.")
+        user_icon = self.get_elem_child("#enterprise-user-icon")
+        picture_url = user_icon.value_of_css_property("list-style-image")
+        assert picture_url == f"url(\"{whoami['picture']}\")", "User's picture not correctly set on user icon"
+        
+        self._logger.info("Clicking enterprise panel")
+        badge.click()
+
+        self._logger.info("Checking enterprise panel")
+        self.get_elem_child("#panelUI-enterprise")
+
+        self._logger.info("Checking user email address updated in enterprise panel")
+        email = self.get_elem_child(".panelUI-enterprise__email")
+
+        self._logger.info(email)
+        assert email.get_property("textContent") == whoami["email"], "User email not correctly set"
+        
+        self._child_driver.set_context("content")
+
+        return True
 
     def test_felt_4_perform_signout(self, exp):
         self.open_tab_child("about:newtab")
-        whoami = self.felt_whoami()
-        assert whoami["id"] != "", "User exists"
 
         self._child_driver.set_context("chrome")
-        self._child_driver.execute_script(
-            """
-            const { ConsoleClient } = ChromeUtils.importESModule("resource:///modules/enterprise/ConsoleClient.sys.mjs");
-            ConsoleClient.signout();
-            """,
-        )
+        self.get_elem_child("#enterprise-badge-toolbar-button").click()
+        self.get_elem_child(".panelUI-enterprise__sign-out-btn").click()
         self._child_driver.set_context("content")
 
         # This is not true but it will make sure the harness does not try to
