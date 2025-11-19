@@ -346,11 +346,12 @@ export const ConsoleClient = {
    * a registered console endpoint. If we get a 401 or 403 refresh and retry once.
    *
    * @param {string} path - Console API to request
+   * @param {string} method - Console API method to use, GET or POST
    * @param {{_didRefresh?: boolean}} [options]
    * @throws {InvalidAuthError|Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
-  async _get(path, { _didRefresh = false } = {}) {
+  async _get(path, method = "GET", { _didRefresh = false } = {}) {
     await this._ensureValidSession();
 
     const headers = new Headers({});
@@ -358,7 +359,7 @@ export const ConsoleClient = {
     headers.set("Authorization", `${tokenType} ${accessToken}`);
 
     const url = this.constructURI(path);
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { method: method, headers: headers });
 
     if (res.ok) {
       return await res.json();
@@ -366,11 +367,22 @@ export const ConsoleClient = {
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
       await this._refreshSession();
-      return this._get(path, { _didRefresh: true });
+      return this._get(path, method, { _didRefresh: true });
     }
 
     const text = await res.text().catch(() => "");
     throw new Error(`Fetch failed (${res.status}): ${text}`);
+  },
+
+  /*
+   * Sends a POST request with the same session validity check as GET above.
+   *
+   * @param {string} path - Console API to request
+   * @throws {InvalidAuthError|Error}
+   * @returns {Promise<any>} Parsed JSON response body.
+   */
+  async _post(path) {
+    return this._get(path, "POST");
   },
 
   /**
@@ -555,19 +567,8 @@ export const ConsoleClient = {
 
     // TODO: Assert or force-enable session restore?
 
-    const headers = new Headers({});
-    const { tokenType, accessToken } = this.tokenData;
-    headers.set("Authorization", `${tokenType} ${accessToken}`);
-    headers.set("Content-Type", "application/json");
-    headers.set("Accept", "application/json");
-
-    const url = this.constructURI(this._paths.SIGNOUT);
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-    });
-
-    if (res.ok) {
+    const res = await this._post(this._paths.SIGNOUT);
+    if (res) {
       // After successful server-side logout clear local state and notify FELT.
       this.clearTokenData();
 
@@ -579,8 +580,7 @@ export const ConsoleClient = {
       return;
     }
 
-    const text = await res.text().catch(() => "");
-    throw new Error(`Post failed (${res.status}): ${text}`);
+    throw new Error(`Post failed: (${res})`);
   },
 
   /**
