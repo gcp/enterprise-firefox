@@ -781,7 +781,7 @@ jobs:
       - name: "detach"
         if: "always()"
         run: |
-          pkill -f "${{ steps.attach.outputs.runtime_path }}"
+          pkill -f "${{ steps.attach.outputs.runtime_path }}" || echo "Already dead"
           hdiutil unmount -force -whole ${{ steps.attach.outputs.mount_dir }}
           rm -fr ./obj-aarch64-apple-darwin/
 
