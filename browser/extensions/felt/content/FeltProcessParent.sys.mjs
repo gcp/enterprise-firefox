@@ -112,7 +112,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             break;
           }
           case "felt-firefox-logout":
-            Services.ppmm.broadcastAsyncMessage("FeltParent:LogoutFirefox", {});
+            gFeltProcessParentInstance.logoutFirefox();
             break;
 
           default:
@@ -121,8 +121,6 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       },
     };
-
-    Services.cpmm.addMessageListener("FeltParent:LogoutFirefox", this);
 
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
     Services.obs.addObserver(this.restartObserver, "felt-extension-ready");
@@ -396,6 +394,29 @@ export class FeltProcessParent extends JSProcessActorParent {
     gFeltPendingURLs.length = 0;
   }
 
+  /**
+   * Perform all the logout operations on FELT side
+   */
+  logoutFirefox() {
+    if (!Services.felt.isFeltUI()) {
+      throw new Error("Logout handling should only happen on FELT side.");
+    }
+
+    console.debug(`FeltExtension: Logout, waiting on ${gFeltProcessParentInstance.proc.pid}`);
+    gFeltProcessParentInstance.logoutReported = true;
+    lazy.ConsoleClient.clearTokenData();
+
+    // Ensure that things are cleared
+    const ssoCollectedCookies = gFeltProcessParentInstance.getAllCookies();
+    if (ssoCollectedCookies.length) {
+      throw new Error("Too many cookies!!");
+    }
+
+    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+    });
+  }
+
   receiveMessage(message) {
     console.debug(
       `FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`
@@ -416,27 +437,6 @@ export class FeltProcessParent extends JSProcessActorParent {
           this.startFirefox(ssoCollectedCookies);
         }
         break;
-
-      case "FeltParent:LogoutFirefox": {
-        if (!Services.felt.isFeltUI()) {
-          throw new Error("Logout handling should only happen on FELT side.");
-        }
-
-        console.debug(`FeltExtension: Logout, waiting on ${this.proc.pid}`);
-        this.logoutReported = true;
-        lazy.ConsoleClient.clearTokenData();
-
-        // Ensure that things are cleared
-        const ssoCollectedCookies = this.getAllCookies();
-        if (ssoCollectedCookies.length) {
-          throw new Error("Too many cookies!!");
-        }
-
-        this.proc.exitPromise.then(_ => {
-          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
-        });
-        break;
-      }
 
       default:
         break;
