@@ -279,7 +279,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/sso/logout":
             self.check_auth()
-            m = json.dumps({})
+            m = json.dumps(None)
 
         if m is not None:
             self.reply(m)

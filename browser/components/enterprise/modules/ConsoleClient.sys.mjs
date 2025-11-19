@@ -569,7 +569,8 @@ export const ConsoleClient = {
     // TODO: Assert or force-enable session restore?
 
     const res = await this._post(this._paths.SIGNOUT);
-    if (res) {
+    // Server should maybe return better JSON?
+    if (res == null) {
       // After successful server-side logout clear local state and notify FELT.
       this.clearTokenData();
 
