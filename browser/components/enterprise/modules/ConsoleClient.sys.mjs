@@ -574,6 +574,12 @@ export const ConsoleClient = {
       // After successful server-side logout clear local state and notify FELT.
       this.clearTokenData();
 
+      // Make sure we signal early enough to the system that FELT should take
+      // over. Relevant at least for macOS dock icon. Not having this would
+      // at least intermittently result in missing dock icon for FELT after
+      // signout.
+      Services.felt.makeBackgroundProcess(true);
+
       // Notify FELT that we are logging out so the shutdown is a normal one
       // that should not be followed by restarting the process.
       Services.felt.performSignout();
