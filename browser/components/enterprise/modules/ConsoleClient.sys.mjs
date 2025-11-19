@@ -213,6 +213,7 @@ export const ConsoleClient = {
   get _paths() {
     return {
       SSO: "/sso/login",
+      SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
       STARTUP_PREFS: "/api/browser/hacks/startup",
       DEFAULT_PREFS: "/api/browser/hacks/default",
@@ -220,7 +221,7 @@ export const ConsoleClient = {
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
       DEVICE_POSTURE: "/sso/device_posture",
-      WHOAMI: "api/browser/whoami",
+      WHOAMI: "/api/browser/whoami",
     };
   },
 
@@ -327,9 +328,9 @@ export const ConsoleClient = {
    */
   async getLoggedInUserInfo() {
     const payload = await this._get(this._paths.WHOAMI);
-        return payload;
+    return payload;
   },
-  
+
   /**
    * Retrieves primary secret used for enterprise storage encryption.
    *
@@ -345,11 +346,12 @@ export const ConsoleClient = {
    * a registered console endpoint. If we get a 401 or 403 refresh and retry once.
    *
    * @param {string} path - Console API to request
+   * @param {string} method - Console API method to use, GET or POST
    * @param {{_didRefresh?: boolean}} [options]
    * @throws {InvalidAuthError|Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
-  async _get(path, { _didRefresh = false } = {}) {
+  async _get(path, method = "GET", { _didRefresh = false } = {}) {
     await this._ensureValidSession();
 
     const headers = new Headers({});
@@ -357,7 +359,7 @@ export const ConsoleClient = {
     headers.set("Authorization", `${tokenType} ${accessToken}`);
 
     const url = this.constructURI(path);
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { method: method, headers: headers });
 
     if (res.ok) {
       return await res.json();
@@ -365,11 +367,22 @@ export const ConsoleClient = {
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
       await this._refreshSession();
-      return this._get(path, { _didRefresh: true });
+      return this._get(path, method, { _didRefresh: true });
     }
 
     const text = await res.text().catch(() => "");
     throw new Error(`Fetch failed (${res.status}): ${text}`);
+  },
+
+  /*
+   * Sends a POST request with the same session validity check as GET above.
+   *
+   * @param {string} path - Console API to request
+   * @throws {InvalidAuthError|Error}
+   * @returns {Promise<any>} Parsed JSON response body.
+   */
+  async _post(path) {
+    return this._get(path, "POST");
   },
 
   /**
@@ -537,6 +550,37 @@ export const ConsoleClient = {
   clearTokenData() {
     this.tokenData = null;
     Services.prefs.clearUserPref(PREFS.REFRESH_TOKEN);
+  },
+
+  /**
+   * Perform signout against the console and share the information down to
+   * XPCOM to make FELT aware.
+   *
+   * This is expected to be executed from the browser side.
+   */
+  async signout() {
+    if (!Services.felt.isFeltBrowser()) {
+      throw new Error(
+        "Performing signout from something else than browser is wrong"
+      );
+    }
+
+    // TODO: Assert or force-enable session restore?
+
+    const res = await this._post(this._paths.SIGNOUT);
+    if (res) {
+      // After successful server-side logout clear local state and notify FELT.
+      this.clearTokenData();
+
+      // Notify FELT that we are logging out so the shutdown is a normal one
+      // that should not be followed by restarting the process.
+      Services.felt.performSignout();
+
+      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+      return;
+    }
+
+    throw new Error(`Post failed: (${res})`);
   },
 
   /**
