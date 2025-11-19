@@ -339,8 +339,8 @@ class FeltTests(EnterpriseTestsBase):
         env_vars={},
     ):
         self._manually_closed_child = False
-        self.console_port = random.randrange(10000, 20000)
-        self.sso_port = random.randrange(10000, 20000)
+        self.console_port = random.randrange(10000, 14999)
+        self.sso_port = random.randrange(15000, 20000)
         self.policy_block_about_config = Value("B", 1)
         """
         TODO: Behavior is not yet clearly defined
