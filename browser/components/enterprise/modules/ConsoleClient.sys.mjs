@@ -247,8 +247,9 @@ export const ConsoleClient = {
   constructSsoLoginURI(email, devicePostureToken) {
     const url = this.consoleBaseURI;
     url.pathname = this._paths.SSO;
-    url.search = `target=browser&email=${email}&devicePostureToken=${devicePostureToken}`;
-
+    url.searchParams.set("target", "browser");
+    url.searchParams.set("email", email);
+    url.searchParams.set("devicePostureToken", devicePostureToken);
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
@@ -359,7 +360,7 @@ export const ConsoleClient = {
     headers.set("Authorization", `${tokenType} ${accessToken}`);
 
     const url = this.constructURI(path);
-    const res = await fetch(url, { method: method, headers: headers });
+    const res = await fetch(url, { method, headers });
 
     if (res.ok) {
       return await res.json();
@@ -374,7 +375,7 @@ export const ConsoleClient = {
     throw new Error(`Fetch failed (${res.status}): ${text}`);
   },
 
-  /*
+  /**
    * Sends a POST request with the same session validity check as GET above.
    *
    * @param {string} path - Console API to request
