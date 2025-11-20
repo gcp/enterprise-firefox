@@ -86,6 +86,8 @@ export const EnterpriseHandler = {
 
   // TODO: Open signout dialog
   onSignOut() {
-    lazy.ConsoleClient.signout().catch((e) => console.error(`Unable to signout the user: ${e}`));
+    lazy.ConsoleClient.signout().catch(e =>
+      console.error(`Unable to signout the user: ${e}`)
+    );
   },
 };

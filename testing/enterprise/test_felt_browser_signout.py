@@ -55,7 +55,7 @@ class BrowserSignout(FeltTests):
         )
         self._driver.set_context("content")
         return private_cookies
-    
+
     def test_felt_3_browser_ui_state_when_user_is_logged_in(self, exp):
         self.connect_child_browser()
 
@@ -72,8 +72,10 @@ class BrowserSignout(FeltTests):
         self._logger.info("Checking user icon is updated in badge.")
         user_icon = self.get_elem_child("#enterprise-user-icon")
         picture_url = user_icon.value_of_css_property("list-style-image")
-        assert picture_url == f"url(\"{whoami['picture']}\")", "User's picture not correctly set on user icon"
-        
+        assert (
+            picture_url == f"url(\"{whoami['picture']}\")"
+        ), "User's picture not correctly set on user icon"
+
         self._logger.info("Clicking enterprise panel")
         badge.click()
 
@@ -84,8 +86,10 @@ class BrowserSignout(FeltTests):
         email = self.get_elem_child(".panelUI-enterprise__email")
 
         self._logger.info(email)
-        assert email.get_property("textContent") == whoami["email"], "User email not correctly set"
-        
+        assert (
+            email.get_property("textContent") == whoami["email"]
+        ), "User email not correctly set"
+
         self._child_driver.set_context("content")
 
         return True
