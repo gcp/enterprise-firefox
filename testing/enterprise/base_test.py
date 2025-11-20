@@ -297,6 +297,8 @@ class EnterpriseTestsBase:
 
         options = Options()
         options.log.level = "trace"
+        # Do not auto-handle prompts.
+        options.set_capability("unhandledPromptBehavior", "ignore")
 
         new_marionette_port = 0
         with open(marionette_port_file) as infile:

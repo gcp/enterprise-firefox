@@ -4,16 +4,22 @@
 
 const lazy = {};
 
+ChromeUtils.defineLazyGetter(lazy, "localization", () => {
+  return new Localization(
+    ["preview/enterprise.ftl", "branding/brand.ftl"],
+    true
+  );
+});
+
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
 });
 
+const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
+
 export const EnterpriseHandler = {
   /**
-   * @typedef {object} User
-   * @property {string} name name
-   * @property {string} email email
-   * @property {string} pictureUrl picture url
+   * @type {{name:string, email:string, pictureUrl:string} | null}
    */
   _signedInUser: null,
 
@@ -30,6 +36,7 @@ export const EnterpriseHandler = {
         await lazy.ConsoleClient.getLoggedInUserInfo();
       this._signedInUser = { name, email, pictureUrl: picture };
     } catch (e) {
+      // TODO: Bug 2000864 - Handle unsuccessful GET /WHOAMI
       console.warn(
         "EnterpriseHandler: Unable to initialize enterprise user: ",
         e
@@ -41,7 +48,7 @@ export const EnterpriseHandler = {
     const userIcon = window.document.querySelector("#enterprise-user-icon");
 
     if (!this._signedInUser) {
-      // Hide user icon from enterprise badge
+      // Hide user icon from enterprise badge until we have user information
       userIcon.hidden = true;
       console.warn(
         "Unable to update user icon in badge without user information"
@@ -50,7 +57,7 @@ export const EnterpriseHandler = {
     }
     userIcon.style.setProperty(
       "list-style-image",
-      `url(${this._signedInUser.pictureUrl})`
+      `url("${this._signedInUser.pictureUrl}")`
     );
   },
 
@@ -84,10 +91,63 @@ export const EnterpriseHandler = {
     fxaBtn.hidden = true;
   },
 
-  // TODO: Open signout dialog
-  onSignOut() {
-    lazy.ConsoleClient.signout().catch(e =>
-      console.error(`Unable to signout the user: ${e}`)
+  onSignOut(window) {
+    const shouldInformOnSignout = Services.prefs.getBoolPref(
+      PROMPT_ON_SIGNOUT_PREF,
+      true
     );
+
+    if (!shouldInformOnSignout) {
+      this.initiateShutdown();
+      return;
+    }
+
+    const [title, message, checkLabel, signoutBtnLabel] =
+      lazy.localization.formatMessagesSync([
+        { id: "enterprise-signout-prompt-title" },
+        { id: "enterprise-signout-prompt-message" },
+        { id: "enterprise-signout-prompt-checkbox-label" },
+        { id: "enterprise-signout-prompt-primary-btn-label" },
+      ]);
+
+    const check = { value: true }; // checkbox state
+
+    const flags =
+      Services.prompt.BUTTON_TITLE_IS_STRING * Services.prompt.BUTTON_POS_0 +
+      Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
+      Services.prompt.BUTTON_POS_0_DEFAULT;
+
+    // buttonPressed will be 0 for Signout and 1 for Cancel
+    const buttonPressed = Services.prompt.confirmEx(
+      window,
+      title.value,
+      message.value,
+      flags,
+      signoutBtnLabel.value,
+      null,
+      null,
+      checkLabel.value,
+      check
+    );
+
+    if (buttonPressed === 1) {
+      // User canceled signout. Also ignore any checkbox toggling.
+      return;
+    }
+
+    if (!check.value) {
+      // User unchecked the option to be prompted before signout
+      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, check.value);
+    }
+
+    this.initiateShutdown();
+  },
+
+  initiateShutdown() {
+    // TODO: Bug 2001029 - Assert or force-enable session restore?
+
+    lazy.ConsoleClient.signoutUser()
+      .catch(e => console.error(`Unable to signout the user: ${e}`))
+      .finally(Services.startup.quit(Ci.nsIAppStartup.eForceQuit));
   },
 };
