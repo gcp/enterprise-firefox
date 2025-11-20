@@ -472,9 +472,7 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  disallowFeature(feature, neededOnContentProcess = false) {
-    DisallowedFeatures[feature] = neededOnContentProcess;
-
+  messageDisallowedFeatures(neededOnContentProcess = false) {
     // NOTE: For optimization purposes, only features marked as needed
     // on content process will be passed onto the child processes.
     if (neededOnContentProcess) {
@@ -485,6 +483,16 @@ EnterprisePoliciesManager.prototype = {
         )
       );
     }
+  },
+
+  disallowFeature(feature, neededOnContentProcess = false) {
+    DisallowedFeatures[feature] = neededOnContentProcess;
+    this.messageDisallowedFeatures(neededOnContentProcess);
+  },
+
+  allowFeature(feature, neededOnContentProcess = false) {
+    delete DisallowedFeatures[feature];
+    this.messageDisallowedFeatures(neededOnContentProcess);
   },
 
   // ------------------------------

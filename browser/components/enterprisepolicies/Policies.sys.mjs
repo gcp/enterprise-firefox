@@ -357,6 +357,11 @@ export var Policies = {
         blockAboutPage(manager, "about:addons", true);
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        unblockAboutPage(manager, "about:addons");
+      }
+    },
   },
 
   BlockAboutConfig: {
@@ -390,6 +395,15 @@ export var Policies = {
         blockAboutPage(manager, "about:newprofile");
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        unblockAboutPage(manager, "about:profiles");
+        unblockAboutPage(manager, "about:profilemanager");
+        unblockAboutPage(manager, "about:editprofile");
+        unblockAboutPage(manager, "about:deleteprofile");
+        unblockAboutPage(manager, "about:newprofile");
+      }
+    },
   },
 
   BlockAboutSupport: {
@@ -397,6 +411,12 @@ export var Policies = {
       if (param) {
         blockAboutPage(manager, "about:support");
         manager.disallowFeature("aboutSupport");
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        unblockAboutPage(manager, "about:support");
+        manager.allowFeature("aboutSupport");
       }
     },
   },
@@ -990,6 +1010,17 @@ export var Policies = {
         blockAboutPage(manager, "about:profiling");
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        unsetAndUnlockPref("devtools.policy.disabled");
+        unsetAndUnlockPref("devtools.chrome.enabled");
+
+        manager.allowFeature("devtools");
+        unblockAboutPage(manager, "about:debugging");
+        unblockAboutPage(manager, "about:devtools-toolbox");
+        unblockAboutPage(manager, "about:profiling");
+      }
+    },
   },
 
   DisableEncryptedClientHello: {
@@ -1087,6 +1118,13 @@ export var Policies = {
         setAndLockPref("browser.privatebrowsing.autostart", false);
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        manager.allowFeature("privatebrowsing");
+        unblockAboutPage(manager, "about:privatebrowsing");
+        unsetAndUnlockPref("browser.privatebrowsing.autostart");
+      }
+    },
   },
 
   DisableProfileImport: {
@@ -1160,6 +1198,15 @@ export var Policies = {
         setAndLockPref("toolkit.telemetry.archive.enabled", false);
         setAndLockPref("datareporting.usage.uploadEnabled", false);
         blockAboutPage(manager, "about:telemetry");
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams) {
+        unsetAndUnlockPref("datareporting.healthreport.uploadEnabled");
+        unsetAndUnlockPref("datareporting.policy.dataSubmissionEnabled");
+        unsetAndUnlockPref("toolkit.telemetry.archive.enabled");
+        unsetAndUnlockPref("datareporting.usage.uploadEnabled");
+        unblockAboutPage(manager, "about:telemetry");
       }
     },
   },
@@ -2073,6 +2120,13 @@ export var Policies = {
       }
       setAndLockPref("signon.rememberSignons", param);
     },
+    onRemove(manager, oldParams) {
+      if (!oldParams) {
+        unblockAboutPage(manager, "about:logins");
+        unsetAndUnlockPref("pref.privacy.disable_button.view_passwords", true);
+      }
+      unsetAndUnlockPref("signon.rememberSignons");
+    },
   },
 
   PasswordManagerExceptions: {
@@ -2461,6 +2515,23 @@ export var Policies = {
           setAndLockPref("browser.privatebrowsing.autostart", true);
           break;
         // Private Browsing mode available
+        case 0:
+          break;
+      }
+    },
+    onRemove(manager, oldParams) {
+      switch (oldParams) {
+        // Private Browsing mode was disabled
+        case 1:
+          manager.allowFeature("privatebrowsing");
+          unblockAboutPage(manager, "about:privatebrowsing");
+          unsetAndUnlockPref("browser.privatebrowsing.autostart");
+          break;
+        // Private Browsing mode was forced
+        case 2:
+          unsetAndUnlockPref("browser.privatebrowsing.autostart");
+          break;
+        // Private Browsing mode was available
         case 0:
           break;
       }
