@@ -91,14 +91,14 @@ export const EnterpriseHandler = {
     fxaBtn.hidden = true;
   },
 
-  onSignOut(window) {
+  async onSignOut(window) {
     const shouldInformOnSignout = Services.prefs.getBoolPref(
       PROMPT_ON_SIGNOUT_PREF,
       true
     );
 
     if (!shouldInformOnSignout) {
-      this.initiateShutdown();
+      await this.initiateShutdown();
       return;
     }
 
@@ -110,16 +110,15 @@ export const EnterpriseHandler = {
         { id: "enterprise-signout-prompt-primary-btn-label" },
       ]);
 
-    const check = { value: true }; // checkbox state
-
     const flags =
       Services.prompt.BUTTON_TITLE_IS_STRING * Services.prompt.BUTTON_POS_0 +
       Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
       Services.prompt.BUTTON_POS_0_DEFAULT;
 
     // buttonPressed will be 0 for Signout and 1 for Cancel
-    const buttonPressed = Services.prompt.confirmEx(
-      window,
+    const result = await Services.prompt.asyncConfirmEx(
+      window.browsingContext,
+      Services.prompt.MODAL_TYPE_INTERNAL_WINDOW,
       title.value,
       message.value,
       flags,
@@ -127,27 +126,31 @@ export const EnterpriseHandler = {
       null,
       null,
       checkLabel.value,
-      check
+      true // checkbox checked
     );
 
-    if (buttonPressed === 1) {
+    if (result.get("buttonNumClicked") === 1) {
       // User canceled signout. Also ignore any checkbox toggling.
       return;
     }
 
-    if (!check.value) {
+    if (!result.get("checked")) {
       // User unchecked the option to be prompted before signout
-      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, check.value);
+      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, result.get("checked"));
     }
 
-    this.initiateShutdown();
+    await this.initiateShutdown();
   },
 
-  initiateShutdown() {
+  async initiateShutdown() {
     // TODO: Bug 2001029 - Assert or force-enable session restore?
 
-    lazy.ConsoleClient.signoutUser()
-      .catch(e => console.error(`Unable to signout the user: ${e}`))
-      .finally(Services.startup.quit(Ci.nsIAppStartup.eForceQuit));
+    try {
+      await lazy.ConsoleClient.signoutUser();
+    } catch (e) {
+      console.error(`Unable to signout the user: ${e}`);
+    } finally {
+      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+    }
   },
 };
