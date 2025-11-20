@@ -5,10 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "localization", () => {
-  return new Localization(
-    ["preview/enterprise.ftl", "branding/brand.ftl"],
-    true
-  );
+  return new Localization(["preview/enterprise.ftl", "branding/brand.ftl"]);
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -103,7 +100,7 @@ export const EnterpriseHandler = {
     }
 
     const [title, message, checkLabel, signoutBtnLabel] =
-      lazy.localization.formatMessagesSync([
+      await lazy.localization.formatValues([
         { id: "enterprise-signout-prompt-title" },
         { id: "enterprise-signout-prompt-message" },
         { id: "enterprise-signout-prompt-checkbox-label" },
@@ -119,13 +116,13 @@ export const EnterpriseHandler = {
     const result = await Services.prompt.asyncConfirmEx(
       window.browsingContext,
       Services.prompt.MODAL_TYPE_INTERNAL_WINDOW,
-      title.value,
-      message.value,
+      title,
+      message,
       flags,
-      signoutBtnLabel.value,
+      signoutBtnLabel,
       null,
       null,
-      checkLabel.value,
+      checkLabel,
       true // checkbox checked
     );
 
