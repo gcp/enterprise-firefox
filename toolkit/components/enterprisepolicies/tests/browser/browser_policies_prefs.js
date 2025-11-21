@@ -7,15 +7,11 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Policies: "resource:///modules/policies/Policies.sys.mjs",
-  PoliciesPrefTracker:
-    "resource://testing-common/EnterprisePolicyTesting.sys.mjs",
   setAndLockPref: "resource:///modules/policies/Policies.sys.mjs",
   unsetAndUnlockPref: "resource:///modules/policies/Policies.sys.mjs",
 });
 
 add_setup(async function test_set_http_server_usage() {
-  lazy.PoliciesPrefTracker.stop();
-
   await SpecialPowers.pushPrefEnv({
     set: [["browser.policies.testUseHttp", true]],
   });

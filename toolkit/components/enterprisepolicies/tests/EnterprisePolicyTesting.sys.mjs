@@ -155,7 +155,7 @@ export var PoliciesPrefTracker = {
     let { PoliciesUtils } = ChromeUtils.importESModule(
       "resource:///modules/policies/Policies.sys.mjs"
     );
-    this._originalFunc = PoliciesUtils.setDefaultPref;
+    this._originalFunc = PoliciesUtils.setDefaultPref.bind(PoliciesUtils);
     PoliciesUtils.setDefaultPref = this.hoistedSetDefaultPref.bind(this);
   },
 
