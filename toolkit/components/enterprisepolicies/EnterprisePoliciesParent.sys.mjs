@@ -187,7 +187,17 @@ EnterprisePoliciesManager.prototype = {
     );
 
     // Make a deep copy that will be trimmed later
-    const previousPolicies = structuredClone(this._parsedPolicies || {});
+    let previousPolicies = null;
+    try {
+      previousPolicies = structuredClone(this._parsedPolicies || {});
+    } catch (ex) {
+      // DataCloneError: URL object could not be cloned.
+      if (ex.name === "DataCloneError") {
+        previousPolicies = JSON.parse(JSON.stringify(this._parsedPolicies));
+      } else {
+        throw ex;
+      }
+    }
 
     this._parsedPolicies = {};
 
