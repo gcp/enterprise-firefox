@@ -2480,7 +2480,16 @@ export var Policies = {
       }
       lazy.ProxyPolicies.configureProxySettings(
         param,
-        PoliciesUtils.setDefaultPref
+        PoliciesUtils.setDefaultPref.bind(PoliciesUtils)
+      );
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams.Locked) {
+        manager.allowFeature("changeProxySettings");
+      }
+      lazy.ProxyPolicies.resetProxySettings(
+        oldParams,
+        PoliciesUtils.setDefaultPref.bind(PoliciesUtils)
       );
     },
   },

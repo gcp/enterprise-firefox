@@ -48,11 +48,11 @@ let proxyPreferences = [
 
 export var ProxyPolicies = {
   configureProxySettings(param, setPref) {
-    if (param.Mode) {
+    if (param.Mode !== undefined) {
       setPref("network.proxy.type", PROXY_TYPES_MAP.get(param.Mode));
     }
 
-    if (param.AutoConfigURL) {
+    if (param.AutoConfigURL !== undefined) {
       setPref("network.proxy.autoconfig_url", param.AutoConfigURL.href);
     }
 
@@ -91,19 +91,24 @@ export var ProxyPolicies = {
     function setProxyHostAndPort(type, address) {
       // Prepend https just so we can use the URL parser
       // instead of parsing manually.
-      let url = URL.parse(`https://${address}`);
-      if (!url) {
-        lazy.log.error(`Invalid address for ${type} proxy: ${address}`);
-        return;
-      }
+      if (address) {
+        let url = URL.parse(`https://${address}`);
+        if (!url) {
+          lazy.log.error(`Invalid address for ${type} proxy: ${address}`);
+          return;
+        }
 
-      setPref(`network.proxy.${type}`, url.hostname);
-      if (url.port) {
-        setPref(`network.proxy.${type}_port`, Number(url.port));
+        setPref(`network.proxy.${type}`, url.hostname);
+        if (url.port) {
+          setPref(`network.proxy.${type}_port`, Number(url.port));
+        }
+      } else {
+        setPref(`network.proxy.${type}`, "");
+        setPref(`network.proxy.${type}_port`, 0);
       }
     }
 
-    if (param.HTTPProxy) {
+    if (param.HTTPProxy !== undefined) {
       setProxyHostAndPort("http", param.HTTPProxy);
 
       // network.proxy.share_proxy_settings is a UI feature, not handled by the
@@ -114,20 +119,37 @@ export var ProxyPolicies = {
       }
     }
 
-    if (param.SSLProxy) {
+    if (param.SSLProxy !== undefined) {
       setProxyHostAndPort("ssl", param.SSLProxy);
     }
 
-    if (param.SOCKSProxy) {
+    if (param.SOCKSProxy !== undefined) {
       setProxyHostAndPort("socks", param.SOCKSProxy);
     }
 
     // All preferences should be locked regardless of whether or not a
     // specific value was set.
-    if (param.Locked) {
+    if ("Locked" in param) {
       for (let preference of proxyPreferences) {
-        Services.prefs.lockPref(preference);
+        if (param.Locked) {
+          Services.prefs.lockPref(preference);
+        } else {
+          Services.prefs.unlockPref(preference);
+        }
       }
     }
+  },
+  resetProxySettings(oldParams, setPref) {
+    let newParams = structuredClone(oldParams);
+    for (let paramName of Object.keys(oldParams)) {
+      if (typeof oldParams[paramName] == "string") {
+        newParams[paramName] = "";
+      } else if (typeof oldParams[paramName] == "boolean") {
+        newParams[paramName] = !oldParams[paramName];
+      } else {
+        throw new Error(`Unhandled param type: ${typeof oldParams[paramName]}`);
+      }
+    }
+    ProxyPolicies.configureProxySettings(newParams, setPref);
   },
 };

@@ -20,6 +20,8 @@ run-if = [
   "os == 'win'",
 ]
 
+["browser_policies_live_proxy.js"]
+
 ["browser_policies_mistyped_json.js"]
 
 ["browser_policies_prefs.js"]
