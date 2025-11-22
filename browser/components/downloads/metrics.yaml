@@ -29,7 +29,7 @@ downloads:
     telemetry_mirror: DOWNLOADS_PANEL_SHOWN
 
 #ifdef MOZ_ENTERPRISE
-  file_downloaded:
+  download_completed:
     type: event
     data_sensitivity:
       - highly_sensitive
@@ -69,12 +69,16 @@ downloads:
           The download source URL. Collection level configurable via enterprise
           policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
         type: string
-  security_download_completed:
+      is_private:
+        description: >
+          Whether the download occurred in a private browsing session.
+        type: boolean
+  download_attempt:
     type: event
     data_sensitivity:
       - highly_sensitive
     description: >
-      Recorded when a file download completes successfully in enterprise builds.
+      Recorded when a file download is attempted or started in enterprise builds.
       Contains security-relevant metadata for monitoring and analysis.
       Only collected when MOZ_ENTERPRISE is defined and enabled.
     bugs:

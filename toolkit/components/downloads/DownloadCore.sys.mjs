@@ -429,6 +429,20 @@ Download.prototype = {
     this.currentBytes = 0;
     this.startTime = new Date();
 
+/* eslint-disable */
+#ifdef MOZ_ENTERPRISE
+    // Record telemetry when download attempt starts
+    if (
+      Services.prefs.getBoolPref(
+        "browser.download.enterprise.telemetry.enabled",
+        false
+      )
+    ) {
+      this._recordDownloadAttempt();
+    }
+#endif
+/* eslint-enable */
+
     // Create a new deferred object and an associated promise before starting
     // the actual download.  We store it on the download as the current attempt.
     let deferAttempt = Promise.withResolvers();
@@ -645,20 +659,6 @@ Download.prototype = {
   async _succeed() {
     await lazy.DownloadIntegration.downloadDone(this);
 
-/* eslint-disable */
-#ifdef MOZ_ENTERPRISE
-    // Record security telemetry if enabled for enterprise environments
-    if (
-      Services.prefs.getBoolPref(
-        "browser.download.enterprise.telemetry.enabled",
-        false
-      )
-    ) {
-      this._recordSecurityTelemetry();
-    }
-#endif
-/* eslint-enable */
-
     this._deferSucceeded.resolve();
 
     if (this.launchWhenSucceeded) {
@@ -704,10 +704,10 @@ Download.prototype = {
 /* eslint-disable */
 #ifdef MOZ_ENTERPRISE
   /**
-   * Records security telemetry for completed downloads when MOZ_ENTERPRISE is enabled.
+   * Records telemetry when a download attempt starts in MOZ_ENTERPRISE builds.
    * Collects filename, extension, MIME type, file size, source domain, and private browsing status.
    */
-  _recordSecurityTelemetry() {
+  _recordDownloadAttempt() {
     try {
       // Extract filename from path
       const pathParts = this.target.path.split(/[/\\]/);
@@ -732,11 +732,11 @@ Download.prototype = {
       }
 
       // Record the telemetry event
-      Glean.downloads.securityDownloadCompleted.record({
+      Glean.downloads.downloadAttempt.record({
         filename,
         extension: fileExtension,
         mime_type: this.contentType || "",
-        size_bytes: this.target.size || 0,
+        size_bytes: this.totalBytes || 0,
         source_url_domain: sourceDomain,
         is_private: this.source.isPrivate || false,
       });
@@ -745,7 +745,7 @@ Download.prototype = {
       GleanPings.enterprise.submit();
     } catch (ex) {
       // Silently fail if telemetry recording encounters any issues
-      console.warn("Failed to record download security telemetry:", ex);
+      console.warn("Failed to record download attempt telemetry:", ex);
     }
   },
 #endif

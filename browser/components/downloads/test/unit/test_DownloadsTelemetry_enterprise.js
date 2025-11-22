@@ -142,7 +142,7 @@ add_task(async function test_enterprise_recording_with_glean() {
   const recordedEvents = [];
   const mockGlean = {
     downloads: {
-      fileDownloaded: {
+      downloadCompleted: {
         record: (data) => {
           recordedEvents.push(data);
         }
@@ -162,6 +162,7 @@ add_task(async function test_enterprise_recording_with_glean() {
       },
       source: {
         url: "https://example.com/secure/document.pdf?token=abc123",
+        isPrivate: false,
       },
       contentType: "application/pdf",
     };
@@ -169,17 +170,18 @@ add_task(async function test_enterprise_recording_with_glean() {
     DownloadsTelemetryEnterprise.recordFileDownloaded(mockDownload);
 
     Assert.equal(recordedEvents.length, 1, "Should record exactly one event");
-    
+
     const event = recordedEvents[0];
     Assert.equal(event.filename, "document.pdf", "Should extract correct filename");
     Assert.equal(event.extension, "pdf", "Should extract correct extension");
     Assert.equal(event.mime_type, "application/pdf", "Should preserve MIME type");
     Assert.equal(event.size_bytes, 12345, "Should record correct file size");
     Assert.equal(
-      event.source_url, 
+      event.source_url,
       "https://example.com/secure/document.pdf?token=abc123",
       "Should record full URL by default"
     );
+    Assert.equal(event.is_private, false, "Should record private browsing status");
   } finally {
     globalThis.Glean = originalGlean;
   }

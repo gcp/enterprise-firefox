@@ -175,10 +175,11 @@ export const DownloadsTelemetryEnterprise = {
         mime_type: mimeType || "",
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
+        is_private: download.source?.isPrivate || false,
       };
 
       // Record the Glean event
-      Glean.downloads.fileDownloaded.record(telemetryData);
+      Glean.downloads.downloadCompleted.record(telemetryData);
 
       // Submit the enterprise ping
       GleanPings.enterprise.submit();
