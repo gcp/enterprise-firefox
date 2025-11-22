@@ -58,8 +58,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIMIMEService"
 );
 
-// PathUtils will be imported lazily when needed
-
 export const DownloadsTelemetryEnterprise = {
   /**
    * Checks if download telemetry is enabled via enterprise policy.
@@ -195,7 +193,17 @@ export const DownloadsTelemetryEnterprise = {
       // Extract filename from target path
       let filename = null;
       if (download.target?.path) {
-        filename = PathUtils.filename(download.target.path);
+        try {
+          // PathUtils is available as a global WebIDL binding in this context.
+          filename = PathUtils.filename(download.target.path);
+        } catch (pathErr) {
+          console.warn(
+            `[DownloadsTelemetryEnterprise] PathUtils failed, falling back to split:`,
+            pathErr
+          );
+          const parts = download.target.path.split(/[/\\]/);
+          filename = parts[parts.length - 1] || "";
+        }
       }
 
       // Extract file extension
@@ -207,18 +215,8 @@ export const DownloadsTelemetryEnterprise = {
         }
       }
 
-      // Get MIME type with fallback to extension-based detection
-      let mimeType = download.contentType || null;
-      if (!mimeType && extension) {
-        try {
-          mimeType = lazy.gMIMEService.getTypeFromExtension(extension);
-        } catch (ex) {
-          // MIME service failed, leave null
-          console.warn(
-            `[DownloadsTelemetryEnterprise] MIME service failed: ${ex.message}`
-          );
-        }
-      }
+      // Use provided content type; avoid MIME service lookup when unavailable.
+      let mimeType = download.contentType || "";
 
       // Process file information based on enterprise policy configuration
       const fileInfo = this._processFileInfo(filename, extension, mimeType);

@@ -435,7 +435,7 @@ Download.prototype = {
     if (
       Services.prefs.getBoolPref(
         "browser.download.enterprise.telemetry.enabled",
-        false
+        true
       )
     ) {
       this._recordDownloadAttempt();
