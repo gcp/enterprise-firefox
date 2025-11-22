@@ -1669,6 +1669,10 @@
         "UrlLogging": {
           "type": "string",
           "enum": ["full", "domain", "none"]
+        },
+        "FileLogging": {
+          "type": "string",
+          "enum": ["full", "metadata", "none"]
         }
       }
     },

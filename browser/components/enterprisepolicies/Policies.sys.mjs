@@ -2951,6 +2951,17 @@ export var Policies = {
             param.UrlLogging
           );
         }
+
+        // Set file logging level
+        if (
+          typeof param.FileLogging === "string" &&
+          ["full", "metadata", "none"].includes(param.FileLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.fileLogging",
+            param.FileLogging
+          );
+        }
       }
     },
   },

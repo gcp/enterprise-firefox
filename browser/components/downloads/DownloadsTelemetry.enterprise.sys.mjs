@@ -12,13 +12,14 @@
  * ================================
  *
  * The telemetry collection can be configured via enterprise policy to control
- * the level of URL information collected. In the enterprise policies.json file:
+ * the level of information collected. In the enterprise policies.json file:
  *
  * {
  *   "policies": {
  *     "DownloadTelemetry": {
  *       "Enabled": true,
- *       "UrlLogging": "full"
+ *       "UrlLogging": "full",
+ *       "FileLogging": "full"
  *     }
  *   }
  * }
@@ -29,15 +30,18 @@
  *   - "full" (default): Collect complete download URLs including paths and parameters
  *   - "domain": Collect only the hostname portion of URLs
  *   - "none": Do not collect any URL information
+ * - FileLogging (string): File information logging level with values:
+ *   - "full" (default): Collect filename, extension, and MIME type
+ *   - "metadata": Collect only extension and MIME type (no filename)
+ *   - "none": Do not collect any file information
  *
  * SECURITY CONSIDERATIONS:
  * =======================
  *
  * - "full" mode provides maximum visibility for security analysis but may
- *   contain sensitive information in URL paths/parameters
- * - "domain" mode balances security monitoring with privacy by limiting
- *   collection to hostnames only
- * - "none" mode disables URL collection entirely for high-privacy environments
+ *   contain sensitive information in URL paths/parameters or filenames
+ * - "domain" and "metadata" modes balance security monitoring with privacy
+ * - "none" modes disable collection entirely for high-privacy environments
  *
  * The default "full" mode is appropriate for most enterprise environments where
  * comprehensive security monitoring is prioritized.
@@ -89,6 +93,25 @@ export const DownloadsTelemetryEnterprise = {
   },
 
   /**
+   * Gets the configured file logging level from enterprise policy preferences.
+   *
+   * @returns {string} One of: "full", "metadata", "none"
+   */
+  _getFileLoggingPolicy() {
+    const fileLogging = Services.prefs.getCharPref(
+      "browser.download.enterprise.telemetry.fileLogging",
+      "full"
+    );
+
+    // Validate policy value
+    if (["full", "metadata", "none"].includes(fileLogging)) {
+      return fileLogging;
+    }
+
+    return "full"; // Default to full file info for enterprise environments
+  },
+
+  /**
    * Processes the source URL based on the configured logging policy.
    *
    * @param {string} sourceUrl - The original download URL
@@ -116,6 +139,43 @@ export const DownloadsTelemetryEnterprise = {
       case "full":
       default:
         return sourceUrl;
+    }
+  },
+
+  /**
+   * Processes file information based on the configured logging policy.
+   *
+   * @param {string} filename - The filename (basename)
+   * @param {string} extension - The file extension
+   * @param {string} mimeType - The MIME type
+   * @returns {object} Object with filename, extension, and mime_type based on policy
+   */
+  _processFileInfo(filename, extension, mimeType) {
+    const policy = this._getFileLoggingPolicy();
+
+    switch (policy) {
+      case "none":
+        return {
+          filename: "",
+          extension: "",
+          mime_type: "",
+        };
+
+      case "metadata":
+        // Only log extension and MIME type, no filename
+        return {
+          filename: "",
+          extension: extension || "",
+          mime_type: mimeType || "",
+        };
+
+      case "full":
+      default:
+        return {
+          filename: filename || "",
+          extension: extension || "",
+          mime_type: mimeType || "",
+        };
     }
   },
 
@@ -160,6 +220,9 @@ export const DownloadsTelemetryEnterprise = {
         }
       }
 
+      // Process file information based on enterprise policy configuration
+      const fileInfo = this._processFileInfo(filename, extension, mimeType);
+
       // Process source URL based on enterprise policy configuration
       let sourceUrl = this._processSourceUrl(download.source?.url);
 
@@ -170,9 +233,9 @@ export const DownloadsTelemetryEnterprise = {
       }
 
       const telemetryData = {
-        filename: filename || "",
-        extension: extension || "",
-        mime_type: mimeType || "",
+        filename: fileInfo.filename,
+        extension: fileInfo.extension,
+        mime_type: fileInfo.mime_type,
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
         is_private: download.source?.isPrivate || false,
