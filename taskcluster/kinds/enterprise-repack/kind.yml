@@ -68,7 +68,7 @@ tasks:
             artifact_prefix: releng/partner
     macosx64-enterprise:
         treeherder:
-            symbol: Ent-Rpk(linux64)
+            symbol: Ent-Rpk(macOS)
             platform: osx-cross/opt
         attributes:
             build_platform: macosx64-enterprise
@@ -76,7 +76,7 @@ tasks:
             artifact_prefix: releng/partner
     win64-enterprise:
         treeherder:
-            symbol: Ent-Rpk(linux64)
+            symbol: Ent-Rpk(win64)
             platform: windows2012-64/opt
         attributes:
             build_platform: win64-enterprise
