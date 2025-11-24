@@ -61,8 +61,6 @@ export var EnterprisePolicyTesting = {
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
 
-      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
-
       const tokenData = {
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
@@ -76,6 +74,8 @@ export var EnterprisePolicyTesting = {
         resp.setHeader("Content-Type", "application/json");
         resp.write(JSON.stringify(tokenData));
       });
+
+      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
       Services.prefs.setBoolPref("browser.policies.live_polling.enabled", true);
       Services.felt.setTokens(
         tokenData.access_token,
