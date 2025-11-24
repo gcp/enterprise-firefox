@@ -612,6 +612,7 @@ module.exports = [
       "browser/branding/aurora/content/aboutDialog.css",
       "browser/branding/aurora/stubinstaller/installing_page.css",
       "browser/branding/aurora/stubinstaller/profile_cleanup_page.css",
+      "browser/branding/enterprise/content/aboutDialog.css",
       "browser/branding/nightly/content/aboutDialog.css",
       "browser/branding/nightly/stubinstaller/installing_page.css",
       "browser/branding/nightly/stubinstaller/profile_cleanup_page.css",
@@ -969,6 +970,7 @@ module.exports = [
     files: [
       "browser/branding/aurora/content/aboutDialog.css",
       "browser/branding/aurora/stubinstaller/installing_page.css",
+      "browser/branding/enterprise/content/aboutDialog.css",
       "browser/branding/nightly/content/aboutDialog.css",
       "browser/branding/nightly/stubinstaller/installing_page.css",
       "browser/branding/official/content/aboutDialog.css",
