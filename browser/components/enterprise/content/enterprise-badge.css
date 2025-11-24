@@ -19,15 +19,13 @@
 }
 
 .enterprise-badge {
-  --button-background-color: #fff;
-
   height: var(--size-item-large);
-  max-width: 120px;
-  padding: 5px;
+  padding: var(--space-xxsmall) var(--space-xsmall);
+  align-items: center;
   gap: var(--space-small);
   flex-shrink: 0;
 
-  border-radius: var(--border-radius-small);
+  border-radius: var(--border-radius-medium);
   border: 1px solid var(--badge-border-color);
   background: var(--background-color-box);
 
@@ -40,10 +38,17 @@
   }
 }
 
-#enterprise-company-logo {
-  height: var(--icon-size-medium);
-  max-width: 75px;
-  list-style-image: url(chrome://browser/content/enterprise/badge-logo.svg);
+#enterprise-company-logo__wrapper {
+  max-width: 80px;
+  max-height: var(--size-item-medium);
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+
+  > image {
+    border-radius: var(--border-radius-small);
+    list-style-image: url(chrome://browser/content/enterprise/badge-logo.svg);
+  }
 }
 
 #enterprise-user-icon {
