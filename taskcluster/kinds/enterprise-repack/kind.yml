@@ -48,6 +48,9 @@ task-defaults:
             by-release-level:
                 staging: true
                 production: false
+    treeherder:
+        kind: other
+        tier: 1
 
 only-for-build-platforms:
     - linux64-enterprise/opt
@@ -56,16 +59,25 @@ only-for-build-platforms:
 
 tasks:
     linux64-enterprise:
+        treeherder:
+            platform: linux64/opt
+            symbol: Ent-Rpk(linux64)
         attributes:
             build_platform: linux64-enterprise
             build_type: opt
             artifact_prefix: releng/partner
     macosx64-enterprise:
+        treeherder:
+            symbol: Ent-Rpk(linux64)
+            platform: osx-cross/opt
         attributes:
             build_platform: macosx64-enterprise
             build_type: opt
             artifact_prefix: releng/partner
     win64-enterprise:
+        treeherder:
+            symbol: Ent-Rpk(linux64)
+            platform: windows2012-64/opt
         attributes:
             build_platform: win64-enterprise
             build_type: opt
