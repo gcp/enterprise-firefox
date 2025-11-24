@@ -26,6 +26,7 @@
   flex-shrink: 0;
 
   border-radius: var(--border-radius-medium);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-border-color-tokens */
   border: 1px solid var(--badge-border-color);
   background: var(--background-color-box);
 
@@ -39,6 +40,7 @@
 }
 
 #enterprise-company-logo__wrapper {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
   max-width: 80px;
   max-height: var(--size-item-medium);
   justify-content: center;
