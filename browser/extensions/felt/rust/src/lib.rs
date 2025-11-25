@@ -25,6 +25,7 @@ pub use utils::{CONSOLE_URL, TOKENS};
 
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
+static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
 
 fn normalize_arg(arg: String) -> String {
     let mut normalized = arg;
@@ -67,6 +68,10 @@ pub extern "C" fn felt_init() {
     trace!("felt_init(): is_felt_browser={}", is_felt_browser);
     IS_FELT_BROWSER.store(is_felt_browser, Ordering::Relaxed);
 
+    let is_felt_safe_mode = arg_matches("safemode");
+    trace!("felt_init(): is_felt_safe_mode={}", is_felt_safe_mode);
+    IS_FELT_SAFE_MODE.store(is_felt_safe_mode, Ordering::Relaxed);
+
     trace!("felt_init() done");
 }
 
@@ -74,6 +79,12 @@ pub extern "C" fn felt_init() {
 pub extern "C" fn is_felt_ui() -> bool {
     trace!("is_felt_ui()");
     IS_FELT_UI.load(Ordering::Relaxed)
+}
+
+#[no_mangle]
+pub extern "C" fn is_felt_safe_mode() -> bool {
+    trace!("is_felt_safe_mode()");
+    IS_FELT_SAFE_MODE.load(Ordering::Relaxed)
 }
 
 #[no_mangle]
@@ -153,7 +164,8 @@ pub extern "C" fn felt_constructor(
 ) -> nserror::nsresult {
     let is_felt_ui = crate::IS_FELT_UI.load(Ordering::Relaxed);
     let is_felt_browser = crate::IS_FELT_BROWSER.load(Ordering::Relaxed);
-    let felt_xpcom = components::FeltXPCOM::new(is_felt_ui, is_felt_browser);
+    let is_felt_safe_mode = crate::IS_FELT_SAFE_MODE.load(Ordering::Relaxed);
+    let felt_xpcom = components::FeltXPCOM::new(is_felt_ui, is_felt_browser, is_felt_safe_mode);
     unsafe { felt_xpcom.QueryInterface(iid, result) }
 }
 

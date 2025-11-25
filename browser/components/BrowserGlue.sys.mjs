@@ -385,7 +385,7 @@ BrowserGlue.prototype = {
     lazy.SessionStartup.init();
 
     // check if we're in safe mode
-    if (Services.appinfo.inSafeMode) {
+    if (Services.appinfo.inSafeMode && !Services.felt.isFeltUI()) {
       Services.ww.openWindow(
         null,
         "chrome://browser/content/safeMode.xhtml",

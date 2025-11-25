@@ -24,6 +24,9 @@ interface nsIFelt : nsISupports {
   boolean isFeltBrowser();
 
   [must_use]
+  boolean isFeltSafeMode();
+
+  [must_use]
   void ipcChannel();
 
   [must_use]

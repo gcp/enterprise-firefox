@@ -296,6 +296,7 @@ export default [
   "toolkit/components/downloads/DownloadCore.sys.mjs",
   "toolkit/components/printing/content/print.js",
   "toolkit/mozapps/extensions/AddonManager.sys.mjs",
+  "toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs",
 
   // ESLint tests.
   "tools/lint/test/files",

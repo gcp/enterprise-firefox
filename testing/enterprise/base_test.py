@@ -50,7 +50,9 @@ class EnterpriseTestsBase:
             os.makedirs(self._artifact_dir, exist_ok=True)
 
         self._driver_log = os.path.join(self._artifact_dir, "geckodriver.log")
-        self._child_driver_log = os.path.join(self._artifact_dir, "geckodriver_child.log")
+        self._child_driver_log = os.path.join(
+            self._artifact_dir, "geckodriver_child.log"
+        )
 
         driver_service = Service(
             executable_path=self._EXE_PATH,

@@ -296,6 +296,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       ];
     }
 
+    if (Services.felt.isFeltSafeMode()) {
+      extraRunArgs.push("--safe-mode");
+    }
+
     const prefsJsFile = PathUtils.join(profilePath, "prefs.js");
     let prefsJsContent = "";
     if (await IOUtils.exists(prefsJsFile)) {
