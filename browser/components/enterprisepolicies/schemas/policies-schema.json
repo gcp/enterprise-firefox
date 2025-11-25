@@ -179,6 +179,19 @@
       }
     },
 
+    "BlocklistDomainBrowsedTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "CaptivePortal": {
       "type": "boolean"
     },
@@ -1419,6 +1432,19 @@
       "type": "boolean"
     },
 
+    "PrintPageTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "PrivateBrowsingModeAvailability": {
       "type": "number",
       "enum": [0, 1, 2]
@@ -1632,6 +1658,23 @@
 
     "StartDownloadsInTempDirectory": {
       "type": "boolean"
+    },
+
+    "DownloadTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        },
+        "FileLogging": {
+          "type": "string",
+          "enum": ["full", "metadata", "none"]
+        }
+      }
     },
 
     "SupportMenu": {

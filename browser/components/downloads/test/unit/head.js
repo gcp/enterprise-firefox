@@ -61,4 +61,10 @@ function run_test() {
 add_setup(async function test_common_initialize() {
   gDownloadDir = await setDownloadDir();
   Services.prefs.setCharPref("toolkit.download.loglevel", "Debug");
+  Services.prefs.setBoolPref(
+    "browser.download.enterprise.telemetry.enabled",
+    true
+  );
+  // Initialize FOG for Glean telemetry testing
+  Services.fog.initializeFOG();
 });

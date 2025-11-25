@@ -401,6 +401,45 @@ export var Policies = {
     },
   },
 
+  BlocklistDomainBrowsedTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable blocklist domain browsed telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
+            param.UrlLogging
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
+          );
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
+          );
+        }
+      }
+    },
+  },
+
   Bookmarks: {
     onAllWindowsRestored(manager, param) {
       lazy.BookmarksPolicies.processBookmarks(param);
@@ -2373,6 +2412,41 @@ export var Policies = {
     },
   },
 
+  PrintPageTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable print page telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "print.enterprise.telemetry.printPage.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "print.enterprise.telemetry.printPage.urlLogging",
+            param.UrlLogging
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref("print.enterprise.telemetry.printPage.enabled");
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref("print.enterprise.telemetry.printPage.urlLogging");
+        }
+      }
+    },
+  },
+
   PrivateBrowsingModeAvailability: {
     onBeforeAddons(manager, param) {
       switch (param) {
@@ -2876,6 +2950,59 @@ export var Policies = {
   StartDownloadsInTempDirectory: {
     onBeforeAddons(manager, param) {
       setAndLockPref("browser.download.start_downloads_in_tmp_dir", param);
+    },
+  },
+
+  DownloadTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable download telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.urlLogging",
+            param.UrlLogging
+          );
+        }
+
+        // Set file logging level
+        if (
+          typeof param.FileLogging === "string" &&
+          ["full", "metadata", "none"].includes(param.FileLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.fileLogging",
+            param.FileLogging
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref("browser.download.enterprise.telemetry.enabled");
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.urlLogging"
+          );
+        }
+        if ("FileLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.fileLogging"
+          );
+        }
+      }
     },
   },
 

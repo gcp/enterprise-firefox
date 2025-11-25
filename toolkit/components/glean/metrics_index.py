@@ -123,6 +123,7 @@ firefox_desktop_metrics = [
     "browser/components/contextualidentity/metrics.yaml",
     "browser/components/customkeys/metrics.yaml",
     "browser/components/downloads/metrics.yaml",
+    "browser/components/enterprisepolicies/metrics.yaml",
     "browser/components/extensions/metrics.yaml",
     "browser/components/firefoxview/metrics.yaml",
     "browser/components/genai/metrics.yaml",
@@ -220,6 +221,7 @@ gecko_pings = [
 firefox_desktop_pings = [
     "browser/components/asrouter/pings.yaml",
     "browser/components/backup/pings.yaml",
+    "browser/components/enterprisepolicies/pings.yaml",
     "browser/components/newtab/pings.yaml",
     "browser/components/profiles/pings.yaml",
     "browser/components/search/pings.yaml",

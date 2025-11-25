@@ -1602,9 +1602,14 @@ export var TelemetrySendImpl = {
    * @return {boolean} True if pings can be send to the servers, false otherwise.
    */
   sendingEnabled(ping = null) {
-    // We only send pings from official builds, but allow overriding this for tests.
+    // We only send pings when telemetry reporting is enabled, but allow overriding this for tests.
+    // For enterprise builds, check MOZ_TELEMETRY_REPORTING; for non-enterprise builds, use isOfficialTelemetry.
+    const checkPassed = AppConstants.MOZ_ENTERPRISE
+      ? AppConstants.MOZ_TELEMETRY_REPORTING
+      : Services.telemetry.isOfficialTelemetry;
+
     if (
-      !Services.telemetry.isOfficialTelemetry &&
+      !checkPassed &&
       !this._testMode &&
       !this._overrideOfficialCheck
     ) {

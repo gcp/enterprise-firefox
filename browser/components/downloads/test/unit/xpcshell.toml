@@ -11,4 +11,13 @@ firefox-appdir = "browser"
 
 ["test_DownloadsCommon_isFileOfType.js"]
 
+["test_DownloadsTelemetry.js"]
+
+["test_DownloadsTelemetry_enterprise.js"]
+# Only run in MOZ_ENTERPRISE builds
+skip-if = [
+  "!buildapp:firefox",
+  "!enterprise",
+]
+
 ["test_DownloadsViewableInternally.js"]

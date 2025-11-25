@@ -24,6 +24,9 @@ SearchTestUtils.init(this);
 const { AboutNewTab } = ChromeUtils.importESModule(
   "resource:///modules/AboutNewTab.sys.mjs"
 );
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 
 ChromeUtils.defineESModuleGetters(this, {
   BasePromiseWorker: "resource://gre/modules/PromiseWorker.sys.mjs",
@@ -96,10 +99,12 @@ add_setup(async function () {
     `http://example.com`
   );
 
-  Services.prefs.setBoolPref(
-    "browser.newtabpage.activity-stream.telemetry.structuredIngestion",
-    false
-  );
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    Services.prefs.setBoolPref(
+      "browser.newtabpage.activity-stream.telemetry.structuredIngestion",
+      false
+    );
+  }
 
   // We need a default search engine set up for rendering the search input.
   await SearchTestUtils.installSearchExtension(

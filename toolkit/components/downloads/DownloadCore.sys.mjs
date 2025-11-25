@@ -429,6 +429,20 @@ Download.prototype = {
     this.currentBytes = 0;
     this.startTime = new Date();
 
+/* eslint-disable */
+#ifdef MOZ_ENTERPRISE
+    // Record telemetry when download attempt starts
+    if (
+      Services.prefs.getBoolPref(
+        "browser.download.enterprise.telemetry.enabled",
+        true
+      )
+    ) {
+      this._recordDownloadAttempt();
+    }
+#endif
+/* eslint-enable */
+
     // Create a new deferred object and an associated promise before starting
     // the actual download.  We store it on the download as the current attempt.
     let deferAttempt = Promise.withResolvers();
@@ -686,6 +700,56 @@ Download.prototype = {
       );
     }
   },
+
+/* eslint-disable */
+#ifdef MOZ_ENTERPRISE
+  /**
+   * Records telemetry when a download attempt starts in MOZ_ENTERPRISE builds.
+   * Collects filename, extension, MIME type, file size, source domain, and private browsing status.
+   */
+  _recordDownloadAttempt() {
+    try {
+      // Extract filename from path
+      const pathParts = this.target.path.split(/[/\\]/);
+      const filename = pathParts[pathParts.length - 1] || "";
+
+      // Extract file extension
+      const lastDotIndex = filename.lastIndexOf(".");
+      const fileExtension =
+        lastDotIndex > 0
+          ? filename.substring(lastDotIndex + 1).toLowerCase()
+          : "";
+
+      // Extract domain from source URL
+      let sourceDomain = "";
+      try {
+        if (this.source.url) {
+          const url = new URL(this.source.url);
+          sourceDomain = url.hostname || "";
+        }
+      } catch (ex) {
+        // Invalid URL, leave domain empty
+      }
+
+      // Record the telemetry event
+      Glean.downloads.downloadAttempt.record({
+        filename,
+        extension: fileExtension,
+        mime_type: this.contentType || "",
+        size_bytes: this.totalBytes || 0,
+        source_url_domain: sourceDomain,
+        is_private: this.source.isPrivate || false,
+      });
+
+      // Submit the enterprise ping
+      GleanPings.enterprise.submit();
+    } catch (ex) {
+      // Silently fail if telemetry recording encounters any issues
+      console.warn("Failed to record download attempt telemetry:", ex);
+    }
+  },
+#endif
+/* eslint-enable */
 
   /**
    * When a request to unblock the download is received, contains a promise

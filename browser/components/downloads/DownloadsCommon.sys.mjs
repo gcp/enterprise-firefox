@@ -38,6 +38,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  DownloadsTelemetry:
+    "moz-src:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetters(lazy, {
@@ -900,7 +902,7 @@ DownloadsDataCtor.prototype = {
       download.error?.becauseBlockedByReputationCheck ||
       download.error?.becauseBlockedByContentAnalysis
     ) {
-      this._notifyDownloadEvent("error");
+      this._notifyDownloadEvent("error", { download });
     }
   },
 
@@ -927,7 +929,7 @@ DownloadsDataCtor.prototype = {
         download.succeeded ||
         (download.error && download.error.becauseBlocked)
       ) {
-        this._notifyDownloadEvent("finish");
+        this._notifyDownloadEvent("finish", { download });
       }
     }
 
@@ -996,10 +998,41 @@ DownloadsDataCtor.prototype = {
    *        true (default) - open the downloads panel.
    *        false - only show an indicator notification.
    */
-  _notifyDownloadEvent(aType, { openDownloadsListOnStart = true } = {}) {
+  _notifyDownloadEvent(
+    aType,
+    { openDownloadsListOnStart = true, download = null } = {}
+  ) {
     DownloadsCommon.log(
       "Attempting to notify that a new download has started or finished."
     );
+
+    // If this is a finished download, record enterprise telemetry if available
+    if (aType === "finish" && download && download.succeeded) {
+      try {
+        if (
+          typeof lazy.DownloadsTelemetry !== "undefined" &&
+          lazy.DownloadsTelemetry &&
+          typeof lazy.DownloadsTelemetry.recordFileDownloaded === "function"
+        ) {
+          lazy.DownloadsTelemetry.recordFileDownloaded(download);
+        } else {
+          console.warn(
+            `[DownloadsCommon] DownloadsTelemetry not available or not a function`
+          );
+        }
+      } catch (e) {
+        console.error(
+          `[DownloadsCommon] Error recording download telemetry:`,
+          e
+        );
+        try {
+          ChromeUtils.reportError(e);
+        } catch (reportEx) {
+          // ChromeUtils.reportError may not be available in all contexts
+          console.error(`[DownloadsCommon] Could not report error:`, reportEx);
+        }
+      }
+    }
 
     // Show the panel in the most recent browser window, if present.
     let browserWin = lazy.BrowserWindowTracker.getTopWindow({

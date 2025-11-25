@@ -124,6 +124,9 @@ export let WebsiteFilter = {
       contentType == Ci.nsIContentPolicy.TYPE_SUBDOCUMENT
     ) {
       if (!this.isAllowed(url)) {
+#ifdef MOZ_ENTERPRISE
+        this._recordBlocklistDomainBrowsed(url);
+#endif
         return Ci.nsIContentPolicy.REJECT_POLICY;
       }
     }
@@ -175,4 +178,69 @@ export let WebsiteFilter = {
     }
     return true;
   },
+  /* eslint-disable */
+#ifdef MOZ_ENTERPRISE
+  _recordBlocklistDomainBrowsed(url) {
+    const isEnabled = Services.prefs.getBoolPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+      true
+    );
+    if (!isEnabled) {
+      return;
+    }
+
+    try {
+      const processedUrl = this._processTelemetryUrl(url);
+      Glean.contentPolicy.blocklistDomainBrowsed.record({
+        url: processedUrl,
+      });
+      GleanPings.enterprise.submit();
+    } catch (ex) {
+      // Silently fail - telemetry errors should not break website filtering
+      console.error(
+        `[WebsiteFilter] Blocked domain browsed telemetry recording failed:`,
+        ex
+      );
+      try {
+        ChromeUtils.reportError(
+          `Blocked domain browsed telemetry recording failed: ${ex}`
+        );
+      } catch (reportEx) {
+        // ChromeUtils.reportError may not be available in all contexts
+        console.error(
+          `[DownloadsTelemetryEnterprise] Could not report error:`,
+          reportEx
+        );
+      }
+    }
+  },
+  _processTelemetryUrl(sourceUrl) {
+    if (!sourceUrl) {
+      return null;
+    }
+
+    const policy = Services.prefs.getCharPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
+      "full"
+    );
+
+    switch (policy) {
+      case "none":
+        return null;
+
+      case "domain":
+        try {
+          const url = new URL(sourceUrl);
+          return url.hostname || null;
+        } catch (ex) {
+          return null;
+        }
+
+      case "full":
+      default:
+        return sourceUrl;
+    }
+  },
+#endif
+  /* eslint-enable */
 };
