@@ -204,7 +204,7 @@ def enable_full_crashsymbols(config, jobs):
     """Enable full crashsymbols on jobs with
     'enable-full-crashsymbols' set to True and on release branches, or
     on try"""
-    branches = RELEASE_PROJECTS | {"toolchains", "try", "try-comm-central"}
+    branches = RELEASE_PROJECTS | {"toolchains", "try", "try-comm-central", "enterprise-firefox"}
     for job in jobs:
         enable_full_crashsymbols = job["attributes"].get("enable-full-crashsymbols")
         if enable_full_crashsymbols and config.params["project"] in branches:
