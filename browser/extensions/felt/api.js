@@ -158,7 +158,7 @@ this.felt = class extends ExtensionAPI {
 
       case "FeltParent:FirefoxStarting": {
         Services.startup.enterLastWindowClosingSurvivalArea();
-        Services.ww.unregisterNotification(this.windowObserver);
+        Services.ww.unregisterNotification(this._winObserver);
         this._win.close();
         const success = Services.felt.makeBackgroundProcess(true);
         console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
@@ -178,7 +178,7 @@ this.felt = class extends ExtensionAPI {
     }
 
     if (topic === "domwindowclosed" && this._win === subject) {
-      Services.ww.unregisterNotification(this.windowObserver);
+      Services.ww.unregisterNotification(this._winObserver);
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
       );
@@ -196,8 +196,9 @@ this.felt = class extends ExtensionAPI {
       flags,
       null
     );
+    this._winObserver = this.windowObserver.bind(this);
 
-    Services.ww.registerNotification(this.windowObserver);
+    Services.ww.registerNotification(this._winObserver);
 
     // The window will send notifyObservers() itself. This is required
     // to make sure things are starting properly, including registration
