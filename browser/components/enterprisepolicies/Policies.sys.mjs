@@ -424,6 +424,20 @@ export var Policies = {
         }
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
+          );
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
+          );
+        }
+      }
+    },
   },
 
   Bookmarks: {
@@ -2421,6 +2435,16 @@ export var Policies = {
         }
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref("print.enterprise.telemetry.printPage.enabled");
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref("print.enterprise.telemetry.printPage.urlLogging");
+        }
+      }
+    },
   },
 
   PrivateBrowsingModeAvailability: {
@@ -2959,6 +2983,23 @@ export var Policies = {
           setAndLockPref(
             "browser.download.enterprise.telemetry.fileLogging",
             param.FileLogging
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref("browser.download.enterprise.telemetry.enabled");
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.urlLogging"
+          );
+        }
+        if ("FileLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.fileLogging"
           );
         }
       }
