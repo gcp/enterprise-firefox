@@ -47,17 +47,6 @@
  * comprehensive security monitoring is prioritized.
  */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
-const lazy = {};
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "gMIMEService",
-  "@mozilla.org/mime;1",
-  "nsIMIMEService"
-);
-
 export const DownloadsTelemetryEnterprise = {
   /**
    * Checks if download telemetry is enabled via enterprise policy.
