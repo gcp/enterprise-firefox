@@ -413,6 +413,12 @@ jobs:
           path: obj-*/dist/firefox-*.en-US.win64.zip
           compression-level: 0
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-installer-amd64
+          path: obj-*/dist/firefox-*.en-US.win64.installer.exe
+          compression-level: 0
+
       - name: "package gcp-eu"
         env:
           RUN_FIND_DUPES: 1
@@ -522,6 +528,46 @@ jobs:
             geckodriver.log
           compression-level: 0
         if: "always()"
+
+  windows-msi:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    needs: [ windows-build-opt ]
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: "download firefox installer"
+        uses: actions/download-artifact@v5
+        with:
+          name: firefox-windows-installer-amd64
+
+      - name: "install MozillaBuild"
+        run: |
+          $client = New-Object system.net.WebClient
+          $client.DownloadFile("https://ftp.mozilla.org/pub/mozilla.org/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe", "C:\MozillaBuildSetup.exe")
+          Start-Process "C:\MozillaBuildSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "C:\MozillaBuild_install.log" -RedirectStandardError "C:\MozillaBuild_install.err"
+
+      - name: "download wix-3.14.0"
+        run: |
+          mkdir fetches
+          cd fetches
+          ../mach artifact toolchain --from-build fetch-wix-3.14.0
+          cd ..
+
+      - name: "repackage msi"
+        run: |
+          $installerFile = Get-ChildItem -Path .\obj-*\dist\firefox-*.win64.installer.exe
+          $installerMSI = "$($installerFile.DirectoryName)\firefox-$runtimeVersion.en-US.win64.installer.msi"
+          $runtimeVersion = Get-Content ".\browser\config\version_display.txt"
+          ./mach repackage msi --wsx browser/installer/windows/msi/installer.wxs --version $runtimeVersion --locale en-US --arch x86_64 --candle fetches\candle.exe --light fetches\light.exe --setupexe $installerFile --output $installerMSI
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-installer-msi-amd64
+          path: obj-*/dist/firefox-*.en-US.win64.installer.msi
+          compression-level: 0
 
   macOS-build-vm:
     runs-on: ubuntu-24.04
