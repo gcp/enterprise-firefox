@@ -5,36 +5,18 @@
  * Tests for Enterprise Downloads Telemetry functionality.
  *
  * Note: These tests only run in MOZ_ENTERPRISE builds where the enterprise
- * implementation is actually available. In regular builds, these tests
- * will be skipped automatically.
+ * implementation is actually available. The test manifest (xpcshell.toml)
+ * has skip-if = ["!enterprise"] to ensure this.
  */
 
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
+const { DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
 );
-
-let DownloadsTelemetryEnterprise;
-
-// Only run these tests in MOZ_ENTERPRISE builds
-if (AppConstants.MOZ_ENTERPRISE) {
-  try {
-    ({ DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
-      "moz-src:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
-    ));
-  } catch (ex) {
-    // Enterprise module not available, skip these tests
-  }
-}
 
 /**
  * Test URL processing with different enterprise policy configurations.
  */
 add_task(async function test_url_processing_policies() {
-  if (!DownloadsTelemetryEnterprise) {
-    info("Skipping enterprise-specific tests (not MOZ_ENTERPRISE build)");
-    return;
-  }
-
   const testCases = [
     {
       input: "https://example.com/path/to/file.pdf?param=value#fragment",
@@ -110,11 +92,6 @@ add_task(async function test_url_processing_policies() {
  * Test default policy behavior when enterprise policies service is unavailable.
  */
 add_task(async function test_default_policy_behavior() {
-  if (!DownloadsTelemetryEnterprise) {
-    info("Skipping enterprise-specific tests (not MOZ_ENTERPRISE build)");
-    return;
-  }
-
   // Test that default behavior returns "full" when policies service is unavailable
   const originalGetUrlLoggingPolicy =
     DownloadsTelemetryEnterprise._getUrlLoggingPolicy;
@@ -143,11 +120,6 @@ add_task(async function test_default_policy_behavior() {
  * Test that enterprise telemetry records and parses download data correctly.
  */
 add_task(async function test_enterprise_data_parsing() {
-  if (!DownloadsTelemetryEnterprise) {
-    info("Skipping enterprise-specific tests (not MOZ_ENTERPRISE build)");
-    return;
-  }
-
   // Record a download with complete data
   const mockDownload = {
     target: {
