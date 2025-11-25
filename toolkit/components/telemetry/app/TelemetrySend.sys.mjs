@@ -1651,8 +1651,8 @@ export var TelemetrySendImpl = {
    */
   promisePendingPingActivity() {
     this._log.trace("promisePendingPingActivity - Waiting for ping task");
-    let p = Array.from(this._pendingPingActivity, p =>
-      p.catch(ex => {
+    let p = Array.from(this._pendingPingActivity, promise =>
+      promise.catch(ex => {
         this._log.error(
           "promisePendingPingActivity - ping activity had an error",
           ex
