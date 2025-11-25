@@ -1239,6 +1239,12 @@ toolkit/components/translations/cld2/
 toolkit/mozapps/update/tests/data/xpcshellConstantsPP.js
 toolkit/modules/AppConstants.sys.mjs
 
+# Files with MOZ_ENTERPRISE preprocessor directives
+browser/components/enterprisepolicies/helpers/WebsiteFilter.sys.mjs
+toolkit/components/downloads/DownloadCore.sys.mjs
+toolkit/components/printing/content/print.js
+toolkit/mozapps/extensions/AddonManager.sys.mjs
+
 # Tests of ESLint command.
 tools/lint/test/files
 
