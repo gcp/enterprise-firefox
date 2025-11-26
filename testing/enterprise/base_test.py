@@ -45,12 +45,12 @@ class EnterpriseTestsBase:
         if self.need_allow_system_access():
             driver_service_args += ["--allow-system-access"]
 
-        artifact_dir = os.environ.get("ARTIFACT_DIR", "")
-        if artifact_dir != "":
-            os.makedirs(artifact_dir, exist_ok=True)
+        self._artifact_dir = os.environ.get("ARTIFACT_DIR", "")
+        if self._artifact_dir != "":
+            os.makedirs(self._artifact_dir, exist_ok=True)
 
-        self._driver_log = os.path.join(artifact_dir, "geckodriver.log")
-        self._child_driver_log = os.path.join(artifact_dir, "geckodriver_child.log")
+        self._driver_log = os.path.join(self._artifact_dir, "geckodriver.log")
+        self._child_driver_log = os.path.join(self._artifact_dir, "geckodriver_child.log")
 
         driver_service = Service(
             executable_path=self._EXE_PATH,
@@ -70,9 +70,7 @@ class EnterpriseTestsBase:
         if not "TEST_NO_HEADLESS" in os.environ.keys():
             options.add_argument("--headless")
         if "MOZ_AUTOMATION" in os.environ.keys():
-            os.environ["MOZ_LOG_FILE"] = os.path.join(
-                os.environ.get("ARTIFACT_DIR", ""), "gecko.log"
-            )
+            os.environ["MOZ_LOG_FILE"] = os.path.join(self._artifact_dir, "gecko.log")
 
         profile_path = self.get_profile_path(name="enterprise-tests")
         options.add_argument("-profile")
@@ -209,7 +207,7 @@ class EnterpriseTestsBase:
     def get_screenshot_destination(self, name):
         final_name = name
         if "MOZ_AUTOMATION" in os.environ.keys():
-            final_name = os.path.join(os.environ.get("ARTIFACT_DIR"), name)
+            final_name = os.path.join(self._artifact_dir, name)
         return final_name
 
     def save_screenshot(self, name):
