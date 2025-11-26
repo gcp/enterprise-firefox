@@ -705,7 +705,7 @@ Download.prototype = {
 #ifdef MOZ_ENTERPRISE
   /**
    * Records telemetry when a download attempt starts in MOZ_ENTERPRISE builds.
-   * Collects filename, extension, MIME type, file size, source domain, and private browsing status.
+   * Collects filename, extension, MIME type, source domain, and private browsing status.
    */
   _recordDownloadAttempt() {
     try {
@@ -736,7 +736,6 @@ Download.prototype = {
         filename,
         extension: fileExtension,
         mime_type: this.contentType || "",
-        size_bytes: this.totalBytes || 0,
         source_url_domain: sourceDomain,
         is_private: this.source.isPrivate || false,
       });

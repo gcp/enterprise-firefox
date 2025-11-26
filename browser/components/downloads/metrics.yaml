@@ -104,10 +104,6 @@ downloads:
         description: >
           The MIME type of the downloaded file as reported by the server.
         type: string
-      size_bytes:
-        description: >
-          The size of the downloaded file in bytes.
-        type: quantity
       source_url_domain:
         description: >
           The domain from which the file was downloaded.
