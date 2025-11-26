@@ -6,17 +6,20 @@
 
 body {
   --warning-color: #ffa436;
+  --blocked-color: #d70022;
 }
 
 @media (prefers-color-scheme: dark) {
   body {
     --warning-color: #ffbd4f;
+    --blocked-color: #ff4f5e;
   }
 }
 
 @media (prefers-contrast) {
   body {
     --warning-color: var(--text-color);
+    --blocked-color: var(--text-color);
   }
 }
 
@@ -40,7 +43,8 @@ body.certerror .title {
 }
 
 body.blocked .title {
-  background-image: url("chrome://global/skin/icons/blocked.svg");
+  background-image: url("chrome://global/skin/icons/close-fill.svg");
+  fill: var(--blocked-color);
 }
 
 body.clockSkewError .title {

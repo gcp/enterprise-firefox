@@ -3714,6 +3714,7 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
       case NS_ERROR_BLOCKED_BY_POLICY:
         // Page blocked by policy
         error = "blockedByPolicy";
+        errorDescriptionID = "blockedByPolicy2";
         break;
       case NS_ERROR_DOM_COOP_FAILED:
         error = "blockedByCOOP";
