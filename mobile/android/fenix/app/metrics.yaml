@@ -14045,10 +14045,10 @@ webcompatreporting:
         description: >
           Whether the user opted into including blocked tracker origins.
         type: boolean
-  send_more_info:
+  add_more_info:
     type: event
     description: |
-      Recorded when a user clicks on the Send More Info link in the reporting UI
+      Recorded when a user clicks on the Add More Info link in the reporting UI
       The user will be redirected to webcompat.com to submit a more comprehensive report.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1932462
@@ -14373,6 +14373,32 @@ client_association:
       - fx-accounts
 
 toolbar:
+  cfr_shown:
+    type: event
+    description: |
+      Toolbar cfr was shown to the user.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2000490
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2000490
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  cfr_dismissed:
+    type: event
+    description: |
+      Toolbar cfr was dismissed by the user.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2000490
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2000490
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
   button_tapped:
     type: event
     description: |

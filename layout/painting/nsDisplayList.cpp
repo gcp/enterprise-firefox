@@ -537,11 +537,14 @@ void nsDisplayListBuilder::AutoCurrentActiveScrolledRootSetter::
 
   // finiteBoundsASR is the leafmost ASR that all items created during
   // object's lifetime have finite bounds with respect to.
-  const ActiveScrolledRoot* finiteBoundsASR =
-      mBuilder->IsInViewTransitionCapture()
-          ? aActiveScrolledRoot
-          : ActiveScrolledRoot::PickDescendant(mContentClipASR,
-                                               aActiveScrolledRoot);
+  // TODO(bug 2001862): Explanation may need revising.
+  const ActiveScrolledRoot* finiteBoundsASR = aActiveScrolledRoot;
+  if (!mBuilder->IsInViewTransitionCapture()) {
+    finiteBoundsASR =
+        ActiveScrolledRoot::IsAncestor(aActiveScrolledRoot, mContentClipASR)
+            ? mContentClipASR
+            : aActiveScrolledRoot;
+  }
 
   // mCurrentContainerASR is adjusted so that it's still an ancestor of
   // finiteBoundsASR.
@@ -5848,7 +5851,9 @@ nsDisplayStickyPosition::nsDisplayStickyPosition(
     const ActiveScrolledRoot* aActiveScrolledRoot,
     ContainerASRType aContainerASRType, const ActiveScrolledRoot* aContainerASR)
     : nsDisplayOwnLayer(aBuilder, aFrame, aList, aActiveScrolledRoot,
-                        aContainerASRType),
+                        aContainerASRType, nsDisplayOwnLayerFlags::None,
+                        layers::ScrollbarData{},
+                        /*aForceActive=*/true, /*aClearClipChain=*/true),
       mContainerASR(aContainerASR),
       mShouldFlatten(false) {
   MOZ_COUNT_CTOR(nsDisplayStickyPosition);
