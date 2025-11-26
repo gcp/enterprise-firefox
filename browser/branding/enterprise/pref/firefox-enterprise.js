@@ -6,4 +6,5 @@
 
 // This file contains felt-specific prefs.
 pref("enterprise.console.address", "https://console.enterfox.eu");
+pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise@mozilla.org");
