@@ -145,43 +145,43 @@ add_task(async function test_enterprise_data_parsing() {
     // Verify the telemetry was recorded correctly
     // Note: downloadCompleted events are sent to the "enterprise" ping
     const events = Glean.downloads.downloadCompleted.testGetValue("enterprise");
-  Assert.ok(events, "Should have recorded events");
-  Assert.equal(events.length, 1, "Should record exactly one event");
+    Assert.ok(events, "Should have recorded events");
+    Assert.equal(events.length, 1, "Should record exactly one event");
 
-  const event = events[0];
-  Assert.ok(event.extra, "Event should have extra data");
+    const event = events[0];
+    Assert.ok(event.extra, "Event should have extra data");
 
-  // Verify all fields are parsed correctly
-  Assert.equal(
-    event.extra.filename,
-    "document.pdf",
-    "Should extract correct filename"
-  );
-  Assert.equal(
-    event.extra.extension,
-    "pdf",
-    "Should extract correct extension"
-  );
-  Assert.equal(
-    event.extra.mime_type,
-    "application/pdf",
-    "Should preserve MIME type"
-  );
-  Assert.equal(
-    event.extra.size_bytes,
-    "12345",
-    "Should record correct file size"
-  );
-  Assert.equal(
-    event.extra.source_url,
-    "https://example.com/secure/document.pdf?token=abc123",
-    "Should record full URL by default"
-  );
-  Assert.equal(
-    event.extra.is_private,
-    "false",
-    "Should record private browsing status"
-  );
+    // Verify all fields are parsed correctly
+    Assert.equal(
+      event.extra.filename,
+      "document.pdf",
+      "Should extract correct filename"
+    );
+    Assert.equal(
+      event.extra.extension,
+      "pdf",
+      "Should extract correct extension"
+    );
+    Assert.equal(
+      event.extra.mime_type,
+      "application/pdf",
+      "Should preserve MIME type"
+    );
+    Assert.equal(
+      event.extra.size_bytes,
+      "12345",
+      "Should record correct file size"
+    );
+    Assert.equal(
+      event.extra.source_url,
+      "https://example.com/secure/document.pdf?token=abc123",
+      "Should record full URL by default"
+    );
+    Assert.equal(
+      event.extra.is_private,
+      "false",
+      "Should record private browsing status"
+    );
 
     // Test with edge cases - they should be handled gracefully
     Services.fog.testResetFOG();

@@ -123,7 +123,7 @@ EnterprisePoliciesManager.prototype = {
         provider.policies.Certificates &&
         Object.keys(provider.policies.Certificates).length === 1 &&
         (provider.policies.Certificates.ImportEnterpriseRoots === true ||
-         provider.policies.Certificates.ImportEnterpriseRoots === 1)
+          provider.policies.Certificates.ImportEnterpriseRoots === 1)
       ) {
         this._status = Ci.nsIEnterprisePolicies.INACTIVE;
         return;

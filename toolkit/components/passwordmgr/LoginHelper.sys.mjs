@@ -1730,7 +1730,7 @@ export const LoginHelper = {
     // If enterprise storage management is enabled but the token is still locked,
     // bail out without prompting so callers can retry after the enterprise secret
     // (which the user does not know) becomes available.
-    if (enterpriseManagedPrimaryPassword && !token.isLoggedIn()) {
+    if (isEnterpriseManagedPrimaryPassword && !token.isLoggedIn()) {
       console.warn(
         "LoginHelper.requestReauth: Enterprise-managed primary password is locked and OS auth is unavailable; deferring reauth."
       );
@@ -1755,7 +1755,7 @@ export const LoginHelper = {
     }
 
     try {
-      if (enterpriseManagedPrimaryPassword) {
+      if (isEnterpriseManagedPrimaryPassword) {
         // Enterprise builds rely on the backend-provided secret rather than forcing a logout.
         token.login();
       } else {

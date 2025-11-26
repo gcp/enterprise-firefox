@@ -192,7 +192,9 @@ add_task(async function test_os_auth_and_prp() {
   // the OS auth prompt.
   let osAuthDialogShown = Promise.resolve();
   if (OSKeyStore.canReauth()) {
-    osAuthDialogShown = forceAuthTimeoutAndWaitForOSKeyStoreLogin({ loginResult: true });
+    osAuthDialogShown = forceAuthTimeoutAndWaitForOSKeyStoreLogin({
+      loginResult: true,
+    });
   }
 
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function () {

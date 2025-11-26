@@ -38,7 +38,7 @@ add_task(async function test_recordFileDownloaded_basic() {
     DownloadsTelemetry.recordFileDownloaded(mockDownload);
     Assert.ok(true, "recordFileDownloaded should not throw with valid input");
   } catch (e) {
-    Assert.ok(false, `recordFileDownloaded threw: ${e}` );
+    Assert.ok(false, `recordFileDownloaded threw: ${e}`);
   }
 });
 
