@@ -108,7 +108,7 @@ export const ConsoleClient = {
       TOKEN: "/sso/token",
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
-      LEARN_MORE: "/downloads/firefox.html"
+      LEARN_MORE: "/downloads/firefox.html",
     };
   },
 
@@ -144,7 +144,7 @@ export const ConsoleClient = {
 
   /**
    * Learn more uri linked in the enterprise panel
-   * 
+   *
    * @returns {string} learn more uri
    */
   get learnMoreURI() {
