@@ -35,7 +35,7 @@ def enable_enterprise(value):
 
 set_config("MOZ_ENTERPRISE", enable_enterprise)
 set_define("MOZ_ENTERPRISE", enable_enterprise)
-imply_option("--with-app-basename", "Firefox Enterprise", when="--enable-enterprise")
+imply_option("--with-app-basename", "FirefoxEnterprise", when="--enable-enterprise")
 imply_option("--with-app-name", "firefox", when="--enable-enterprise")
 imply_option(
     "--with-branding", "browser/branding/enterprise", when="--enable-enterprise"

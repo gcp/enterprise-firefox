@@ -41,7 +41,7 @@ class FeltDevicePosture(FeltTests):
         assert "name" in device_posture["os"], "Device posture reports OS name"
         assert "version" in device_posture["os"], "Device posture reports OS version"
         assert (
-            device_posture["build"]["applicationName"] == "Firefox Enterprise"
+            device_posture["build"]["applicationName"] == "FirefoxEnterprise"
         ), "Device posture reports proper applicationName"
         return True
 
