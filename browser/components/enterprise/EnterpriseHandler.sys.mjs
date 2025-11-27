@@ -14,8 +14,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
-const LEARN_MORE_URL =
-  "https://console-gcp-eu.enterfox.eu/downloads/firefox.html";
 
 export const EnterpriseHandler = {
   /**
@@ -65,18 +63,18 @@ export const EnterpriseHandler = {
     const win = element.ownerGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
-    const email = document.querySelector(".panelUI-enterprise__email");
     const learnMoreLink = document.getElementById("enterprise-learn-more-link");
 
     if (!learnMoreLink.href) {
-      learnMoreLink.setAttribute("href", LEARN_MORE_URL);
+      const uri = lazy.ConsoleClient.learnMoreURI;
+      learnMoreLink.setAttribute("href", uri);
 
       learnMoreLink.addEventListener("click", e => {
         let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
         if (where == "current") {
           where = "tab";
         }
-        win.openTrustedLinkIn(LEARN_MORE_URL, where);
+        win.openTrustedLinkIn(uri, where);
         e.preventDefault();
 
         const panel = document
@@ -86,6 +84,7 @@ export const EnterpriseHandler = {
       });
     }
 
+    const email = document.querySelector(".panelUI-enterprise__email");
     if (!this._signedInUser) {
       email.hidden = true;
       document.querySelector("#PanelUI-enterprise-separator").hidden = true;
