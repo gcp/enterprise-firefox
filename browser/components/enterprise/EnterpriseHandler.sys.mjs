@@ -14,7 +14,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
-const LEARN_MORE_URL = "https://console-gcp-eu.enterfox.eu/downloads/firefox.html";
+const LEARN_MORE_URL =
+  "https://console-gcp-eu.enterfox.eu/downloads/firefox.html";
 
 export const EnterpriseHandler = {
   /**
@@ -62,19 +63,15 @@ export const EnterpriseHandler = {
 
   openPanel(element, event) {
     const win = element.ownerGlobal;
-    win.PanelUI.showSubView(
-      "panelUI-enterprise",
-      element,
-      event
-    );
+    win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
     const email = document.querySelector(".panelUI-enterprise__email");
     const learnMoreLink = document.getElementById("enterprise-learn-more-link");
 
     if (!learnMoreLink.href) {
       learnMoreLink.setAttribute("href", LEARN_MORE_URL);
-      
-      learnMoreLink.addEventListener("click", (e) => {
+
+      learnMoreLink.addEventListener("click", e => {
         let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
         if (where == "current") {
           where = "tab";
@@ -82,9 +79,11 @@ export const EnterpriseHandler = {
         win.openTrustedLinkIn(LEARN_MORE_URL, where);
         e.preventDefault();
 
-        const panel = document.getElementById("panelUI-enterprise").closest("panel")
-        win.PanelMultiView.hidePopup(panel)
-      })
+        const panel = document
+          .getElementById("panelUI-enterprise")
+          .closest("panel");
+        win.PanelMultiView.hidePopup(panel);
+      });
     }
 
     if (!this._signedInUser) {
