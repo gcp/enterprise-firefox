@@ -30,17 +30,23 @@ pub struct FeltXPCOM {
     rx: RefCell<Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>>,
     is_felt_ui: bool,
     is_felt_browser: bool,
+    is_felt_safe_mode: bool,
 }
 
 #[allow(non_snake_case)]
 impl FeltXPCOM {
-    pub fn new(_is_felt_ui: bool, _is_felt_browser: bool) -> RefPtr<FeltXPCOM> {
+    pub fn new(
+        _is_felt_ui: bool,
+        _is_felt_browser: bool,
+        _is_felt_safe_mode: bool,
+    ) -> RefPtr<FeltXPCOM> {
         FeltXPCOM::allocate(InitFeltXPCOM {
             one_shot_server: RefCell::new(None),
             tx: RefCell::new(None),
             rx: RefCell::new(None),
             is_felt_ui: _is_felt_ui,
             is_felt_browser: _is_felt_browser,
+            is_felt_safe_mode: _is_felt_safe_mode,
         })
     }
 
@@ -419,6 +425,15 @@ impl FeltXPCOM {
             *is_felt_browser = self.is_felt_browser;
         }
         trace!("FeltXPCOM: IsFeltBrowser: {}", self.is_felt_browser);
+        NS_OK
+    }
+
+    fn IsFeltSafeMode(&self, is_felt_safe_mode: *mut bool) -> nserror::nsresult {
+        trace!("FeltXPCOM: IsFeltSafeMode");
+        unsafe {
+            *is_felt_safe_mode = self.is_felt_safe_mode;
+        }
+        trace!("FeltXPCOM: IsFeltSafeMode: {}", self.is_felt_safe_mode);
         NS_OK
     }
 

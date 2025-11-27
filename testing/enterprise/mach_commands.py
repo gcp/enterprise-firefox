@@ -144,6 +144,9 @@ def run_tests(
             print("Running", " ".join(cli))
             try:
                 subprocess.check_call(cli)
+            except subprocess.CalledProcessError as ex:
+                print("Failure")
+                return ex.returncode
             except Exception as ex:
                 print("Received", ex)
         else:

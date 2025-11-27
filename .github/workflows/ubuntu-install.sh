@@ -11,6 +11,7 @@ apt -y install \
         libgtk2.0-dev \
         libgtk-3-dev \
         libpython3-dev \
+        libucl1 \
         libx11-xcb-dev \
         libxt-dev \
         msitools \

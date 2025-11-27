@@ -160,3 +160,9 @@ tasks:
         attributes:
             enterprise_test_file: test_felt_browser_signout.py
             enterprise_test_slug: feltSignout
+
+    felt-browser-safemode:
+        description: Testing passing safe mode from FELT to Browser
+        attributes:
+            enterprise_test_file: test_felt_browser_safe_mode.py
+            enterprise_test_slug: feltSafeMode

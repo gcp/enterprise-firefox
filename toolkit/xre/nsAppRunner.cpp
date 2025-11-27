@@ -4483,15 +4483,21 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   }
 #endif
 
+  gSafeMode = safeModeRequested.value();
+
 #if defined(MOZ_ENTERPRISE)
-  if (safeModeRequested.value()) {
-    Output(true,
-           "Error: Safe Mode is disabled in Firefox Enterprise builds.\n");
-    return 1;
+  if (safeModeRequested.value() && is_felt_ui()) {
+    if (!EnvHasValue("MOZ_AUTOMATION")) {
+      Output(
+          false,
+          "Warning: Safe Mode is inhibited in Firefox Enterprise Launcher but "
+          "will be transferred over to Firefox Enterprise Browser.\n");
+    }
+    // Let everything think it is not in safe mode, is_felt_safe_mode() will
+    // expose it to FELT extension code.
+    gSafeMode = false;
   }
 #endif
-
-  gSafeMode = safeModeRequested.value();
 
   MaybeAddCPUMicrocodeCrashAnnotation();
   CrashReporter::RegisterAnnotationBool(CrashReporter::Annotation::SafeMode,

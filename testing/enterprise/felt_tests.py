@@ -5,6 +5,7 @@
 
 import datetime
 import json
+import os
 import random
 import shutil
 import sys
@@ -166,19 +167,30 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/policies":
             self.check_auth()
-            if hasattr(self.server, "policy_block_about_config"):
-                with self.server.policy_block_about_config.get_lock():
-                    policy_value = (
-                        False
-                        if self.server.policy_block_about_config.value == 0
-                        else True
-                    )
-                    policy_content = (
-                        {"BlockAboutConfig": policy_value} if policy_value else {}
-                    )
-                    m = json.dumps({"policies": policy_content})
-            else:
-                m = json.dumps({"policies": {}})
+            policy_content = {}
+            policy_value = (
+                False if self.server.policy_block_about_config.value == 0 else True
+            )
+            policy_content.update(
+                {"BlockAboutConfig": policy_value} if policy_value else {}
+            )
+
+            policy_value = self.server.policy_extensions.value == 1
+            policy_content.update(
+                {
+                    "ExtensionSettings": {
+                        "treestyletab@piro.sakura.ne.jp": {
+                            "installation_mode": "force_installed",
+                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
+                            "updates_disabled": True,
+                        }
+                    }
+                }
+                if policy_value
+                else {}
+            )
+
+            m = json.dumps({"policies": policy_content})
 
         elif path == "/api/browser/whoami":
             self.check_auth()
@@ -245,6 +257,20 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/sso/get_device_posture":
             m = json.dumps(self.server.device_posture_payload)
 
+        elif path.startswith("/downloads/"):
+            filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
+            if os.path.isfile(filename):
+                with open(filename, mode="rb") as file:
+                    content = file.read()
+
+                self.send_response(200, "Success")
+                self.send_header("Content-type", "application/x-xpinstall")
+                self.send_header("Content-Length", len(content))
+                self.end_headers()
+
+                self.wfile.write(bytes(content))
+                return
+
         if m is not None:
             self.reply(m)
         else:
@@ -295,6 +321,7 @@ def serve(
     cookie_name=None,
     cookie_value=None,
     policy_block_about_config=None,
+    policy_extensions=None,
     policy_access_token=None,
     policy_refresh_token=None,
     # TODO: Behavior is not yet clearly defined
@@ -309,6 +336,8 @@ def serve(
         httpd.cookie_value = cookie_value
     if policy_block_about_config is not None:
         httpd.policy_block_about_config = policy_block_about_config
+    if policy_extensions is not None:
+        httpd.policy_extensions = policy_extensions
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
     if policy_refresh_token:
@@ -342,6 +371,7 @@ class FeltTests(EnterpriseTestsBase):
         self.console_port = random.randrange(10000, 14999)
         self.sso_port = random.randrange(15000, 20000)
         self.policy_block_about_config = Value("B", 1)
+        self.policy_extensions = Value("B", 0)
         """
         TODO: Behavior is not yet clearly defined
         self.device_posture_reply_forbidden = Value("B", 0)
@@ -359,6 +389,7 @@ class FeltTests(EnterpriseTestsBase):
                 sso_port=self.sso_port,
                 console_port=self.console_port,
                 policy_block_about_config=self.policy_block_about_config,
+                policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,
                 policy_refresh_token=self.policy_refresh_token,
                 # TODO: Behavior is not yet clearly defined

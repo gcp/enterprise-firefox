@@ -1220,6 +1220,13 @@ export class AddonWrapper {
     if (!Services.appinfo.inSafeMode) {
       return true;
     }
+
+#ifdef MOZ_ENTERPRISE
+    if (this.isInstalledByEnterprisePolicy) {
+      return true;
+    }
+#endif
+
     return XPIExports.XPIInternal.canRunInSafeMode(addon);
   }
 
