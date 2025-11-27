@@ -402,6 +402,11 @@ jobs:
         run: |
           rustup default 1.89
           rustup target add x86_64-pc-windows-msvc
+          mkdir fetches
+          cd fetches
+          ../mach artifact toolchain --from-build linux64-upx
+          cd ..
+          PATH=$PWD/fetches/upx/bin/:$PATH upx --version
 
       - name: build
         run: |
@@ -417,6 +422,13 @@ jobs:
           name: firefox-windows-amd64
           path: obj-*/dist/firefox-*.en-US.win64.zip
           compression-level: 0
+
+      - name: "repackage installer"
+        run: |
+          ZIP_FILE=$(find obj-*/dist/ -type f -name "firefox-*.win64.zip")
+          INSTALLER=$(echo "$ZIP_FILE" | sed -e "s/.zip$/.installer.exe/g")
+          SETUP_EXE=$(find obj-* -type f -name "setup.exe")
+          PATH=$PWD/fetches/upx/bin/:$PATH ./mach repackage installer -o $INSTALLER --package-name "firefox" --package $ZIP_FILE --tag browser/installer/windows/app.tag --setupexe $SETUP_EXE --sfx-stub other-licenses/7zstub/firefox/7zSD.Win32.sfx --use-upx
 
       - uses: actions/upload-artifact@v4
         with:
@@ -435,6 +447,19 @@ jobs:
         with:
           name: firefox-windows-amd64-gcpEU
           path: obj-*/dist/firefox-*.en-US.win64.zip
+          compression-level: 0
+
+      - name: "repackage installer gcp-eu"
+        run: |
+          ZIP_FILE=$(find obj-*/dist/ -type f -name "firefox-*.win64.zip")
+          INSTALLER=$(echo "$ZIP_FILE" | sed -e "s/.zip$/.installer.exe/g")
+          SETUP_EXE=$(find obj-* -type f -name "setup.exe")
+          PATH=$PWD/fetches/upx/bin/:$PATH ./mach repackage installer -o $INSTALLER --package-name "firefox" --package $ZIP_FILE --tag browser/installer/windows/app.tag --setupexe $SETUP_EXE --sfx-stub other-licenses/7zstub/firefox/7zSD.Win32.sfx --use-upx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-installer-amd64-gcpEU
+          path: obj-*/dist/firefox-*.en-US.win64.installer.exe
           compression-level: 0
 
   windows-test:
@@ -638,14 +663,54 @@ jobs:
 
       - name: "repackage msi"
         run: |
+          $runtimeVersion = Get-Content ".\browser\config\version_display.txt"
           $installerFile = Get-ChildItem -Path .\obj-*\dist\firefox-*.win64.installer.exe
           $installerMSI = "$($installerFile.DirectoryName)\firefox-$runtimeVersion.en-US.win64.installer.msi"
-          $runtimeVersion = Get-Content ".\browser\config\version_display.txt"
           ./mach repackage msi --wsx browser/installer/windows/msi/installer.wxs --version $runtimeVersion --locale en-US --arch x86_64 --candle fetches\candle.exe --light fetches\light.exe --setupexe $installerFile --output $installerMSI
 
       - uses: actions/upload-artifact@v4
         with:
           name: firefox-windows-installer-msi-amd64
+          path: obj-*/dist/firefox-*.en-US.win64.installer.msi
+          compression-level: 0
+
+  windows-msi-gcpEU:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    needs: [ windows-build-opt ]
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: "download firefox installer gcpEU"
+        uses: actions/download-artifact@v5
+        with:
+          name: firefox-windows-installer-amd64-gcpEU
+
+      - name: "install MozillaBuild"
+        run: |
+          $client = New-Object system.net.WebClient
+          $client.DownloadFile("https://ftp.mozilla.org/pub/mozilla.org/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe", "C:\MozillaBuildSetup.exe")
+          Start-Process "C:\MozillaBuildSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "C:\MozillaBuild_install.log" -RedirectStandardError "C:\MozillaBuild_install.err"
+
+      - name: "download wix-3.14.0"
+        run: |
+          mkdir fetches
+          cd fetches
+          ../mach artifact toolchain --from-build fetch-wix-3.14.0
+          cd ..
+
+      - name: "repackage msi gcp-eu"
+        run: |
+          $runtimeVersion = Get-Content ".\browser\config\version_display.txt"
+          $installerFile = Get-ChildItem -Path .\obj-*\dist\firefox-*.win64.installer.exe
+          $installerMSI = "$($installerFile.DirectoryName)\firefox-$runtimeVersion.en-US.win64.installer.msi"
+          ./mach repackage msi --wsx browser/installer/windows/msi/installer.wxs --version $runtimeVersion --locale en-US --arch x86_64 --candle fetches\candle.exe --light fetches\light.exe --setupexe $installerFile --output $installerMSI
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-installer-msi-amd64-gcpEU
           path: obj-*/dist/firefox-*.en-US.win64.installer.msi
           compression-level: 0
 
