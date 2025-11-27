@@ -967,6 +967,8 @@
     <string name="restart_warning_dialog_title">Change app icon?</string>
     <!-- Message to warn users that applying an alternative app icon may require an app restart. Whether or not the app closes depends on what version of Android it is, so we use the word "may" instead of "will". %1$s is replaced by the brand name (e.g. Firefox). -->
     <string name="restart_warning_dialog_body_2">The app may close. Just tap your shiny new icon to reopen %1$s.</string>
+    <!-- Message to warn users that applying an alternative app icon may require an app restart and will remove existing shortcuts because of the OS limitations. Whether or not the app closes depends on what version of Android it is, so we use the word "may" instead of "will". %1$s is replaced by the brand name (e.g. Firefox). -->
+    <string name="restart_and_shortcuts_removal_warning_dialog_body">Changing the icon will remove any sites and shortcuts you’ve saved to your Home screen. \n\n%1$s may close. Tap your new icon to reopen.</string>
     <!-- Dialog button text for confirming the possible app restart and new icon selection-->
     <string name="restart_warning_dialog_button_positive_2">Change icon</string>
     <!-- Dialog button text for cancelling app icon change-->
@@ -2531,12 +2533,12 @@
 
     <!-- Title of the "Add card" screen -->
     <string name="credit_cards_add_card">Add card</string>
+    <!-- Content description for the "credit card feature" top bar back button -->
+    <string name="credit_cards_navigate_back_button_content_description">Navigate back</string>
     <!-- Title of the "Edit card" screen -->
     <string name="credit_cards_edit_card">Edit card</string>
     <!-- The header for the card number of a credit card -->
     <string name="credit_cards_card_number">Card Number</string>
-    <!-- The header for the expiration date of a credit card -->
-    <string name="credit_cards_expiration_date">Expiration Date</string>
     <!-- The label for the expiration date month of a credit card to be used by a11y services-->
     <string name="credit_cards_expiration_date_month">Expiration Date Month</string>
     <!-- The label for the expiration date year of a credit card to be used by a11y services-->
