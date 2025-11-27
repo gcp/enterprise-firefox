@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "version": "1.0.0",
-  "name": "Enterprise",
+  "name": "Firefox Enterprise Light",
   "theme": {
     "images": {
       "additional_backgrounds": ["background.png"]
@@ -26,7 +26,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "firefox-enterprise@mozilla.org"
+      "id": "firefox-enterprise-light@mozilla.org"
     }
   }
 }
