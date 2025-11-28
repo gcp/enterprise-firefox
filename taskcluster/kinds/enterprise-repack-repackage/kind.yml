@@ -23,7 +23,7 @@ kind-dependencies:
 
 task-defaults:
     run-on-repo-type: [git]
-    run-on-projects: ["enterprise-firefox"]
+    run-on-projects: []
 
 only-for-build-platforms:
     - linux64-enterprise/opt
