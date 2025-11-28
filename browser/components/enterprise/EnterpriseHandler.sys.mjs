@@ -9,6 +9,7 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
 });
 
@@ -59,14 +60,31 @@ export const EnterpriseHandler = {
   },
 
   openPanel(element, event) {
-    element.ownerGlobal.PanelUI.showSubView(
-      "panelUI-enterprise",
-      element,
-      event
-    );
+    const win = element.ownerGlobal;
+    win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
-    const email = document.querySelector(".panelUI-enterprise__email");
+    const learnMoreLink = document.getElementById("enterprise-learn-more-link");
 
+    if (!learnMoreLink.href) {
+      const uri = lazy.ConsoleClient.learnMoreURI;
+      learnMoreLink.setAttribute("href", uri);
+
+      learnMoreLink.addEventListener("click", e => {
+        let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
+        if (where == "current") {
+          where = "tab";
+        }
+        win.openTrustedLinkIn(uri, where);
+        e.preventDefault();
+
+        const panel = document
+          .getElementById("panelUI-enterprise")
+          .closest("panel");
+        win.PanelMultiView.hidePopup(panel);
+      });
+    }
+
+    const email = document.querySelector(".panelUI-enterprise__email");
     if (!this._signedInUser) {
       email.hidden = true;
       document.querySelector("#PanelUI-enterprise-separator").hidden = true;
