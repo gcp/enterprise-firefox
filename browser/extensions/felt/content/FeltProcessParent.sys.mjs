@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PREFS: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
 });
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
@@ -431,7 +432,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     });
   }
 
-  receiveMessage(message) {
+  async receiveMessage(message) {
     console.debug(
       `FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`
     );
@@ -444,6 +445,10 @@ export class FeltProcessParent extends JSProcessActorParent {
             expires_in = 0,
           } = message.data;
           Services.felt.setTokens(access_token, refresh_token, expires_in);
+
+          // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
+          const { email } = await lazy.ConsoleClient.getLoggedInUserInfo();
+          lazy.FeltStorage.updateLastSignedInUserEmail(email);
 
           const ssoCollectedCookies = this.getAllCookies();
           console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);

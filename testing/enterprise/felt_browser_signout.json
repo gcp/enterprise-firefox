@@ -11,7 +11,7 @@
   "test_felt_4_perform_signout": {},
   "test_felt_5_whoami": {},
   "test_felt_6_browser_exited_show_sso": {},
-  "test_felt_7_email_submit": {},
+  "test_felt_7_prefilled_email_submit": {},
   "test_felt_8_load_sso": {
     "elements": [
       ["#login", "login"],

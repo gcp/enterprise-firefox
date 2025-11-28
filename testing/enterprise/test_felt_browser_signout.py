@@ -18,6 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 class BrowserSignout(FeltTests):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -32,7 +33,7 @@ class BrowserSignout(FeltTests):
         self._child_driver.set_context("content")
         return rv
 
-    def wait_sso_window(self):
+    def await_felt_auth_window(self):
         tabs = self._driver.window_handles
         self._wait.until(EC.new_window_is_opened(tabs))
 
@@ -70,6 +71,10 @@ class BrowserSignout(FeltTests):
         assert whoami["id"], "Expected user to exist"
         assert whoami["email"], "Expected user email to exist"
         assert whoami["picture"], "Expected user picture to exist"
+
+        # Save email for later to test that email is correctly pre-filled 
+        # in test_felt_7_prefilled_email_submit
+        self._signed_in_email = whoami["email"]
 
         self._child_driver.set_context("chrome")
 
@@ -159,12 +164,19 @@ class BrowserSignout(FeltTests):
 
         return True
 
-    def test_felt_7_email_submit(self, exp):
-        self.wait_sso_window()
+    def test_felt_7_prefilled_email_submit(self, exp):
+        self.await_felt_auth_window()
         self.force_window()
 
         cookies = self.get_private_cookies()
         assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
+
+        self._driver.set_context("chrome")
+        email = self.get_elem("#felt-form__email").get_property("value")
+        assert (
+            email == self._signed_in_email
+        ), "Expected email to be pre-filled after signout"
+        self._driver.set_context("content")
 
         self.test_felt_00_chrome_on_email_submit(exp)
         return True
