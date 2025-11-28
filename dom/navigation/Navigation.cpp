@@ -211,6 +211,10 @@ bool Navigation::IsAPIEnabled(JSContext* /* unused */, JSObject* /* unused */) {
 
 void Navigation::Entries(
     nsTArray<RefPtr<NavigationHistoryEntry>>& aResult) const {
+  if (HasEntriesAndEventsDisabled()) {
+    aResult.Clear();
+    return;
+  }
   aResult = mEntries.Clone();
 }
 
@@ -364,9 +368,9 @@ void Navigation::UpdateEntriesForSameDocumentNavigation(
       MOZ_LOG(gNavigationAPILog, LogLevel::Debug, ("Push navigation"));
       mCurrentEntryIndex =
           Some(mCurrentEntryIndex ? *mCurrentEntryIndex + 1 : 0);
-      while (*mCurrentEntryIndex < mEntries.Length()) {
-        disposedEntries.AppendElement(mEntries.PopLastElement());
-      }
+      disposedEntries.AppendElements(Span(mEntries).From(*mCurrentEntryIndex));
+      mEntries.RemoveElementsAt(*mCurrentEntryIndex,
+                                mEntries.Length() - *mCurrentEntryIndex);
       mEntries.AppendElement(MakeRefPtr<NavigationHistoryEntry>(
           GetOwnerGlobal(), aDestinationSHE, *mCurrentEntryIndex));
       break;
@@ -596,7 +600,7 @@ void Navigation::Navigate(JSContext* aCx, const nsAString& aUrl,
 
   RefPtr bc = document->GetBrowsingContext();
   MOZ_DIAGNOSTIC_ASSERT(bc);
-  bc->Navigate(urlRecord, *document->NodePrincipal(),
+  bc->Navigate(urlRecord, document, *document->NodePrincipal(),
                /* per spec, error handling defaults to false */ IgnoreErrors(),
                aOptions.mHistory, /* aNeedsCompletelyLoadedDocument */ false,
                serializedState, apiMethodTracker);

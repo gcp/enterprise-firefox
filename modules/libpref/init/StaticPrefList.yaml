@@ -305,6 +305,7 @@
   mirror: always
   do_not_use_directly: true
 
+#ifdef XP_WIN
 # Whether to avoid accessibility activation on Windows shortly after clipboard
 # copy.
 #
@@ -328,6 +329,7 @@
   type: uint32_t
   value: 2
   mirror: always
+#endif
 
 #---------------------------------------------------------------------------
 # Prefs starting with "alerts."
@@ -6740,6 +6742,11 @@
   value: 128
   mirror: always
 
+- name: gfx.canvas.accelerated.max-data-shmems
+  type: RelaxedAtomicUint32
+  value: 400
+  mirror: always
+
 - name: gfx.canvas.accelerated.max-export-surfaces
   type: RelaxedAtomicUint32
   value: 100
@@ -6866,10 +6873,12 @@
   value: true
   mirror: always
 
+#ifdef XP_WIN
 - name: gfx.canvas.remote.use-draw-image-fast-path-d3d
   type: RelaxedAtomicBool
   value: true
   mirror: always
+#endif
 
 - name: gfx.canvas.remote.recycle-used-data-surface
   type: RelaxedAtomicBool
@@ -8187,15 +8196,19 @@
 # Prefs starting with "gl." (OpenGL)
 #---------------------------------------------------------------------------
 
+#ifdef XP_MACOSX
 - name: gl.allow-high-power
   type: RelaxedAtomicBool
   value: true
   mirror: always
+#endif
 
+#ifdef XP_WIN
 - name: gl.ignore-dx-interop2-blacklist
   type: RelaxedAtomicBool
   value: false
   mirror: always
+#endif
 
 - name: gl.use-tls-is-current
   type: RelaxedAtomicInt32
@@ -9515,6 +9528,7 @@
   mirror: once
   do_not_use_directly: true
 
+#ifdef XP_WIN
 - name: layers.d3d11.force-warp
   type: bool
   value: false
@@ -9524,6 +9538,7 @@
   type: bool
   value: true
   mirror: once
+#endif
 
 # Enable DEAA antialiasing for transformed layers in the compositor.
 - name: layers.deaa.enabled
@@ -18664,19 +18679,17 @@
   value: false
   mirror: always
 
+#ifdef XP_WIN
 - name: webgl.dxgl.enabled
   type: RelaxedAtomicBool
-#ifdef XP_WIN
   value: true
-#else
-  value: false
-#endif
   mirror: always
 
 - name: webgl.dxgl.needs-finish
   type: RelaxedAtomicBool
   value: false
   mirror: always
+#endif
 
 - name: webgl.disable-fail-if-major-performance-caveat
   type: RelaxedAtomicBool
@@ -18897,11 +18910,6 @@
 - name: webgl.power-preference-override
   type: RelaxedAtomicInt32
   value: 0
-  mirror: always
-
-- name: webgl.prefer-16bpp
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 - name: webgl.sanitize-unmasked-renderer
