@@ -4,6 +4,7 @@ apt -y update && sudo apt -y upgrade
 apt -y install \
         build-essential \
         curl \
+        dbus-x11 \
         git \
         libc6-i386 \
         libasound2-dev \
@@ -28,6 +29,7 @@ apt -y install \
         uuid \
         wget \
         xattr \
+        xvfb \
         zip \
         7zip
 
@@ -53,6 +55,6 @@ mkdir -p /home/worker
 chown worker:worker /home/worker
 
 sudo -u worker mkdir /home/worker/actions-runner
-sudo -u worker sh -c "cd /home/worker/actions-runner && curl -o actions-runner-linux-x64-2.328.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.328.0/actions-runner-linux-x64-2.328.0.tar.gz && tar xf actions-runner-linux-x64-2.328.0.tar.gz"
+sudo -u worker sh -c "cd /home/worker/actions-runner && curl -o actions-runner-linux-x64-2.329.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.329.0/actions-runner-linux-x64-2.329.0.tar.gz && tar xf actions-runner-linux-x64-2.329.0.tar.gz"
 
 poweroff
