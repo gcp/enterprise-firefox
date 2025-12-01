@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::env;
 use std::ffi::{c_char, CStr, CString};
 use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
-use std::time::Duration;
 use thin_vec::ThinVec;
 use time::UtcDateTime;
 use xpcom::interfaces::{
@@ -297,7 +296,7 @@ impl FeltXPCOM {
                 trace!("FeltServerThread::start_thread(): felt_server thread runnable");
                 if let Some(rx) = rx_clone {
                     loop {
-                        match rx.try_recv_timeout(Duration::from_millis(250)) {
+                        match rx.recv() {
                             Ok(FeltMessage::Restarting) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Restarting");
                                 crate::utils::notify_observers("felt-firefox-restarting".to_string());
@@ -310,18 +309,18 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
                                 crate::utils::notify_observers("felt-firefox-logout".to_string());
                             },
-                            Ok(msg) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): UNEXPECTED MSG {:?}", msg);
-                            },
-                            Err(ipc_channel::ipc::TryRecvError::IpcError(ipc_channel::ipc::IpcError::Disconnected)) => {
+                            Err(ipc_channel::ipc::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
                                 break;
                             },
-                            Err(ipc_channel::ipc::TryRecvError::IpcError(err)) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): TryRecvError: {}", err);
+                            Err(ipc_channel::ipc::IpcError::Bincode(deserializeErr)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): IPC DESERIALIZE ERROR {:?}", deserializeErr);
                             },
-                            Err(ipc_channel::ipc::TryRecvError::Empty) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): NO DATA.");
+                            Err(ipc_channel::ipc::IpcError::Io(ioErr)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): IPC I/O ERROR {:?}", ioErr);
+                            },
+                            Ok(msg) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): UNEXPECTED MSG {:?}", msg);
                             },
                         }
                     }

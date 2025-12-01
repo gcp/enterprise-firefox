@@ -6,8 +6,7 @@ use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::nsString;
 use std::cell::RefCell;
 use std::ffi::{c_char, CStr, CString};
-use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
-use std::time::Duration;
+use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
 
@@ -159,8 +158,9 @@ impl FeltClientThread {
         // Define an observer
         #[xpcom(implement(nsIObserver), nonatomic)]
         struct Observer {
+            pending_cookies: Arc<Mutex<Vec<String>>>,
             profile_ready: Arc<AtomicBool>,
-            thread_stop: Arc<AtomicBool>,
+            thread_stop: ipc_channel::ipc::IpcSender<bool>,
             restart_tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
         }
 
@@ -176,10 +176,20 @@ impl FeltClientThread {
                     Ok("profile-after-change") => {
                         trace!("FeltClientThread::start_thread::observe() profile-after-change");
                         self.profile_ready.store(true, Ordering::Relaxed);
+                        if let Ok(mut cookies) = self.pending_cookies.lock() {
+                            if !cookies.is_empty() {
+                                trace!("FeltClientThread::start_thread::observe(): Profile ready! Start cookies injection!");
+                                cookies.drain(..).for_each(utils::inject_one_cookie);
+                                trace!("FeltClientThread::start_thread::observe(): Profile ready! Finished cookies injection!");
+                            }
+                        }
                     }
                     Ok("xpcom-shutdown-threads") => {
                         trace!("FeltClientThread::start_thread::observe() xpcom-shutdown-threads");
-                        self.thread_stop.store(true, Ordering::Relaxed);
+                        if let Err(err) = self.thread_stop.send(true) {
+                            trace!("FeltClientThread::start_thread::observe() xpcom-shutdown-threads thread_stop.send() error: {}", err);
+                            panic!("FeltClientThread failed to send stop on xpcom-shutdown-threads. Error: {}", err);
+                        }
                     }
                     Ok("quit-application") => {
                         trace!("FeltClientThread::start_thread::observe() quit-application");
@@ -236,16 +246,20 @@ impl FeltClientThread {
         let quit_application = CString::new("quit-application").unwrap();
 
         let profile_ready = Arc::new(AtomicBool::new(false));
-        let thread_stop = Arc::new(AtomicBool::new(false));
+
+        let pending_cookies: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
         // Clone tx for the observer to send restart messages directly
         let client = self.ipc_client.borrow_mut();
         let tx_for_observer = client.tx.clone();
         drop(client);
 
+        let (tx_thread, rx_thread) = ipc_channel::ipc::channel::<bool>().unwrap();
+
         let observer = Observer::allocate(InitObserver {
             profile_ready: profile_ready.clone(),
-            thread_stop: thread_stop.clone(),
+            pending_cookies: pending_cookies.clone(),
+            thread_stop: tx_thread,
             restart_tx: tx_for_observer,
         });
         let mut rv = unsafe {
@@ -278,117 +292,135 @@ impl FeltClientThread {
 
         let barrier = self.startup_ready.clone();
         let profile_ready_internal = profile_ready.clone();
-        let thread_stop_internal = thread_stop.clone();
 
         // Clone the tx: one for the background thread to signal existing,
         // one for us to immediately notify Felt is ready (to receive URLs etc),
         // this works because ipc-channel::ipc::IpcSender is Send + Sync.
         // Take the rx, only needed in the receive thread (and it's not Sync).
         let mut client = self.ipc_client.borrow_mut();
-        let tx_for_thread = client.tx.clone();
         let rx_for_thread = client.rx.take();
         drop(client);
-
-        // Reconstruct a client instance for the thread to send stuff
-        let thread_client = FeltIpcClient {
-            tx: tx_for_thread,
-            rx: rx_for_thread,
-        };
 
         trace!("FeltClientThread::start_thread(): started thread: build runnable");
         let _ = moz_task::RunnableBuilder::new("felt_client::ipc_loop", move || {
             trace!("FeltClientThread::start_thread(): felt_client thread runnable");
-                trace!("FeltClientThread::start_thread(): felt_client version OK");
-                if let Some(rx) = thread_client.rx.as_ref() {
-                    let mut pending_cookies: Vec<String> = Vec::new();
+            trace!("FeltClientThread::start_thread(): felt_client version OK");
 
-                    loop {
+            let mut rx_set = ipc_channel::ipc::IpcReceiverSet::new().unwrap();
+            let rx_thread_id = rx_set.add(rx_thread).unwrap();
+            let rx_client_id = rx_set.add(rx_for_thread.unwrap()).unwrap();
 
-                        if !pending_cookies.is_empty() && profile_ready_internal.load(Ordering::Relaxed) {
-                            trace!("FeltClientThread::felt_client::ipc_loop(): Profile ready! Start cookies injection!");
-                            while let Some(one_cookie) = pending_cookies.pop() {
-                                utils::inject_one_cookie(one_cookie);
+            'thread_loop: loop {
+                let events = match rx_set.select() {
+                    Ok(events) => events,
+                    Err(_) => break,
+                };
+
+                for event in events.into_iter() {
+                    match event {
+                        ipc_channel::ipc::IpcSelectionResult::MessageReceived(id, data) if id == rx_client_id => {
+                            match data.to() {
+                                Ok(FeltMessage::Cookie(felt_cookie)) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {}", felt_cookie.clone());
+                                    if profile_ready_internal.load(Ordering::Relaxed) {
+                                        utils::inject_one_cookie(felt_cookie);
+                                    } else if let Ok(mut cookies) = pending_cookies.lock() {
+                                        cookies.push(felt_cookie);
+                                    }
+                                },
+                                Ok(FeltMessage::BoolPreference((name, value))) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): BoolPreference({}, {})", name, value);
+                                    utils::inject_bool_pref(name, value);
+                                },
+                                Ok(FeltMessage::StringPreference((name, value))) => {
+                                    if name == "enterprise.console.address" {
+                                        utils::set_console_url(value.clone());
+                                    }
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
+                                    utils::inject_string_pref(name, value);
+                                },
+                                Ok(FeltMessage::IntPreference((name, value))) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
+                                    utils::inject_int_pref(name, value);
+                                },
+                                Ok(FeltMessage::StartupReady) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
+                                    let barrier = barrier.clone();
+                                    // We spawn this onto the main thread to ensure that any other tasks spawned to the main thread
+                                    // previously (e.g. setting preferences) are completed before we set the startup_ready flag.
+                                    utils::do_main_thread("felt_notify_observers", async move {
+                                        barrier.store(true, Ordering::Release);
+                                    });
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady: unblocking");
+                                },
+                                Ok(FeltMessage::RestartForced) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
+                                    utils::notify_observers("felt-restart-forced".to_string());
+                                },
+                                Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
+                                    if let Ok(mut tokens) = TOKENS.write() {
+                                        *tokens = Tokens {access_token, refresh_token, expires_at};
+                                        trace!("FeltClientThread::felt_client::ipc_loop(): RefreshToken({})", tokens.refresh_token);
+                                    } else {
+                                        trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", refresh_token);
+                                    }
+                                }
+                                Ok(FeltMessage::OpenURL(url)) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): OpenURL({})", url);
+                                    utils::open_url_in_firefox(url);
+                                },
+                                Ok(msg) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
+                                },
+                                Err(boxed_error) => {
+                                    match *boxed_error {
+                                        ipc_channel::ErrorKind::Io(err) => {
+                                            trace!("FeltClientThread::felt_client::ipc_loop(): MESSAGE I/O ERROR: {}", err);
+                                        },
+                                        err => {
+                                            trace!("FeltClientThread::felt_client::ipc_loop(): MESSAGE OTHER ERROR: {}", err);
+                                        },
+                                    }
+                                }
                             }
-                            trace!("FeltClientThread::felt_client::ipc_loop(): Profile ready! Finished cookies injection!");
-                        }
+                        },
 
-                        match rx.try_recv_timeout(Duration::from_millis(250)) {
-                            Ok(FeltMessage::Cookie(felt_cookie)) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {}", felt_cookie.clone());
-                                if profile_ready_internal.load(Ordering::Relaxed) {
-                                    utils::inject_one_cookie(felt_cookie);
-                                } else {
-                                    pending_cookies.push(felt_cookie);
-                                }
-                            },
-                            Ok(FeltMessage::BoolPreference((name, value))) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): BoolPreference({}, {})", name, value);
-                                utils::inject_bool_pref(name, value);
-                            },
-                            Ok(FeltMessage::StringPreference((name, value))) => {
-                                if name == "enterprise.console.address" {
-                                    utils::set_console_url(value.clone());
-                                }
-                                trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
-                                utils::inject_string_pref(name, value);
-                            },
-                            Ok(FeltMessage::IntPreference((name, value))) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
-                                utils::inject_int_pref(name, value);
-                            },
-                            Ok(FeltMessage::StartupReady) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
-                                let barrier = barrier.clone();
-                                // We spawn this onto the main thread to ensure that any other tasks spawned to the main thread
-                                // previously (e.g. setting preferences) are completed before we set the startup_ready flag.
-                                utils::do_main_thread("felt_notify_observers", async move {
-                                    barrier.store(true, Ordering::Release);
-                                });
-                                trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady: unblocking");
-                            },
-                            Ok(FeltMessage::RestartForced) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
-                                utils::notify_observers("felt-restart-forced".to_string());
-                            },
-                            Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
-                                if let Ok(mut tokens) = TOKENS.write() {
-                                    *tokens = Tokens {access_token, refresh_token, expires_at};
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): RefreshToken({})", tokens.refresh_token);
-                                } else {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", refresh_token);
+                        ipc_channel::ipc::IpcSelectionResult::MessageReceived(id, data) if id == rx_thread_id => {
+                            trace!("FeltClientThread::felt_client::ipc_loop(): MessageReceived THREAD id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
+                            let msg: Result<bool, Box<ipc_channel::ErrorKind>> = data.to();
+                            match msg {
+                                Ok(true) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): TRUE on THREAD ... STOPPING");
+                                    break 'thread_loop;
+                                },
+                                Ok(false) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): FALSE on THREAD? ??...");
+                                    panic!("Unexpected message received");
+                                },
+                                Err(err) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): ERROR on THREAD? ??... {:?}", err);
+                                    panic!("Unexpected error: {:?}", err);
                                 }
                             }
-                            Ok(FeltMessage::OpenURL(url)) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): OpenURL({})", url);
-                                utils::open_url_in_firefox(url);
-                            },
-                            Ok(msg) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
-                            },
-                            Err(ipc_channel::ipc::TryRecvError::IpcError(ipc_channel::ipc::IpcError::Disconnected)) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): DISCONNECTED");
-                                break;
-                            },
-                            Err(ipc_channel::ipc::TryRecvError::IpcError(err)) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): TryRecvError: {}", err);
-                            },
-                            Err(ipc_channel::ipc::TryRecvError::Empty) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): NO DATA.");
-                            },
-                        }
+                        },
 
-                        if thread_stop_internal.load(Ordering::Relaxed) {
-                            trace!("FeltClientThread::felt_client::ipc_loop(): xpcom-shutdown-threads received!");
-                            break;
+                        ipc_channel::ipc::IpcSelectionResult::MessageReceived(id, _) => {
+                            trace!("FeltClientThread::felt_client::ipc_loop(): MessageReceived OTHER id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
+                        },
+
+                        ipc_channel::ipc::IpcSelectionResult::ChannelClosed(id) => {
+                            trace!("FeltClientThread::felt_client::ipc_loop(): ChannelClosed id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
+                            break 'thread_loop;
                         }
                     }
-                    trace!("FeltClientThread::felt_client::ipc_loop(): DONE");
                 }
+                trace!("FeltClientThread::felt_client::ipc_loop(): DONE");
+            }
             trace!("FeltClientThread::felt_client::ipc_loop(): THREAD END");
         })
         .may_block(true)
         .dispatch(&thread);
-        trace!("FeltClientThread::start_thread(): runnable dispatched");
+        trace!("FeltClientThread::start_thread(): task dispatched");
 
         NS_OK
     }
