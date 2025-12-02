@@ -402,7 +402,8 @@ win64-plain/debug:
             disable_package_metrics: true
             stage_platform: win64
         mozconfig-variant: plain-debug
-    run-on-projects: ['trunk']
+    run-on-projects: ['trunk', 'enterprise-firefox']
+    run-on-repo-type: ['git']
     fetches:
         toolchain:
             - win64-clang
@@ -555,7 +556,8 @@ win64-plain/opt:
             disable_package_metrics: true
             stage_platform: win64
         mozconfig-variant: plain-opt
-    run-on-projects: ['mozilla-central']
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
+    run-on-repo-type: ['git']
     fetches:
         toolchain:
             - win64-clang

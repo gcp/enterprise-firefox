@@ -312,7 +312,8 @@ def add_enterprise_secret_scopes(config, jobs):
     """Enterprise builds re-use some secrets from the Gecko trust domain."""
     level = config.params["level"]
     for job in jobs:
-        if "enterprise" in job["name"]:
+        attributes = job.get("attributes")
+        if "enterprise" in job["name"] or ("update-channel" in attributes.keys() and "enterprise" in attributes["update-channel"]):
             job.setdefault("scopes", []).extend(
                 [
                     f"secrets:get:project/releng/gecko/build/level-{level}/gls-gapi.data",
