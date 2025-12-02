@@ -34,6 +34,7 @@ linux64/opt:
         secrets: true
         tooltool-downloads: public
     run-on-projects: ['integration', 'enterprise-firefox']
+    run-on-repo-type: ["git"]
     use-sccache: false
     use-python: "3.11"
     fetches:
