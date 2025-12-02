@@ -72,7 +72,7 @@ class BrowserSignout(FeltTests):
         assert whoami["email"], "Expected user email to exist"
         assert whoami["picture"], "Expected user picture to exist"
 
-        # Save email for later to test that email is correctly pre-filled 
+        # Save email for later to test that email is correctly pre-filled
         # in test_felt_7_prefilled_email_submit
         self._signed_in_email = whoami["email"]
 

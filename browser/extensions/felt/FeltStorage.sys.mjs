@@ -2,80 +2,55 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * @typedef {object} FeltData
- * @property {string | undefined} [lastSignedInUserEmail] - Email from last successful authentication
- */
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+});
 
 /**
- * Storage helper for reading and writing felt-related profile data.
+ * Storage helper for reading and writing felt-related profile data to felt.json
  */
 export const FeltStorage = {
   /**
-   * Absolute path to the enterprise data file stored in the profile directory.
+   * Absolute path to the felt.json file in the current profile.
    *
    * @type {string}
    */
-  ENTERPRISE_FILE_PATH: PathUtils.join(PathUtils.profileDir, "felt.json"),
+  FELT_FILE_PATH: PathUtils.join(PathUtils.profileDir, "felt.json"),
 
-  /**
-   * Reads and returns the felt data from felt.json.
-   *
-   * @returns {Promise<FeltData>} Promise resolving to the parsed
-   *   felt data, or an empty object if unavailable.
-   */
-  async getFeltData() {
-    const exists = await IOUtils.exists(this.ENTERPRISE_FILE_PATH);
-
-    if (!exists) {
-      return {};
-    }
-
-    try {
-      return await IOUtils.readJSON(this.ENTERPRISE_FILE_PATH);
-    } catch (err) {
-      console.error(
-        `Failed to read data from ${this.ENTERPRISE_FILE_PATH}`,
-        err
-      );
-      return {};
-    }
+  async init() {
+    this._feltStorage = new lazy.JSONFile({
+      path: this.FELT_FILE_PATH,
+    });
+    await this._feltStorage.load();
   },
 
   /**
-   * Writes the passed data object to felt.json.
+   * Gets the email that was used to signin the last time (if available)
    *
-   * @param {FeltData} data - The felt data object to persist.
-   * @returns {Promise<void>} Promise that resolves once the file has been written.
+   * @returns {string | undefined} email
    */
-  async updateFeltData(data) {
-    await IOUtils.writeJSON(this.ENTERPRISE_FILE_PATH, data);
+  getLastSignedInUser() {
+    return this._feltStorage.data?.lastSignedInUserEmail;
   },
 
   /**
-   * Gets the last signed-in user email stored in felt.json (if available).
+   * Updates the email that was used to sign in the last time
    *
-   * @returns {Promise<string | undefined>} The last signed-in user's email.
+   * @param {string} email
    */
-  async getLastSignedInUser() {
-    const data = await this.getFeltData();
-    return data?.lastSignedInUserEmail;
-  },
-
-  /**
-   * Updates the email that was last used to authenticate to the sso provider.
-   *
-   * @param {string} email - The email address of the last signed-in user.
-   * @returns {Promise<void>} A promise that resolves when the data is updated.
-   */
-  async updateLastSignedInUserEmail(email) {
-    const data = await this.getFeltData();
-
-    if (data?.lastSignedInUserEmail === email) {
+  updateLastSignedInUserEmail(email) {
+    if (this._feltStorage.data.lastSignedInUserEmail === email) {
       // Nothing changed.
       return;
     }
-    data.lastSignedInUserEmail = email;
-    await this.updateFeltData(data);
+    this._feltStorage.data.lastSignedInUserEmail = email;
+    this._feltStorage.saveSoon();
+  },
+
+  async uninit() {
+    await this._feltStorage.finalize();
+    this._feltStorage = {};
   },
 };
