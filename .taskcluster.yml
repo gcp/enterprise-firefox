@@ -343,32 +343,31 @@ tasks:
     - $if: 'tasks_for in ["github-push"]'
       then:
           $let:
-              trustDomain: enterprise
-              level: 1
-              ownerEmail: '${event.pusher.email}'
-              baseRepoUrl: '${event.repository.html_url}'
-              repoUrl: '${event.repository.html_url}'
-              project: '${event.repository.name}'
-              head_branch: ${event.ref}
-              head_ref: '${event.ref}'
-              base_sha: '${event.before}'
-              head_sha: '${event.after}'
-              ownTaskId: {$eval: as_slugid("decision_task")}
+              $merge:
+                  - trustDomain: enterprise
+                    level: 1
+                    ownTaskId: {$eval: as_slugid("decision_task")}
+                  - $switch:
+                        'tasks_for == "github-push"':
+                            ownerEmail: '${event.pusher.email}'
+                            baseRepoUrl: '${event.repository.html_url}'
+                            repoUrl: '${event.repository.html_url}'
+                            project: '${event.repository.name}'
+                            ref: '${event.ref}'
+                            baseRev: '${event.before}'
+                            headRev: '${event.after}'
           in:
-              $if: >
-                tasks_for == "github-push" && (head_branch == "refs/heads/enterprise-main" || head_branch == "refs/heads/enterprise-try")
-              then:
-                  $let:
-                      short_head_ref:
-                          $if: 'head_ref[:10] == "refs/tags/"'
-                          then: {$eval: 'head_ref[10:]'}
-                          else:
-                              $if: 'head_ref[:11] == "refs/heads/"'
-                              then: {$eval: 'head_ref[11:]'}
-                              else: ${head_ref}
-                  in:
+              $let:
+                  shortRef:
+                      $if: 'ref[:11] == "refs/heads/"'
+                      then: {$eval: 'ref[11:]'}
+                      else: ${ref}
+              in:
+                  $if: >
+                    tasks_for == "github-push" && shortRef in ["enterprise-main", "enterprise-try"]
+                  then:
                       taskId: '${ownTaskId}'
-                      taskGroupId: '${ownTaskId}'  # same as taskId; this is how automation identifies a decision task
+                      taskGroupId: '${ownTaskId}'
                       schedulerId: '${trustDomain}-level-${level}'
 
                       created: {$fromNow: ''}
@@ -376,7 +375,7 @@ tasks:
                       expires: {$fromNow: '1 year 1 second'}  # 1 second so artifacts expire first
                       metadata:
                           owner: "${ownerEmail}"
-                          source: "${repoUrl}/raw/${head_sha}/.taskcluster.yml"
+                          source: "${repoUrl}/raw/${headRev}/.taskcluster.yml"
                           name: "Decision Task (Push)"
                           description: 'The task that creates all of the other tasks in the task graph'
 
@@ -392,11 +391,11 @@ tasks:
                               - checks
                               - $if: 'tasks_for == "github-push"'
                                 then:
-                                    - "tc-treeherder.v2.${project}.${head_sha}"
+                                    - "tc-treeherder.v2.${project}.${headRev}"
                                     - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
-                                    - "index.${trustDomain}.v2.${project}.revision.${head_sha}.taskgraph.decision"
+                                    - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
                       scopes:
-                          - 'assume:repo:${repoUrl[8:]}:branch:${short_head_ref}'
+                          - 'assume:repo:${repoUrl[8:]}:branch:${shortRef}'
                       dependencies: []
                       requires: all-completed
                       priority: very-low
@@ -405,10 +404,10 @@ tasks:
                       payload:
                           env:
                               GECKO_BASE_REPOSITORY: '${baseRepoUrl}'
-                              GECKO_BASE_REV: '${base_sha}'
+                              GECKO_BASE_REV: '${baseRev}'
                               GECKO_HEAD_REPOSITORY: '${repoUrl}'
-                              GECKO_HEAD_REF: '${head_ref}'
-                              GECKO_HEAD_REV: '${head_sha}'
+                              GECKO_HEAD_REF: '${ref}'
+                              GECKO_HEAD_REV: '${headRev}'
                               GECKO_REPOSITORY_TYPE: git
                               REPOSITORIES: {$json: {gecko: "Mozilla Firefox"}}
                               TASKCLUSTER_CACHES: /builds/worker/checkouts
@@ -448,10 +447,10 @@ tasks:
                                    --repository-type=git \
                                    --tasks-for='${tasks_for}' \
                                    --base-repository='${baseRepoUrl}' \
-                                   --base-rev='${base_sha}' \
+                                   --base-rev='${baseRev}' \
                                    --head-repository='${repoUrl}' \
-                                   --head-ref='${head_ref}' \
-                                   --head-rev='${head_sha}'
+                                   --head-ref='${ref}' \
+                                   --head-rev='${headRev}'
 
                           artifacts:
                               'public':
