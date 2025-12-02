@@ -34,7 +34,7 @@ linux64/opt:
         secrets: true
         tooltool-downloads: public
     run-on-projects: ['integration', 'enterprise-firefox']
-    use-sccache: true
+    use-sccache: false
     use-python: "3.11"
     fetches:
         toolchain:
@@ -431,7 +431,7 @@ linux64/debug:
         mozconfig-variant: debug
         tooltool-downloads: public
     run-on-projects: ['enterprise-firefox']
-    use-sccache: true
+    use-sccache: false
     use-python: "3.11"
     fetches:
         toolchain:
