@@ -112,9 +112,10 @@ downloads:
         description: >
           The MIME type of the downloaded file as reported by the server.
         type: string
-      source_url_domain:
+      source_url:
         description: >
-          The domain from which the file was downloaded.
+          The download source URL. Collection level configurable via enterprise
+          policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
         type: string
       is_private:
         description: >

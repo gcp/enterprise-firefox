@@ -703,6 +703,116 @@ Download.prototype = {
 
 /* eslint-disable */
 #ifdef MOZ_ENTERPRISE
+    /**
+   * Gets the configured URL logging level from enterprise policy preferences.
+   *
+   * @returns {string} One of: "full", "domain", "none"
+   */
+  _getUrlLoggingPolicy() {
+    const urlLogging = Services.prefs.getCharPref(
+      "browser.download.enterprise.telemetry.urlLogging",
+      "full"
+    );
+
+    // Validate policy value
+    if (["full", "domain", "none"].includes(urlLogging)) {
+      return urlLogging;
+    }
+
+    return "full"; // Default to full URL for enterprise environments
+  },
+
+  /**
+   * Processes the source URL based on the configured logging policy.
+   *
+   * @param {string} sourceUrl - The original download URL
+   * @returns {string|null} Processed URL or null based on policy
+   */
+  _processSourceUrl(sourceUrl) {
+    if (!sourceUrl) {
+      return null;
+    }
+
+    const policy = this._getUrlLoggingPolicy();
+
+    switch (policy) {
+      case "none":
+        return null;
+
+      case "domain":
+        try {
+          const url = new URL(sourceUrl);
+          return url.hostname || null;
+        } catch (ex) {
+          return null;
+        }
+
+      case "full":
+      default:
+        return sourceUrl;
+    }
+  },
+
+  /**
+   * Gets the configured file logging level from enterprise policy preferences.
+   *
+   * @returns {string} One of: "full", "metadata", "none"
+   */
+  _getFileLoggingPolicy() {
+    const fileLogging = Services.prefs.getCharPref(
+      "browser.download.enterprise.telemetry.fileLogging",
+      "full"
+    );
+
+    // Validate policy value
+    if (["full", "metadata", "none"].includes(fileLogging)) {
+      return fileLogging;
+    }
+
+    return "full"; // Default to full file info for enterprise environments
+  },
+
+  /**
+   * Processes file information based on the configured logging policy.
+   *
+   * @param {string} filename - The filename (basename)
+   * @param {string} file_path - The full path of the file
+   * @param {string} extension - The file extension
+   * @param {string} mimeType - The MIME type
+   * @returns {object} Object with filename, extension, and mime_type based on policy
+   */
+  _processFileInfo(filename, file_path, extension, mimeType) {
+    const policy = this._getFileLoggingPolicy();
+
+    switch (policy) {
+      case "none":
+        return {
+          filename: "",
+          file_path: "",
+          extension: "",
+          mime_type: "",
+        };
+
+      case "metadata":
+        // Only log extension and MIME type, no filename
+        return {
+          filename: "",
+          file_path: "",
+          extension: extension || "",
+          mime_type: mimeType || "",
+        };
+
+      case "full":
+      default:
+        return {
+          filename: filename || "",
+          file_path: file_path || "",
+          extension: extension || "",
+          mime_type: mimeType || "",
+        };
+    }
+  },
+
   /**
    * Records telemetry when a download attempt starts in MOZ_ENTERPRISE builds.
    * Collects filename, extension, MIME type, source domain, and private browsing status.
@@ -721,24 +831,24 @@ Download.prototype = {
           ? filename.substring(lastDotIndex + 1).toLowerCase()
           : "";
 
-      // Extract domain from source URL
-      let sourceDomain = "";
-      try {
-        if (this.source.url) {
-          const url = new URL(this.source.url);
-          sourceDomain = url.hostname || "";
-        }
-      } catch (ex) {
-        // Invalid URL, leave domain empty
-      }
+      // Process source URL based on enterprise policy configuration
+      let sourceUrl = this._processSourceUrl(this.source.url);
+
+      // Process file information based on enterprise policy configuration
+      const fileInfo = this._processFileInfo(
+        filename,
+        path,
+        fileExtension,
+        this.contentType
+      );
 
       // Record the telemetry event
       Glean.downloads.downloadAttempt.record({
-        filename,
-        file_path: path,
-        extension: fileExtension,
-        mime_type: this.contentType || "",
-        source_url_domain: sourceDomain,
+        filename: fileInfo.filename,
+        file_path: fileInfo.file_path,
+        extension: fileInfo.extension,
+        mime_type: fileInfo.mime_type,
+        source_url: sourceUrl,
         is_private: this.source.isPrivate || false,
       });
 
