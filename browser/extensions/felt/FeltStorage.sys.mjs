@@ -50,7 +50,6 @@ export const FeltStorage = {
   },
 
   async uninit() {
-    await this._feltStorage.finalize();
     this._feltStorage = {};
   },
 };
