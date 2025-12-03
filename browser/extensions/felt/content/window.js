@@ -13,6 +13,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
 });
 
 // Will at least make move forward marionette
@@ -68,9 +69,15 @@ async function connectToConsole(email) {
   ssoBrowsingContext.focus();
 }
 
-function listenFormEmailSubmission() {
+async function listenFormEmailSubmission() {
   const signInBtn = document.getElementById("felt-form__sign-in-btn");
   const emailInput = document.getElementById("felt-form__email");
+
+  const lastUsedUserEmail = lazy.FeltStorage.getLastSignedInUser();
+  if (lastUsedUserEmail) {
+    emailInput.value = lastUsedUserEmail;
+    signInBtn.disabled = false;
+  }
 
   emailInput.addEventListener("input", () => {
     signInBtn.disabled = emailInput.value.trim() === "";

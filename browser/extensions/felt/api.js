@@ -10,6 +10,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
 });
 
 this.felt = class extends ExtensionAPI {
@@ -107,10 +108,11 @@ this.felt = class extends ExtensionAPI {
     },
   };
 
-  onStartup() {
+  async onStartup() {
     if (Services.felt.isFeltUI()) {
       this.registerChrome();
       this.registerActors();
+      await lazy.FeltStorage.init();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
@@ -226,6 +228,7 @@ this.felt = class extends ExtensionAPI {
     if (Services.felt.isFeltUI()) {
       ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
       ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
+      lazy.FeltStorage.uninit();
     }
   }
 };
