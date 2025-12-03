@@ -710,7 +710,8 @@ Download.prototype = {
   _recordDownloadAttempt() {
     try {
       // Extract filename from path
-      const pathParts = this.target.path.split(/[/\\]/);
+      const path = this.target.path;
+      const pathParts = path.split(/[/\\]/);
       const filename = pathParts[pathParts.length - 1] || "";
 
       // Extract file extension
@@ -734,6 +735,7 @@ Download.prototype = {
       // Record the telemetry event
       Glean.downloads.downloadAttempt.record({
         filename,
+        file_path: path,
         extension: fileExtension,
         mime_type: this.contentType || "",
         source_url_domain: sourceDomain,

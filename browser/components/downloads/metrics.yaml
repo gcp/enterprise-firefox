@@ -52,6 +52,10 @@ downloads:
         description: >
           The filename (basename only) of the downloaded file.
         type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
+        type: string
       extension:
         description: >
           The file extension of the downloaded file (e.g., "pdf", "exe").
@@ -95,6 +99,10 @@ downloads:
       filename:
         description: >
           The filename (basename only) of the downloaded file.
+        type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
         type: string
       extension:
         description: >
