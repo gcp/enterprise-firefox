@@ -680,6 +680,10 @@ var gSyncPane = {
     });
   },
 
+  shouldHideSyncInEnterprise() {
+    return Services.felt.isFeltBrowser();
+  },
+
   updateSyncUI() {
     let syncStatusTitle = document.getElementById("syncStatusTitle");
     let syncNowButton = document.getElementById("syncNow");
@@ -696,6 +700,19 @@ var gSyncPane = {
       syncNowButton.hidden = true;
       syncConfiguredEl.hidden = true;
       syncNotConfiguredEl.hidden = false;
+    }
+
+    if (this.shouldHideSyncInEnterprise()) {
+      const rejectReSignIn = document.getElementById("rejectReSignIn");
+      const rejectUnlinkFxaAccount = document.getElementById(
+        "rejectUnlinkFxaAccount"
+      );
+      const fxaUnlinkButton = document.getElementById("fxaUnlinkButton");
+      const noFxaSignIn = document.getElementById("noFxaSignIn");
+      rejectReSignIn.hidden = true;
+      rejectUnlinkFxaAccount.hidden = true;
+      fxaUnlinkButton.hidden = true;
+      noFxaSignIn.hidden = true;
     }
   },
 
