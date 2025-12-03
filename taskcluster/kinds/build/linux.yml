@@ -33,8 +33,7 @@ linux64/opt:
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
-    run-on-projects: ['integration', 'enterprise-firefox']
-    run-on-repo-type: ["git"]
+    run-on-projects: ['integration']
     use-sccache: false
     use-python: "3.11"
     fetches:
@@ -166,7 +165,7 @@ linux64-plain/opt:
         extra-config:
             disable_package_metrics: true
         mozconfig-variant: plain-opt
-    run-on-projects: ['mozilla-central']
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
     fetches:
         toolchain:
             - linux64-clang
@@ -431,7 +430,6 @@ linux64/debug:
         custom-build-variant-cfg: debug
         mozconfig-variant: debug
         tooltool-downloads: public
-    run-on-projects: ['enterprise-firefox']
     use-sccache: false
     use-python: "3.11"
     fetches:
@@ -568,7 +566,7 @@ linux64-plain/debug:
         mozconfig-variant: plain-debug
         script: mozharness/scripts/fx_desktop_build.py
         tooltool-downloads: public
-    run-on-projects: [trunk]
+    run-on-projects: ['trunk', 'enterprise-firefox']
     fetches:
         toolchain:
             - linux64-clang
