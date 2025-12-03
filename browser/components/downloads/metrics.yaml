@@ -64,6 +64,10 @@ downloads:
         description: >
           The MIME type of the downloaded file as reported by the server.
         type: string
+      sha256_hash:
+        description: >
+          The SHA256 hash of the downloaded file.
+        type: string
       size_bytes:
         description: >
           The size of the downloaded file in bytes.

@@ -234,6 +234,7 @@ export const DownloadsTelemetryEnterprise = {
         file_path: fileInfo.file_path,
         extension: fileInfo.extension,
         mime_type: fileInfo.mime_type,
+        sha256_hash: download.saver.getSha256Hash(),
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
         is_private: download.source?.isPrivate || false,
