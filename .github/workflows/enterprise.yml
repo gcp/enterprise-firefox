@@ -175,7 +175,7 @@ jobs:
         env:
           RUN_FIND_DUPES: 1
         run: |
-          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          sed -i.bak "s|https://console.enterfox.eu|https://console-gcp-eu.enterfox.eu|g" browser/branding/enterprise/pref/firefox-enterprise.js
           ./mach package
 
       - uses: actions/upload-artifact@v4
@@ -440,7 +440,7 @@ jobs:
         env:
           RUN_FIND_DUPES: 1
         run: |
-          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          sed -i.bak "s|https://console.enterfox.eu|https://console-gcp-eu.enterfox.eu|g" browser/branding/enterprise/pref/firefox-enterprise.js
           ./mach package
 
       - uses: actions/upload-artifact@v4
@@ -852,7 +852,7 @@ jobs:
         env:
           RUN_FIND_DUPES: 1
         run: |
-          echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
+          sed -i.bak "s|https://console.enterfox.eu|https://console-gcp-eu.enterfox.eu|g" browser/branding/enterprise/pref/firefox-enterprise.js
           ./mach package
 
       - name: "signature and repackage for gcp-eu"
