@@ -158,6 +158,11 @@ add_task(async function test_enterprise_data_parsing() {
       "Should extract correct filename"
     );
     Assert.equal(
+      event.extra.file_path,
+      "/home/user/Downloads/document.pdf",
+      "Should record correct file path"
+    );
+    Assert.equal(
       event.extra.extension,
       "pdf",
       "Should extract correct extension"

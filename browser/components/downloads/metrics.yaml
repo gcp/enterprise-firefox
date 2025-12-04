@@ -52,6 +52,10 @@ downloads:
         description: >
           The filename (basename only) of the downloaded file.
         type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
+        type: string
       extension:
         description: >
           The file extension of the downloaded file (e.g., "pdf", "exe").
@@ -59,6 +63,10 @@ downloads:
       mime_type:
         description: >
           The MIME type of the downloaded file as reported by the server.
+        type: string
+      sha256_hash:
+        description: >
+          The SHA256 hash of the downloaded file.
         type: string
       size_bytes:
         description: >
@@ -96,6 +104,10 @@ downloads:
         description: >
           The filename (basename only) of the downloaded file.
         type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
+        type: string
       extension:
         description: >
           The file extension of the downloaded file (e.g., "pdf", "exe").
@@ -104,9 +116,10 @@ downloads:
         description: >
           The MIME type of the downloaded file as reported by the server.
         type: string
-      source_url_domain:
+      source_url:
         description: >
-          The domain from which the file was downloaded.
+          The download source URL. Collection level configurable via enterprise
+          policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
         type: string
       is_private:
         description: >

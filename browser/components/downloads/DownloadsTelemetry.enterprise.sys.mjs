@@ -133,17 +133,19 @@ export const DownloadsTelemetryEnterprise = {
    * Processes file information based on the configured logging policy.
    *
    * @param {string} filename - The filename (basename)
+   * @param {string} file_path - The full path of the file
    * @param {string} extension - The file extension
    * @param {string} mimeType - The MIME type
    * @returns {object} Object with filename, extension, and mime_type based on policy
    */
-  _processFileInfo(filename, extension, mimeType) {
+  _processFileInfo(filename, file_path, extension, mimeType) {
     const policy = this._getFileLoggingPolicy();
 
     switch (policy) {
       case "none":
         return {
           filename: "",
+          file_path: "",
           extension: "",
           mime_type: "",
         };
@@ -152,6 +154,7 @@ export const DownloadsTelemetryEnterprise = {
         // Only log extension and MIME type, no filename
         return {
           filename: "",
+          file_path: "",
           extension: extension || "",
           mime_type: mimeType || "",
         };
@@ -160,6 +163,7 @@ export const DownloadsTelemetryEnterprise = {
       default:
         return {
           filename: filename || "",
+          file_path: file_path || "",
           extension: extension || "",
           mime_type: mimeType || "",
         };
@@ -181,16 +185,17 @@ export const DownloadsTelemetryEnterprise = {
     try {
       // Extract filename from target path
       let filename = null;
-      if (download.target?.path) {
+      let file_path = download.target?.path;
+      if (file_path) {
         try {
           // PathUtils is available as a global WebIDL binding in this context.
-          filename = PathUtils.filename(download.target.path);
+          filename = PathUtils.filename(file_path);
         } catch (pathErr) {
           console.warn(
             `[DownloadsTelemetryEnterprise] PathUtils failed, falling back to split:`,
             pathErr
           );
-          const parts = download.target.path.split(/[/\\]/);
+          const parts = file_path.split(/[/\\]/);
           filename = parts[parts.length - 1] || "";
         }
       }
@@ -208,7 +213,12 @@ export const DownloadsTelemetryEnterprise = {
       let mimeType = download.contentType || "";
 
       // Process file information based on enterprise policy configuration
-      const fileInfo = this._processFileInfo(filename, extension, mimeType);
+      const fileInfo = this._processFileInfo(
+        filename,
+        file_path,
+        extension,
+        mimeType
+      );
 
       // Process source URL based on enterprise policy configuration
       let sourceUrl = this._processSourceUrl(download.source?.url);
@@ -216,13 +226,15 @@ export const DownloadsTelemetryEnterprise = {
       // Get file size
       let sizeBytes = download.target?.size;
       if (typeof sizeBytes !== "number" || sizeBytes < 0) {
-        sizeBytes = null;
+        sizeBytes = 0;
       }
 
       const telemetryData = {
         filename: fileInfo.filename,
+        file_path: fileInfo.file_path,
         extension: fileInfo.extension,
         mime_type: fileInfo.mime_type,
+        sha256_hash: download.saver.getSha256Hash() || "",
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
         is_private: download.source?.isPrivate || false,
