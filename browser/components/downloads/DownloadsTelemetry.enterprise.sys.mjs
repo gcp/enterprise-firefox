@@ -226,7 +226,7 @@ export const DownloadsTelemetryEnterprise = {
       // Get file size
       let sizeBytes = download.target?.size;
       if (typeof sizeBytes !== "number" || sizeBytes < 0) {
-        sizeBytes = null;
+        sizeBytes = 0;
       }
 
       const telemetryData = {
@@ -235,7 +235,7 @@ export const DownloadsTelemetryEnterprise = {
         extension: fileInfo.extension,
         mime_type: fileInfo.mime_type,
         sha256_hash: download.saver.getSha256Hash() || "",
-        size_bytes: sizeBytes || 0,
+        size_bytes: sizeBytes,
         source_url: sourceUrl || "",
         is_private: download.source?.isPrivate || false,
       };
