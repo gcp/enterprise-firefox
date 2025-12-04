@@ -142,13 +142,7 @@ def add_command_arguments(config, tasks):
                 [
                     f"<{dep}>"
                     for dep in task["dependencies"]
-                    if (
-                        (
-                            not config.kind.startswith("enterprise-repack")
-                            and ("signing" in dep or "notarization" in dep)
-                        )
-                        or (config.kind.startswith("enterprise-repack"))
-                    )
+                    if ("signing" in dep or "notarization" in dep)
                 ]
             )
         }
