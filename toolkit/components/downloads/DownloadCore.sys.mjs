@@ -848,7 +848,7 @@ Download.prototype = {
         file_path: fileInfo.file_path,
         extension: fileInfo.extension,
         mime_type: fileInfo.mime_type,
-        source_url: sourceUrl,
+        source_url: sourceUrl || "",
         is_private: this.source.isPrivate || false,
       });
 
