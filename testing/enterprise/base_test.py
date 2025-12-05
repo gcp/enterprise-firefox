@@ -74,13 +74,13 @@ class EnterpriseTestsBase:
         if "MOZ_AUTOMATION" in os.environ.keys():
             os.environ["MOZ_LOG_FILE"] = os.path.join(self._artifact_dir, "gecko.log")
 
-        profile_path = self.get_profile_path(name="enterprise-tests")
+        self._profile_path = self.get_profile_path(name="enterprise-tests")
         options.add_argument("-profile")
-        options.add_argument(profile_path)
+        options.add_argument(self._profile_path)
 
         if extra_prefs:
-            self._logger.info(f"Setting extra prefs at {profile_path}")
-            with open(os.path.join(profile_path, "user.js"), "w") as user_pref:
+            self._logger.info(f"Setting extra prefs at {self._profile_path}")
+            with open(os.path.join(self._profile_path, "user.js"), "w") as user_pref:
                 for pref in extra_prefs:
                     if type(pref[1]) is bool:
                         v = "true" if pref[1] else "false"
@@ -188,7 +188,7 @@ class EnterpriseTestsBase:
 
         ec = self.check_for_crashes(ec)
 
-        shutil.rmtree(profile_path, ignore_errors=True)
+        shutil.rmtree(self._profile_path, ignore_errors=True)
 
         sys.exit(ec)
 
