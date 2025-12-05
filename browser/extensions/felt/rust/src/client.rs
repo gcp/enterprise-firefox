@@ -184,11 +184,11 @@ impl FeltClientThread {
                             }
                         }
                     }
-                    Ok("xpcom-shutdown-threads") => {
-                        trace!("FeltClientThread::start_thread::observe() xpcom-shutdown-threads");
+                    Ok("xpcom-shutdown") => {
+                        trace!("FeltClientThread::start_thread::observe() xpcom-shutdown");
                         if let Err(err) = self.thread_stop.send(true) {
-                            trace!("FeltClientThread::start_thread::observe() xpcom-shutdown-threads thread_stop.send() error: {}", err);
-                            panic!("FeltClientThread failed to send stop on xpcom-shutdown-threads. Error: {}", err);
+                            trace!("FeltClientThread::start_thread::observe() xpcom-shutdown thread_stop.send() error: {}", err);
+                            panic!("FeltClientThread failed to send stop on xpcom-shutdown. Error: {}", err);
                         }
                     }
                     Ok("quit-application") => {
@@ -242,7 +242,7 @@ impl FeltClientThread {
         let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
 
         let profile_after_change = CString::new("profile-after-change").unwrap();
-        let xpcom_shutdown = CString::new("xpcom-shutdown-threads").unwrap();
+        let xpcom_shutdown = CString::new("xpcom-shutdown").unwrap();
         let quit_application = CString::new("quit-application").unwrap();
 
         let profile_ready = Arc::new(AtomicBool::new(false));
