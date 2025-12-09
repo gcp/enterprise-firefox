@@ -114,6 +114,7 @@ PER_PROJECT_PARAMETERS = {
     "staging-firefox": {
         "target_tasks_method": "default",
     },
+    # Firefox Enterprise, will be improved later.
     "enterprise-firefox": {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_type": "nightly-enterprise",
