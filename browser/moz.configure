@@ -41,6 +41,9 @@ imply_option(
     "--with-branding", "browser/branding/enterprise", when="--enable-enterprise"
 )
 
+# Set UA name to "Firefox" for enterprise builds
+imply_option("MOZ_APP_UA_NAME", "Firefox", when="--enable-enterprise")
+
 
 option(
     "--disable-browser-newtab-as-addon",

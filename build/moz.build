@@ -83,6 +83,9 @@ if CONFIG["MOZ_APP_BASENAME"]:
     if CONFIG["MOZ_APP_DISPLAYNAME"] != CONFIG["MOZ_APP_BASENAME"]:
         appini_defines["MOZ_APP_DISPLAYNAME"] = CONFIG["MOZ_APP_DISPLAYNAME"]
 
+    if CONFIG["MOZ_APP_UA_NAME"]:
+        appini_defines["MOZ_APP_UA_NAME"] = CONFIG["MOZ_APP_UA_NAME"]
+
     if CONFIG["MOZ_BUILD_APP"] == "browser":
         appini_defines["MOZ_BUILD_APP_IS_BROWSER"] = True
 
