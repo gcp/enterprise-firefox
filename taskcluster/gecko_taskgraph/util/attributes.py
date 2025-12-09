@@ -37,7 +37,7 @@ RELEASE_PROJECTS = {
     # bug 1988213: cypress project branch
     "cypress",
     # https://github.com/mozilla/enterprise-firefox
-    # "enterprise-firefox",
+    "enterprise-firefox",
 }
 
 RELEASE_PROMOTION_PROJECTS = {

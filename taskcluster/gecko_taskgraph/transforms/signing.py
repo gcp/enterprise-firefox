@@ -173,7 +173,11 @@ def make_task_description(config, jobs):
         signing_type = get_signing_type_per_platform(
             build_platform, is_shippable, config
         )
-        worker_type_alias = "linux-signing" if is_shippable else "linux-depsigning"
+        worker_type_alias = (
+            "linux-signing"
+            if is_shippable and int(config.params["level"]) == 3
+            else "linux-depsigning"
+        )
         task = {
             "label": label,
             "description": description,

@@ -487,7 +487,9 @@ def target_tasks_enterprise_firefox_with_tests(
 
     def filter(task):
         # Only keep builds that have been explicitely flagged
-        if task.kind == "build" and "all" in task.attributes.get("run_on_projects"):
+        if task.kind == "build" and not "enterprise" in task.attributes.get(
+            "run_on_projects"
+        ):
             return False
 
         if task.kind == "enterprise-test":

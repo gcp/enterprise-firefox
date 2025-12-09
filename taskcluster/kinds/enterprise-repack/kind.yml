@@ -20,9 +20,6 @@ kind-dependencies:
     - shippable-l10n-mac-signing
     - shippable-l10n-mac-notarization
 
-# Those are failing on chain of trust because of github-push:
-# scriptworker.exceptions.CoTError: 'Error while rebuilding scriptworker:parent AV-ahp-DQjm3f5-0nD5ndg task definition!\nscriptworker:parent AV-ahp-DQjm3f5-0nD5ndg: Unknown tasks_for: github-push'
-
 task-defaults:
     run-on-projects: ["enterprise-firefox"]
     name: ent-repack
@@ -52,32 +49,35 @@ task-defaults:
         tier: 1
 
 only-for-build-platforms:
-    - linux64-enterprise/opt
-    - macosx64-enterprise/opt
-    - win64-enterprise/opt
+    - linux64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
 
 tasks:
-    linux64-enterprise:
+    linux64-enterprise-shippable:
         treeherder:
             platform: linux64/opt
             symbol: Ent-Rpk(linux64)
         attributes:
-            build_platform: linux64-enterprise
+            shippable: true
+            build_platform: linux64-enterprise-shippable
             build_type: opt
             artifact_prefix: public/
-    macosx64-enterprise:
+    macosx64-enterprise-shippable:
         treeherder:
             symbol: Ent-Rpk(macOS)
             platform: osx-cross/opt
         attributes:
-            build_platform: macosx64-enterprise
+            shippable: true
+            build_platform: macosx64-enterprise-shippable
             build_type: opt
             artifact_prefix: public/
-    win64-enterprise:
+    win64-enterprise-shippable:
         treeherder:
             symbol: Ent-Rpk(win64)
             platform: windows2012-64/opt
         attributes:
-            build_platform: win64-enterprise
+            shippable: true
+            build_platform: win64-enterprise-shippable
             build_type: opt
             artifact_prefix: public/

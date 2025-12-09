@@ -5,11 +5,11 @@
 loader: taskgraph.loader.transform:loader
 
 only-for-build-platforms:
-    - linux64-enterprise/opt
+    - linux64-enterprise-shippable/opt
     - linux64-enterprise/debug
-    - macosx64-enterprise/opt
+    - macosx64-enterprise-shippable/opt
     - macosx64-enterprise/debug
-    - win64-enterprise/opt
+    - win64-enterprise-shippable/opt
     - win64-enterprise/debug
 
 transforms:

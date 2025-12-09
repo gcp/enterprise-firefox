@@ -300,20 +300,22 @@ windows11-aarch64-24h2/debug:
 ##
 # MacOS X platforms (matching /macosx.*/)
 
-macosx1500-aarch64/debug:
-    build-platform: macosx64-aarch64/debug
-    build-signing-label: repackage-macosx64-aarch64/debug
-    test-sets:
-        - macosx1500-aarch64-tests
-        - macosx1500-64-jittests
-
-macosx1500-aarch64-shippable/opt:
-    build-platform: macosx64-shippable/opt
-    build-signing-label: repackage-macosx64-shippable/opt
-    test-sets:
-        - macosx1500-64-jittests
-        - macosx1500-64-tests
-        - macosx1500-64-perftests
+##  TODO: This is trying to fetch build not done on enterprise-firefox
+##  Exception: Task 'test-macosx1500-aarch64-shippable/opt-xpcshell-1-cf' lists a dependency that does not exist: 'repackage-macosx64-shippable/opt'
+## macosx1500-aarch64/debug:
+##    build-platform: macosx64-aarch64/debug
+##    build-signing-label: repackage-macosx64-aarch64/debug
+##    test-sets:
+##        - macosx1500-aarch64-tests
+##        - macosx1500-64-jittests
+##
+## macosx1500-aarch64-shippable/opt:
+##    build-platform: macosx64-shippable/opt
+##    build-signing-label: repackage-macosx64-shippable/opt
+##    test-sets:
+##        - macosx1500-64-jittests
+##        - macosx1500-64-tests
+##        - macosx1500-64-perftests
 
 macosx1470-64-nightlyasrelease/opt:
     build-platform: macosx64-nightlyasrelease/opt

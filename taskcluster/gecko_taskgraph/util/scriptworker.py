@@ -100,6 +100,24 @@ DEVEDITION_SIGNING_TYPES = {
     "default": "dep-signing",
 }
 
+ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT = [
+    [
+        "enterprise-nightly",
+        {
+            "enterprise-firefox",
+        },
+    ]
+]
+
+ENTERPRISE_MAIN_SIGNING_TYPES = {
+    "enterprise-nightly": "nightly-signing",
+    "default": "dep-signing",
+}
+
+ENTERPRISE_TRY_SIGNING_TYPES = {
+    "default": "dep-signing",
+}
+
 """Map beetmover scope aliases to sets of projects.
 """
 BEETMOVER_SCOPE_ALIAS_TO_PROJECT = [
@@ -395,6 +413,18 @@ get_devedition_signing_type = functools.partial(
     alias_to_signing_type_map=DEVEDITION_SIGNING_TYPES,
 )
 
+get_enterprise_main_signing_type = functools.partial(
+    get_signing_type_from_project,
+    alias_to_project_map=ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT,
+    alias_to_signing_type_map=ENTERPRISE_MAIN_SIGNING_TYPES,
+)
+
+get_enterprise_try_signing_type = functools.partial(
+    get_signing_type_from_project,
+    alias_to_project_map=ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT,
+    alias_to_signing_type_map=ENTERPRISE_TRY_SIGNING_TYPES,
+)
+
 get_beetmover_bucket_scope = functools.partial(
     get_scope_from_project,
     alias_to_project_map=BEETMOVER_SCOPE_ALIAS_TO_PROJECT,
@@ -477,6 +507,11 @@ def get_release_config(config):
 def get_signing_type_per_platform(build_platform, is_shippable, config):
     if "devedition" in build_platform:
         return get_devedition_signing_type(config)
+    if "enterprise" in build_platform:
+        if "enterprise-main" in config.params["head_ref"]:
+            return get_enterprise_main_signing_type(config)
+        else:
+            return get_enterprise_try_signing_type(config)
     if is_shippable:
         return get_signing_type(config)
     return "dep-signing"

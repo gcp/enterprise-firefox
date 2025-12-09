@@ -160,6 +160,12 @@ def make_task_description(config, jobs):
             if not signing_name:
                 raise Exception("Could not find upstream kind for mac signing.")
 
+        # TODO: l10n repackage ???
+        if not build_name in upstream_deps.keys():
+            # print(build_name, job)
+            # raise ValueError("LOL")
+            continue
+
         dependencies = {
             "build": upstream_deps[build_name],
             "signing": upstream_deps[signing_name],

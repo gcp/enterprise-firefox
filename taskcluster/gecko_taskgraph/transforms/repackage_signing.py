@@ -136,7 +136,11 @@ def make_repackage_signing_description(config, jobs):
         task = {
             "label": label,
             "description": description,
-            "worker-type": "linux-signing" if is_shippable else "linux-depsigning",
+            "worker-type": (
+                "linux-signing"
+                if is_shippable and int(config.params["level"]) == 3
+                else "linux-depsigning"
+            ),
             "worker": {
                 "implementation": "scriptworker-signing",
                 "signing-type": signing_type,

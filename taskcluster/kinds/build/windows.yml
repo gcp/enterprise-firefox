@@ -474,12 +474,13 @@ win64/opt:
         fetch:
             - upx-3.95-win
 
-win64-enterprise/opt:
+win64-enterprise-shippable/opt:
     description: "Win64 Enterprise Opt"
     index:
         product: firefox
         job-name: win64-enterprise-opt
     attributes:
+        shippable: true
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
@@ -493,7 +494,7 @@ win64-enterprise/opt:
         max-run-time: 7200
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
-            # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]

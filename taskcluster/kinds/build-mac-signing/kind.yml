@@ -21,9 +21,8 @@ only-for-attributes:
 only-for-build-platforms:
     - macosx64-shippable/opt
     - macosx64-devedition/opt
-    - macosx64/opt
-    - macosx64/debug
     - macosx64-aarch64/debug
+    - macosx64-enterprise-shippable/opt
 
 tasks:
     build-mac-signing:

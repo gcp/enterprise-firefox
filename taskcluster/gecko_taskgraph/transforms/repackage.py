@@ -470,6 +470,21 @@ def make_job_description(config, jobs):
 
         treeherder = job.get("treeherder", {})
         treeherder.setdefault("symbol", "Rpk")
+        if "enterprise" in attributes.get("build_platform", ""):
+            variant = (
+                (
+                    config.kind.replace("repackage", "").replace(
+                        attributes.get("build_platform", ""), ""
+                    )
+                )
+                if config.kind != "repackage"
+                else ""
+            )
+            platform_simple = attributes.get("build_platform", "").replace(
+                "-enterprise-shippable", ""
+            )
+            treeherder["symbol"] = f"Rpk({platform_simple}{variant})"
+
         dep_th_platform = dep_job.task.get("extra", {}).get("treeherder-platform")
         treeherder.setdefault("platform", dep_th_platform)
         treeherder.setdefault("tier", 1)

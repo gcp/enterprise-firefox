@@ -26,9 +26,9 @@ task-defaults:
     run-on-projects: ["enterprise-firefox"]
 
 only-for-build-platforms:
-    - linux64-enterprise/opt
-    - macosx64-enterprise/opt
-    - win64-enterprise/opt
+    - linux64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
 
 tasks:
     enterprise-repack-repackage:
@@ -36,7 +36,7 @@ tasks:
             group-by: single-with-filters
         upstream-mac-kind:
             by-build-platform:
-                macosx64-(shippable|devedition):
+                macosx64-enterprise:
                     by-release-level:
                         production: enterprise-repack-mac-notarization
                         staging: enterprise-repack-mac-signing
