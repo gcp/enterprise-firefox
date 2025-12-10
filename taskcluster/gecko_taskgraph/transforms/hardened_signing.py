@@ -83,6 +83,8 @@ def add_provisioning_profile_config(config, jobs):
             and release_level(config.params["project"]) == "production"
             # Ensure build is shippable
             and dep_job.attributes.get("shippable", False)
+            # Ensure not dep-signing
+            and job["worker"]["signing-type"] != "dep-signing"
         ):
             # Note that the check order here is important, as mozilla-central can build devedition
             if "devedition" in dep_job.attributes.get("build_platform", ""):
