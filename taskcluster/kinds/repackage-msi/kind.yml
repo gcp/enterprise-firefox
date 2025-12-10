@@ -14,7 +14,7 @@ transforms:
 kind-dependencies:
     - repackage-signing
     - repackage-signing-l10n
-    - enterprise-repack
+    - enterprise-repack-repackage
     - fetch
 
 only-for-build-platforms:

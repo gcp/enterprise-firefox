@@ -119,6 +119,45 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_type": "nightly-enterprise",
         "release_product": "firefox-enterprise",
+        "release_partners": ["sample"],
+        "release_partner_config": {
+            "enterprise-repack-repackage": {
+                "sample": {
+                    "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "enterprise-repack-mac-signing": {
+                "sample": {
+                    "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "enterprise-repack-mac-notarization": {
+                "sample": {
+                    "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+        },
     },
     # the default parameters are used for projects that do not match above.
     "default": {

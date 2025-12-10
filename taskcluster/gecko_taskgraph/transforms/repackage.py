@@ -416,6 +416,7 @@ def handle_keyed_by(config, jobs):
         "worker.max-run-time",
         "flatpak.name",
         "flatpak.branch",
+        "treeherder",
     ]
     for job in jobs:
         job = deepcopy(job)  # don't overwrite dict values here
@@ -487,14 +488,30 @@ def make_job_description(config, jobs):
             if "repack" in dep_job.label:
                 variant = f"{variant}-ent"
 
+            repack_id = dep_job.task.get("extra").get("repack_id")
+            if repack_id:
+                variant = f"-{repack_id}"
+
             treeherder["symbol"] = f"Rpk({platform_simple}{variant})"
 
-            if "enterprise-repack" in dep_job.label:
+            if "enterprise-repack" in dep_job.kind:
                 job["label"] = job["label"].replace(
                     "repackage", "repackage-enterprise-repack"
                 )
 
         dep_th_platform = dep_job.task.get("extra", {}).get("treeherder-platform")
+        # TODO: Hack because we loose the platform that was from enterprise-repack
+        if not dep_th_platform and "enterprise-repack-repackage" in dep_job.kind:
+            build_platform = attributes.get("build_platform")
+            if "linux64" in build_platform:
+                dep_th_platform = "linux64/opt"
+            elif "macosx64" in build_platform:
+                dep_th_platform = "osx-cross/opt"
+            elif "win64" in build_platform:
+                dep_th_platform = "windows2012-64/opt"
+            else:
+                raise ValueError(f"Unsupported {build_platform}")
+
         treeherder.setdefault("platform", dep_th_platform)
         treeherder.setdefault("tier", 1)
         treeherder.setdefault("kind", "build")
@@ -504,6 +521,8 @@ def make_job_description(config, jobs):
         repackage_signing_task = None
         for dependency in dependencies.keys():
             if "repackage-signing" in dependency:
+                repackage_signing_task = dependency
+            elif "enterprise-repack-repackage" in dependency:
                 repackage_signing_task = dependency
             elif "signing" in dependency or "notarization" in dependency:
                 signing_task = dependency
@@ -811,6 +830,8 @@ def _generate_download_config(
 
     if "enterprise-repack" in task.label:
         enterprise_repacks = task.attributes.get("enterprise_repacks", [])
+        if not enterprise_repacks:
+            enterprise_repacks = [task.task.get("extra").get("repack_id")]
         # TODO: Only one repack, gcpEU for now
         locale_path = f"{enterprise_repacks[0]}/"
 
