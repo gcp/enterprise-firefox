@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
+  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 /**
@@ -105,7 +106,6 @@ export const ConsoleClient = {
       WHOAMI: "/api/browser/whoami",
       LEARN_MORE: "/downloads/firefox.html",
       SYNC_ACCOUNT: "/api/browser/account",
-      SYNC_TOKEN: "/1.0/sync/1.5",
       FXACCOUNTS_OAUTH: "/api/fxa/api/v1",
       FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
       FXACCOUNTS_AUTH: "/api/fxa/api/v1",
@@ -181,19 +181,6 @@ export const ConsoleClient = {
   },
 
   /**
-   * Get the Sync Token Server URI endpoint
-   *
-   * return {string} URI of the token server and endpoint
-   */
-  get syncTokenServer() {
-    const tokenServer = new URL(
-      "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net"
-    );
-    tokenServer.pathname = this._paths.SYNC_TOKEN;
-    return tokenServer.href;
-  },
-
-  /**
    * SSO callback uri that we match to create Felt actors on
    *
    * @returns {string}
@@ -235,12 +222,17 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetch the Sync account data from console.
+   * Fetch the account data used for fxa and sync.
    *
-   * @returns {Promise<...>}
+   * @returns {Promise<object>}
    */
-  async getSyncAccountData() {
-    const payload = await this._get(this._paths.SYNC_ACCOUNT);
+  async getFxAccountData() {
+    const payload = await this._post(this._paths.SYNC_ACCOUNT, {
+      device_id: Services.prefs.getStringPref(
+        lazy.EnterpriseCommon.ENTERPRISE_DEVICE_ID_PREF,
+        undefined
+      ),
+    });
     return payload;
   },
 

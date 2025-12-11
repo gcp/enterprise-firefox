@@ -1529,3 +1529,9 @@ setting-group[groupid="home"] {
 #etpLevelWarning {
   --promo-image-position: top;
 }
+
+#fxaUnlinkButton[restricted-enterprise-view],
+#verifiedManage[restricted-enterprise-view],
+#connect-another-device[restricted-enterprise-view] {
+  display: none;
+}

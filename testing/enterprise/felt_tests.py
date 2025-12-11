@@ -257,10 +257,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/sso/get_device_posture":
             m = json.dumps(self.server.device_posture_payload)
 
-        # TODO: Update to match real implementation ?
-        elif path == "/api/browser/account":
-            m = json.dumps({"email": "nobody@mozilla.org"})
-
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
             if os.path.isfile(filename):

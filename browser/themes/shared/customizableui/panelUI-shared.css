@@ -668,7 +668,8 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   display: none;
 }
 
-#appMenu-mainView[showing-fxa-menu-message] {
+#appMenu-mainView[showing-fxa-menu-message],
+#appMenu-mainView[restricted-enterprise-view] {
   & #appMenu-fxa-status2,
   & #appMenu-fxa-separator {
     display: none;

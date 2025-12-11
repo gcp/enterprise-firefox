@@ -8,6 +8,13 @@ import { HawkClient } from "resource://services-common/hawkclient.sys.mjs";
 import { deriveHawkCredentials } from "resource://services-common/hawkrequest.sys.mjs";
 import { CryptoUtils } from "moz-src:///services/crypto/modules/utils.sys.mjs";
 
+#ifdef MOZ_ENTERPRISE
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+});
+#endif
+
 import {
   ERRNO_ACCOUNT_DOES_NOT_EXIST,
   ERRNO_INCORRECT_EMAIL_CASE,
@@ -782,6 +789,10 @@ FxAccountsClient.prototype = {
       log.debug("Received new request during backoff, re-rejecting.");
       throw this.backoffError;
     }
+#ifdef MOZ_ENTERPRISE
+    let accessToken = await lazy.ConsoleClient.getAccessToken();
+#endif
+
     let response;
     try {
       response = await this.hawk.request(
@@ -789,6 +800,9 @@ FxAccountsClient.prototype = {
         method,
         credentials,
         jsonPayload
+#ifdef MOZ_ENTERPRISE
+        , { "Authorization": `Bearer ${accessToken}`}
+#endif
       );
     } catch (error) {
       log.error(`error ${method}ing ${path}`, error);

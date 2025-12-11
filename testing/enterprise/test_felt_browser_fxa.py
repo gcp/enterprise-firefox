@@ -3,37 +3,59 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import json
 import sys
 
 from felt_tests import FeltTests
 
 
-class BrowserSync(FeltTests):
+class BrowserFxAccount(FeltTests):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def test_felt_2_browser_sync_app_menu_hidden(self, exp):
+    def test_felt_2_no_fxa_toolbar_button(self, exp):
+
         self.connect_child_browser()
 
         self._child_driver.set_context("chrome")
-        [app_menu_status, app_menu_separator] = self._child_driver.execute_script(
+        [
+            fxaccounts_toolbar_enabled,
+        ] = self._child_driver.execute_script(
             """
-            const { PanelMultiView } = ChromeUtils.importESModule("moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs");
-            const appMenuStatus = PanelMultiView.getViewNode(document, "appMenu-fxa-status2");
-            const appMenuSeparator = PanelMultiView.getViewNode(document, "appMenu-fxa-separator");
-            return [ appMenuStatus.style.getPropertyValue("visibility"), appMenuSeparator.style.getPropertyValue("visibility") ];
+            return [
+                Services.prefs.getBoolPref("identity.fxaccounts.toolbar.enabled"),
+            ];
             """,
         )
-        self._child_driver.set_context("content")
+
         assert (
-            app_menu_status == "collapse" and app_menu_separator == "collapse"
-        ), "Sync app menu should be not visible"
+            not fxaccounts_toolbar_enabled
+        ), "FxAccount toolbar button shouldn't be visible in the toolbar"
 
         return True
 
-    def test_felt_3_fxaccount_prefs_values(self, exp):
+    def test_felt_3_no_fxa_item_in_toolbar_menu(self, exp):
+
+        self._child_driver.set_context("chrome")
+
+        self._logger.info("Getting menu button")
+        menu_button = self.get_elem_child("#PanelUI-menu-button")
+        self._logger.info("Clicking menu button to open panel")
+        menu_button.click()
+        app_menu_main_view = self.get_elem_child("#appMenu-mainView")
+        self._logger.info(app_menu_main_view)
+        is_restricted_for_enterprise = app_menu_main_view.get_attribute(
+            "restricted-enterprise-view"
+        )
+
+        self._child_driver.set_context("content")
+        assert (
+            is_restricted_for_enterprise
+        ), "App menu main view should have the attribute restricted-enterprise-view to hide fxa status and separator"
+
+        return True
+
+    def test_felt_4_fxa_endpoints_set(self, exp):
         self._child_driver.set_context("chrome")
         [
             fxaccounts_remote_oauth,
@@ -69,53 +91,18 @@ class BrowserSync(FeltTests):
 
         return True
 
-    def test_felt_4_browser_sync_preferences_has_sync(self, exp):
-        self.open_tab_child("about:preferences#sync")
-
-        # TODO: Can we get the mock server not to reject?
-        login_rejected = self.get_elem_child("#fxaLoginRejected")
-        assert login_rejected.is_displayed(), "Login was rejected but is shown"
-
-        l10n_data = json.loads(
-            self.find_elem_child(".l10nArgsEmailAddress").get_attribute(
-                "data-l10n-args"
-            )
-        )
-        assert l10n_data["email"] == "nobody@mozilla.org", "There is an email for Sync"
-
-        return True
-
-    def test_felt_5_browser_sync_preferences_choose(self, exp):
-        sync_change = self.find_elem_child("#syncChangeOptions")
-        sync_change.click()
-
-        dialog_frame = self.find_elem_child(".dialogFrame")
-        self._child_driver.switch_to.frame(dialog_frame)
-
-        sync_choose = self.find_elem_child("#syncChooseOptions")
-        assert sync_choose.is_displayed(), "Sync choose options dialog displayed"
-
-        disconnect_button = self._child_driver.execute_script(
-            """
-             return arguments[0].shadowRoot.querySelector("button[dlgtype='extra2']");
-             """,
-            sync_choose,
-        )
-        assert (
-            not disconnect_button.is_displayed()
-        ), "Disconnect button is not displayed"
-
-        return True
+    # More tests to follow once fxa and sync test endpoints are setup
 
 
 if __name__ == "__main__":
-    BrowserSync(
-        "felt_browser_sync.json",
+    BrowserFxAccount(
+        "felt_browser_fxa.json",
         firefox=sys.argv[1],
         geckodriver=sys.argv[2],
         profile_root=sys.argv[3],
         env_vars={"MOZ_FELT_UI": "1"},
         test_prefs=[
             ["browser.enterprise.loglevel", "debug"],
+            ["enterprise.sync.enabledByDefault", False],
         ],
     )

@@ -169,10 +169,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.PREFS.CONSOLE_ADDRESS,
       lazy.ConsoleClient.consoleBaseURI
     );
-    Services.felt.sendStringPreference(
-      "identity.sync.tokenserver.uri",
-      lazy.ConsoleClient.syncTokenServer
-    );
+
+    // Sets fxa endpoints in Firefox
     Services.felt.sendStringPreference(
       "identity.fxaccounts.remote.oauth.uri",
       lazy.ConsoleClient.fxAccountsOAuth
@@ -185,8 +183,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       "identity.fxaccounts.auth.uri",
       lazy.ConsoleClient.fxAccountsAuth
     );
-    Services.felt.sendStringPreference("browser.enterprise.loglevel", "debug");
-    Services.felt.sendStringPreference("identity.fxaccounts.loglevel", "all");
+
+    // Enables remote policy polling
     Services.felt.sendBoolPreference(
       "browser.policies.live_polling.enabled",
       true

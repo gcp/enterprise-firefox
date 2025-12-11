@@ -260,10 +260,10 @@ jobs:
           . venv_tests/bin/activate
           MOZ_LOG=console:5 xvfb-run python3 test_felt_browser_external_link.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
-      - name: "test browser sync"
+      - name: "test browser fxa"
         run: |
           . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_browser_sync.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+          MOZ_LOG=console:5 python3 test_felt_browser_fxa.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
       - name: "test browser restart is a quit"
         run: |
@@ -548,11 +548,11 @@ jobs:
           $Env:MOZ_LOG="console:5"
           python3 test_felt_browser_signout.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
-      - name: "test browser sync"
+      - name: "test browser fxa"
         run: |
           . venv_tests\Scripts\activate
           $Env:MOZ_LOG="console:5"
-          python3 test_felt_browser_sync.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+          python3 test_felt_browser_fxa.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
       ### This is failing on our GCP workers in a non debuggable way.
       ### GitHub Actions Windows workers are fine and TaskCluster.
@@ -988,10 +988,10 @@ jobs:
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_signout.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
-      - name: "test browser sync"
+      - name: "test browser fxa"
         run: |
           . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_browser_sync.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+          MOZ_LOG=console:5 python3 test_felt_browser_fxa.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
       - name: "test browser safe mode"
         run: |

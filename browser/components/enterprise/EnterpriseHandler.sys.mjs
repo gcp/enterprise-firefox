@@ -11,9 +11,12 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  UIState: "resource://services-sync/UIState.sys.mjs",
+  Weave: "resource://services-sync/main.sys.mjs",
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
+const ENTERPRISE_SYNC_ENABLED_PREF = "enterprise.sync.enabledByDefault";
 
 export const EnterpriseHandler = {
   /**
@@ -21,11 +24,74 @@ export const EnterpriseHandler = {
    */
   _signedInUser: null,
 
+  /**
+   * Customize Firefox Enterprise on startup
+   *    - Gets user information from the console and customizes the enterprise badge
+   *    - Sets up Sync
+   *    - Hides fxa toolbar button and app menu item (hamburger menu)
+   * 
+   * @param {Window} window chrome window
+   */
   async init(window) {
     await this.initUser();
-
-    this.hideFxaToolbarButton(window);
     this.updateBadge(window);
+    this.setupSyncOnceInitialized(window);
+    this.restrictEnterpriseView(window);
+  },
+
+  /**
+   * Check if the FxA state is initialised yet. 
+   *    - If the state is still undefined, listen for a state update 
+   *      and set up once the state update occurs. 
+   *    - If the state is initialized, set up sync immediately.
+   * 
+   * @param {Window} window chrome window
+   */
+  setupSyncOnceInitialized(window) {
+    if (lazy.UIState.get().syncEnabled === undefined) {
+      // Sync state not initialized yet.
+      Services.obs.addObserver(this, lazy.UIState.ON_UPDATE);
+      return;
+    }
+    this.setUpSync(window);
+  },
+
+  /**
+   * Align sync state with expected state (ENTERPRISE_SYNC_ENABLED_PREF) 
+   * by enabling or disabling sync.
+   * 
+   * @param {Window} window chrome window
+   */
+  setUpSync(window) {
+    const isSyncCurrentlyEnabled = lazy.UIState.get().syncEnabled;
+    const isEnableSync = Services.prefs.getBoolPref(
+      ENTERPRISE_SYNC_ENABLED_PREF,
+      false
+    );
+
+    if (isSyncCurrentlyEnabled === isEnableSync) {
+      // Nothing to do
+      return;
+    }
+
+    if (isEnableSync) {
+      // Connect sync
+      lazy.Weave.Service.configure();
+    } else {
+      // Disconnect sync
+      window.gSync.disconnect({ confirm: false, disconnectAccount: false });
+    }
+  },
+
+  observe(_, topic) {
+    switch (topic) {
+      case lazy.UIState.ON_UPDATE:
+        this.setUpSync();
+        Services.obs.removeObserver(this, lazy.UIState.ON_UPDATE);
+        break;
+      default:
+        break;
+    }
   },
 
   async initUser() {
@@ -99,11 +165,17 @@ export const EnterpriseHandler = {
     }
   },
 
-  // TODO: FxA shows up in a lot of different areas. For now we hide the most prominent
-  // toolbar button. How to hide or integrate with Fxa and Sync to be determined.
-  hideFxaToolbarButton(window) {
-    const fxaBtn = window.document.getElementById("fxa-toolbar-menu-button");
-    fxaBtn.hidden = true;
+  /**
+   * Hide away FxA appearances in the toolbar and the app menu (hamburger menu)
+   *
+   * @param {Window} window chrome window
+   */
+  restrictEnterpriseView(window) {
+    // Hides fxa toolbar button
+    Services.prefs.setBoolPref("identity.fxaccounts.toolbar.enabled", false);
+
+    // Hides fxa item and separator in main view (hamburg menu)
+    window.PanelUI.mainView.setAttribute("restricted-enterprise-view", true);
   },
 
   async onSignOut(window) {

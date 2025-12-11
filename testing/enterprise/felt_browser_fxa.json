@@ -7,8 +7,7 @@
     ]
   },
   "test_felt_1_perform_sso_auth": {},
-  "test_felt_2_browser_sync_app_menu_hidden": {},
-  "test_felt_3_fxaccount_prefs_values": {},
-  "test_felt_4_browser_sync_preferences_has_sync": {},
-  "test_felt_5_browser_sync_preferences_choose": {}
+  "test_felt_2_no_fxa_toolbar_button": {},
+  "test_felt_3_no_fxa_item_in_toolbar_menu": {},
+  "test_felt_4_fxa_endpoints_set": {}
 }
