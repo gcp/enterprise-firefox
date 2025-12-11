@@ -2904,6 +2904,12 @@
   value: true
   mirror: always
 
+# Whether pointerrawupdate's movementX and movementY are set to non-zero values.
+- name: dom.event.pointer.rawupdate.movement.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Whether wheel event target's should be grouped. When enabled, all wheel
 # events that occur in a given wheel transaction have the same event target.
 - name: dom.event.wheel-event-groups.enabled
@@ -4500,7 +4506,7 @@
 # (https://w3c.github.io/trusted-types/dist/spec/) is enabled.
 - name: dom.security.trusted_types.enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # If true, all content requests will get upgraded to HTTPS://
@@ -6189,6 +6195,9 @@
 # The strategy used to control how sites are isolated into separate processes
 # when Fisison is enabled. This pref has no effect if Fission is disabled.
 # See the `WebContentIsolationStrategy` enum in `ProcessIsolation.cpp`.
+# On Android, this is currently overridden: for Fenix - via nimbus.fml.yml,
+# and for other Andoid Components consumers value 2 is hardcoded
+# in the default settings in mozilla.components.concept.engine.Settings
 - name: fission.webContentIsolationStrategy
   type: uint32_t
   value: 1
