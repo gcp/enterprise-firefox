@@ -978,3 +978,11 @@ Generates customized versions of releases for enterprises.
 enterprise-repack-repackage
 ---------------------------
 Repackage customized versions of releases for enterprises.
+
+enterprise-repack-mac-notarization
+----------------------------------
+Mac notarization of customized versions of releases for enterprises.
+
+enterprise-repack-mac-signing
+----------------------------------
+Mac signature of customized versions of releases for enterprises.

@@ -18,7 +18,7 @@ LANGPACK_SIGN_PLATFORMS = {  # set
 
 
 def is_partner_kind(kind):
-    if kind and kind.startswith(("release-partner", "release-eme-free")):
+    if kind and kind.startswith(("release-partner", "release-eme-free", "enterprise-repack")):
         return True
 
 

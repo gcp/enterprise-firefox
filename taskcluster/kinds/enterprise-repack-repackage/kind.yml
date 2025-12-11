@@ -13,20 +13,13 @@ transforms:
     - gecko_taskgraph.transforms.job
     - gecko_taskgraph.transforms.task
 
-# Mac signing/notarization being listed here and not executed will mask
-# this task
 kind-dependencies:
     - enterprise-repack
     - toolchain
     - enterprise-repack-mac-signing
     - enterprise-repack-mac-notarization
 
-task-defaults:
-    run-on-repo-type: [git]
-    run-on-projects: ["enterprise-firefox"]
-
 only-for-build-platforms:
-    - linux64-enterprise-shippable/opt
     - macosx64-enterprise-shippable/opt
     - win64-enterprise-shippable/opt
 
@@ -47,23 +40,14 @@ tasks:
                     macosx64-.*:
                         - repackage/base.py
                         - repackage/osx_partner.py
-                    win32-.*:
-                        - repackage/base.py
-                        - repackage/win32_sfx_stub.py
-                        - repackage/win32_partner.py
                     win64-(?!aarch64).*:
                         - repackage/base.py
                         - repackage/win32_sfx_stub.py
-                        - repackage/win64_partner.py
-                    win64-aarch64-.*:
-                        - repackage/base.py
-                        - repackage/win64-aarch64_sfx_stub.py
                         - repackage/win64_partner.py
                     linux64.*:
                         - repackage/base.py
         package-formats:
             by-build-platform:
-                macosx64\b.*: [dmg]
+                macosx64\b.*: [dmg, pkg]
                 win32\b.*: [installer]
                 win64\b.*: [installer]
-                linux64\b.*: [tar]

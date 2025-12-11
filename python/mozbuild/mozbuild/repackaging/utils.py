@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import configparser
 import json
 import os
 import pathlib
@@ -165,14 +166,44 @@ def inject_desktop_entry_file(
 
 def inject_distribution_folder(source_dir, source_type, app_name):
     distribution_ini_path = mozpath.join(source_dir, source_type, "distribution.ini")
+    distribution_ini_dir = mozpath.join(source_dir, app_name.lower(), "distribution")
+    distribution_ini_target = mozpath.join(distribution_ini_dir, "distribution.ini")
 
     os.makedirs(
         mozpath.join(source_dir, app_name.lower(), "distribution"), exist_ok=True
     )
-    shutil.move(
-        distribution_ini_path,
-        mozpath.join(source_dir, app_name.lower(), "distribution"),
-    )
+
+    if not os.path.exists(distribution_ini_target):
+        shutil.move(
+            distribution_ini_path,
+            distribution_ini_dir,
+        )
+    else:
+        print(f"{distribution_ini_target} exists, merging")
+        existing_ini = configparser.ConfigParser()
+        existing_ini.read(distribution_ini_target)
+
+        debian_ini = configparser.ConfigParser()
+        debian_ini.read(distribution_ini_path)
+
+        for section in debian_ini.sections():
+            if "global" in section.lower():
+                continue
+
+            if "preferences" in section.lower():
+                if not section in existing_ini.sections():
+                    print(f"{distribution_ini_target} misses {section}")
+                    existing_ini[section] = {}
+
+                for pref in debian_ini[section]:
+                    if pref in existing_ini[section]:
+                        print(f"{distribution_ini_target} defines {pref}, skipping")
+                    else:
+                        print(f"{distribution_ini_target} adding {pref}")
+                        existing_ini[section][pref] = debian_ini[section][pref]
+
+        with open(distribution_ini_target, "w") as distribution_ini_modified:
+            existing_ini.write(distribution_ini_modified, space_around_delimiters=False)
 
 
 def inject_prefs_file(source_dir, app_name, template_dir):

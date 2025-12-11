@@ -206,13 +206,19 @@ def make_job_description(config, jobs):
             )
         )
 
+        scopes = (
+            []
+            if "enterprise-repack" in job["label"]
+            else ["queue:get-artifact:releng/partner/*"]
+        )
+
         task = {
             "label": job["label"],
             "description": description,
             "worker-type": worker_type,
             "dependencies": dependencies,
             "attributes": attributes,
-            "scopes": ["queue:get-artifact:releng/partner/*"],
+            "scopes": scopes,
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "routes": job.get("routes", []),
             "extra": job.get("extra", {}),
@@ -227,6 +233,32 @@ def make_job_description(config, jobs):
                 repack_stub_installer=repack_stub_installer,
             ),
         }
+
+        if "enterprise-repack-repackage" in job["label"]:
+            # TODO:
+            # Exception: repackage-enterprise-repack-msi-win64-enterprise-shippable/opt (tier 1) cannot depend on enterprise-repack-repackage-win64-enterprise-shippable/opt (tier unknown)
+            platform = (
+                attributes.get("build_platform")
+                .replace("enterprise-", "")
+                .replace("shippable", "")
+            )
+            if "linux64" in platform:
+                th_platform = "linux64/opt"
+            elif "macosx64" in platform:
+                th_platform = "osx-cross/opt"
+            elif "win64" in platform:
+                th_platform = "windows2012-64/opt"
+            else:
+                raise ValueError(f"Unsupported {platform}")
+
+            repack_id = task["extra"]["repack_id"]
+            task["extra"]["treeherder"] = {
+                "platform": th_platform,
+                "tier": 1,
+                "kind": "build",
+                "collection": {"opt": True},
+                "symbol": f"Ent-Rpk({platform}-{repack_id})",
+            }
 
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):
