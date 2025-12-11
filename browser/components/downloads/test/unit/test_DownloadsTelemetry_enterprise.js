@@ -131,6 +131,15 @@ add_task(async function test_enterprise_data_parsing() {
       isPrivate: false,
     },
     contentType: "application/pdf",
+    saver: {
+      getSha256Hash() {
+        const hardcodedHash =
+          "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321";
+        const hexIntArray = Uint8Array.fromHex(hardcodedHash);
+        const hashBufferCString = String.fromCharCode.apply(null, hexIntArray);
+        return hashBufferCString;
+      },
+    },
   };
 
   // Disable ping submission to prevent clearing telemetry data before we can inspect it
@@ -171,6 +180,11 @@ add_task(async function test_enterprise_data_parsing() {
       event.extra.mime_type,
       "application/pdf",
       "Should preserve MIME type"
+    );
+    Assert.equal(
+      event.extra.sha256_hash,
+      "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321",
+      "Should record decoded SHA 256 hash"
     );
     Assert.equal(
       event.extra.size_bytes,
