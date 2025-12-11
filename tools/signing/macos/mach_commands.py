@@ -541,7 +541,7 @@ def sign_with_codesign(
             for binary_path in binary_paths:
                 cs_cmd.append(binary_path)
 
-        run(ctx, cs_cmd, capture_output=not verbose_arg, check=True)
+        run(ctx, cs_cmd, capture_output=not verbose_arg)
 
         for temp_file in temp_files_to_cleanup:
             os.remove(temp_file)
@@ -568,7 +568,7 @@ def verify_result(ctx, app, verbose_arg):
     # Verbosely verify validity of signed app
     cs_verify_cmd = ["codesign", "-vv", app]
     try:
-        run(ctx, cs_verify_cmd, capture_output=not verbose_arg, check=True)
+        run(ctx, cs_verify_cmd, capture_output=not verbose_arg)
         ctx.log(
             logging.INFO,
             "macos-sign",
@@ -697,7 +697,7 @@ def sign_with_rcodesign(
                     scoped_arg = binary_path_relative + ":" + entitlement_file
                     cs_cmd.append(scoped_arg)
 
-    run(ctx, cs_cmd, capture_output=not verbose_arg, check=True)
+    run(ctx, cs_cmd, capture_output=not verbose_arg)
 
     for temp_file in temp_files_to_cleanup:
         os.remove(temp_file)
