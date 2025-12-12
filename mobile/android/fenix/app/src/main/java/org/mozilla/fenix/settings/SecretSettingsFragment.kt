@@ -115,7 +115,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
             }
         }
         requirePreference<SwitchPreference>(R.string.pref_key_enable_toolbar_customization).apply {
-            isVisible = Config.channel.isNightlyOrDebug
             isChecked = context.settings().shouldShowToolbarCustomization
             val newOption = context.settings().toolbarRedesignEnabled
             isEnabled = newOption
@@ -433,6 +432,11 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
         requirePreference<SwitchPreference>(R.string.pref_key_enable_relay_email_masks).apply {
             isVisible = Config.channel.isDebug
             isChecked = context.settings().isRelayFeatureEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreference>(R.string.pref_key_enable_persistent_onboarding).apply {
+            isChecked = context.settings().enablePersistentOnboarding
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
     }
