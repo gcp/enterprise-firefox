@@ -372,6 +372,7 @@ index:
         - 'source'
         - 'system-symbols'
         - 'geckodriver'
+        - 'enterprise'
 
 try:
     # We have a few platforms for which we want to do some "extra" builds, or at
@@ -402,6 +403,7 @@ try:
 release-promotion:
     products:
         - 'devedition'
+        - 'enterprise'
         - 'fennec'
         - 'firefox'
         - 'firefox-android'
