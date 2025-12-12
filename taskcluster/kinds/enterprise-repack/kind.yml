@@ -47,12 +47,6 @@ task-defaults:
     treeherder:
         kind: other
         tier: 1
-    # TODO: We need a better solution.
-    # repackage-msi and repackage-deb hardcode one enterprise_repacks[0]
-    # Should they trigger one repack task per enterprise_repacks ??
-    attributes:
-        enterprise_repacks:
-            - sample/gcpEU/en-US
 
 only-for-build-platforms:
     - linux64-enterprise-shippable/opt

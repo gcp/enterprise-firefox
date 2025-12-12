@@ -596,8 +596,3 @@ Helper to define the python file to use for the execution of Enteprise selenium-
 enterprise_test_slug
 ====================
 Helper to define the treeherder symbol for that test, for Enteprise selenium-based tests.
-
-enterprise_repacks
-==================
-Path of the enterprise repacks so that repackage-{deb,msi} and others can build the
-artifact paths for fetches.

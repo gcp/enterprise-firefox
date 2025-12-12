@@ -121,6 +121,26 @@ PER_PROJECT_PARAMETERS = {
         "release_product": "firefox-enterprise",
         "release_partners": ["sample"],
         "release_partner_config": {
+            "repackage-deb": {
+                "sample": {
+                    "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "repackage-msi": {
+                "sample": {
+                    "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
             "enterprise-repack-repackage": {
                 "sample": {
                     "gcpEU": {

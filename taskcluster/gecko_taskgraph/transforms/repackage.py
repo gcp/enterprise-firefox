@@ -4,6 +4,7 @@
 """
 Transform the repackage task into an actual task description.
 """
+import copy
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.copy import deepcopy
@@ -808,15 +809,7 @@ def make_job_description(config, jobs):
             "extra": job.get("extra", {}),
             "worker": worker,
             "run": run,
-            "fetches": _generate_download_config(
-                config,
-                dep_job,
-                build_platform,
-                signing_task,
-                repackage_signing_task,
-                locale=locale,
-                existing_fetch=job.get("fetches"),
-            ),
+            "fetches": job.get("fetches"),
         }
 
         if build_platform.startswith("macosx"):
@@ -836,7 +829,53 @@ def make_job_description(config, jobs):
         if "shipping-product" in job and job["shipping-product"] is not None:
             task["shipping-product"] = job["shipping-product"]
 
-        yield task
+        # TODO: This is likely breaking locales ??
+        repacks = []
+        if "enterprise-repack" in dep_job.kind:
+            this_repack = config.params["release_partner_config"].get(config.kind)
+            if this_repack:
+                for enterprise_name in this_repack.keys():
+                    for repack_name in this_repack[enterprise_name]:
+                        for platform_name in this_repack[enterprise_name][repack_name][
+                            "platforms"
+                        ]:
+                            for repack_locale in this_repack[enterprise_name][
+                                repack_name
+                            ]["locales"]:
+                                if platform_name == build_platform:
+                                    repacks += [
+                                        f"{enterprise_name}/{repack_name}/{repack_locale}"
+                                    ]
+            else:
+                previous_repack = dep_job.task.get("extra").get("repack_id")
+                if previous_repack:
+                    repacks += [previous_repack]
+
+        if len(repacks) == 0:
+            repacks = [None]
+
+        for repack in repacks:
+            repack_task = copy.deepcopy(task)
+
+            if repack:
+                repack_label = repack.replace("/", "-")
+                build_platform_with_repack = f"{build_platform}-{repack_label}"
+                repack_task["label"] = repack_task["label"].replace(
+                    build_platform, build_platform_with_repack
+                )
+
+            repack_task["fetches"] = _generate_download_config(
+                config,
+                dep_job,
+                build_platform,
+                signing_task,
+                repackage_signing_task,
+                locale=locale,
+                existing_fetch=task["fetches"],
+                enterprise_repack=repack,
+            )
+
+            yield repack_task
 
 
 def _generate_download_config(
@@ -847,20 +886,15 @@ def _generate_download_config(
     repackage_signing_task,
     locale=None,
     existing_fetch=None,
+    enterprise_repack=None,
 ):
     locale_path = f"{locale}/" if locale else ""
     fetch = {}
     if existing_fetch:
         fetch.update(existing_fetch)
 
-    if "enterprise-repack" in task.label:
-        enterprise_repacks = task.attributes.get("enterprise_repacks", [])
-        if not enterprise_repacks:
-            enterprise_repacks = [task.task.get("extra").get("repack_id")]
-        # TODO: Only one repack, gcpEU for now
-        # HOW TO DEAL WITH MORE???
-        assert len(enterprise_repacks) == 1
-        locale_path = f"{enterprise_repacks[0]}/"
+    if enterprise_repack:
+        locale_path = f"{enterprise_repack}/"
 
     if repackage_signing_task and build_platform.startswith("win"):
         fetch.update(
