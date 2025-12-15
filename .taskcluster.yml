@@ -428,22 +428,26 @@ tasks:
 
                           payload:
                               env:
-                                  GECKO_BASE_REPOSITORY: '${baseRepoUrl}'
-                                  GECKO_BASE_REV: '${baseRev}'
-                                  GECKO_HEAD_REPOSITORY: '${repoUrl}'
-                                  GECKO_HEAD_REF: '${ref}'
-                                  GECKO_HEAD_REV: '${headRev}'
-                                  GECKO_REPOSITORY_TYPE: git
-                                  REPOSITORIES: {$json: {gecko: "Mozilla Firefox"}}
-                                  TASKCLUSTER_CACHES: /builds/worker/checkouts
-                                  TASKCLUSTER_VOLUMES: /builds/worker/artifacts
-                                  MOZ_UPLOAD_DIR: /builds/worker/artifacts
-                                  MOZ_AUTOMATION: '1'
-                                  # mach generates pyc files when reading `mach_commands.py`
-                                  # This causes cached_task digest generation to be random for
-                                  # some tasks. Disable bytecode generation to work around that.
-                                  PYTHONDONTWRITEBYTECODE: '1'
-                                  MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: 'system'
+                                  $merge:
+                                      - GECKO_BASE_REPOSITORY: '${baseRepoUrl}'
+                                        GECKO_BASE_REV: '${baseRev}'
+                                        GECKO_HEAD_REPOSITORY: '${repoUrl}'
+                                        GECKO_HEAD_REF: '${ref}'
+                                        GECKO_HEAD_REV: '${headRev}'
+                                        GECKO_REPOSITORY_TYPE: git
+                                        REPOSITORIES: {$json: {gecko: "Mozilla Firefox"}}
+                                        TASKCLUSTER_CACHES: /builds/worker/checkouts
+                                        TASKCLUSTER_VOLUMES: /builds/worker/artifacts
+                                        MOZ_UPLOAD_DIR: /builds/worker/artifacts
+                                        MOZ_AUTOMATION: '1'
+                                        # mach generates pyc files when reading `mach_commands.py`
+                                        # This causes cached_task digest generation to be random for
+                                        # some tasks. Disable bytecode generation to work around that.
+                                        PYTHONDONTWRITEBYTECODE: '1'
+                                        MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: 'system'
+                                      - $if: 'isPullRequest'
+                                        then:
+                                            GECKO_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
                               cache:
                                   "${trustDomain}-level-${level}-${project}-checkouts-git-shallow-v1": /builds/worker/checkouts
 
