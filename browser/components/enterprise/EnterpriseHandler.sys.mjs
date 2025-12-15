@@ -82,7 +82,10 @@ export const EnterpriseHandler = {
       lazy.Weave.Service.configure();
     } else {
       // Disconnect sync
-      this._chromeWindow.gSync.disconnect({ confirm: false, disconnectAccount: false });
+      this._chromeWindow.gSync.disconnect({
+        confirm: false,
+        disconnectAccount: false,
+      });
     }
   },
 
@@ -112,7 +115,9 @@ export const EnterpriseHandler = {
   },
 
   updateBadge() {
-    const userIcon = this._chromeWindow.document.querySelector("#enterprise-user-icon");
+    const userIcon = this._chromeWindow.document.querySelector(
+      "#enterprise-user-icon"
+    );
 
     if (!this._signedInUser) {
       // Hide user icon from enterprise badge until we have user information
@@ -176,7 +181,10 @@ export const EnterpriseHandler = {
     Services.prefs.setBoolPref("identity.fxaccounts.toolbar.enabled", false);
 
     // Hides fxa item and separator in main view (hamburg menu)
-    this._chromeWindow.PanelUI.mainView.setAttribute("restricted-enterprise-view", true);
+    this._chromeWindow.PanelUI.mainView.setAttribute(
+      "restricted-enterprise-view",
+      true
+    );
   },
 
   async onSignOut() {
