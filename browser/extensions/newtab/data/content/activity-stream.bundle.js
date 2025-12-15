@@ -621,6 +621,11 @@ const PREF_SPOC_COUNTS = "discoverystream.placements.spocs.counts";
 const PREF_CONTEXTUAL_ADS_ENABLED = "discoverystream.sections.contextualAds.enabled";
 const PREF_CONTEXTUAL_BANNER_PLACEMENTS = "discoverystream.placements.contextualBanners";
 const PREF_CONTEXTUAL_BANNER_COUNTS = "discoverystream.placements.contextualBanners.counts";
+const PREF_UNIFIED_ADS_ENABLED = "unifiedAds.spocs.enabled";
+const PREF_UNIFIED_ADS_ENDPOINT = "unifiedAds.endpoint";
+const PREF_ALLOWED_ENDPOINTS = "discoverystream.endpoints";
+const PREF_OHTTP_CONFIG = "discoverystream.ohttp.configURL";
+const PREF_OHTTP_RELAY = "discoverystream.ohttp.relayURL";
 const Row = props => /*#__PURE__*/external_React_default().createElement("tr", _extends({
   className: "message-item"
 }, props), props.children);
@@ -719,6 +724,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     this.refreshTopicSelectionCache = this.refreshTopicSelectionCache.bind(this);
     this.handleSectionsToggle = this.handleSectionsToggle.bind(this);
     this.toggleIABBanners = this.toggleIABBanners.bind(this);
+    this.handleAllizomToggle = this.handleAllizomToggle.bind(this);
     this.sendConversionEvent = this.sendConversionEvent.bind(this);
     this.state = {
       toggledStories: {},
@@ -983,25 +989,71 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
       }, key));
     }))));
   }
+  handleAllizomToggle(e) {
+    const prefs = this.props.otherPrefs;
+    const unifiedAdsSpocsEnabled = prefs[PREF_UNIFIED_ADS_ENABLED];
+    if (!unifiedAdsSpocsEnabled) {
+      return;
+    }
+    const {
+      pressed
+    } = e.target;
+    const {
+      dispatch
+    } = this.props;
+    const allowedEndpoints = prefs[PREF_ALLOWED_ENDPOINTS];
+    const setPref = (pref = "", value = "") => {
+      dispatch(actionCreators.SetPref(pref, value));
+    };
+    const clearPref = (pref = "") => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.CLEAR_PREF,
+        data: {
+          name: pref
+        }
+      }));
+    };
+    if (pressed) {
+      setPref(PREF_UNIFIED_ADS_ENDPOINT, "https://ads.allizom.org/");
+      setPref(PREF_ALLOWED_ENDPOINTS, `${allowedEndpoints},https://ads.allizom.org/`);
+      setPref(PREF_OHTTP_CONFIG, "https://stage.ohttp-gateway.nonprod.webservices.mozgcp.net/ohttp-configs");
+      setPref(PREF_OHTTP_RELAY, "https://mozilla-ohttp-relay-test.edgecompute.app/");
+    } else {
+      clearPref(PREF_UNIFIED_ADS_ENDPOINT);
+      clearPref(PREF_ALLOWED_ENDPOINTS);
+      clearPref(PREF_OHTTP_CONFIG);
+      clearPref(PREF_OHTTP_RELAY);
+    }
+  }
   renderSpocs() {
     const {
       spocs
     } = this.props.state.DiscoveryStream;
-    const unifiedAdsSpocsEnabled = this.props.otherPrefs["unifiedAds.spocs.enabled"];
+    const unifiedAdsSpocsEnabled = this.props.otherPrefs[PREF_UNIFIED_ADS_ENABLED];
 
     // Determine which mechanism is querying the UAPI ads server
     const PREF_UNIFIED_ADS_ADSFEED_ENABLED = "unifiedAds.adsFeed.enabled";
     const adsFeedEnabled = this.props.otherPrefs[PREF_UNIFIED_ADS_ADSFEED_ENABLED];
-    const unifiedAdsEndpoint = this.props.otherPrefs["unifiedAds.endpoint"];
+    const unifiedAdsEndpoint = this.props.otherPrefs[PREF_UNIFIED_ADS_ENDPOINT];
+    const spocsEndpoint = unifiedAdsSpocsEnabled ? unifiedAdsEndpoint : spocs.spocs_endpoint;
     let spocsData = [];
+    let allizomEnabled = spocsEndpoint?.includes("allizom");
     if (spocs.data && spocs.data.newtab_spocs && spocs.data.newtab_spocs.items) {
       spocsData = spocs.data.newtab_spocs.items || [];
     }
     return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
+      colSpan: "2"
+    }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
+      id: "sections-toggle",
+      disabled: !unifiedAdsSpocsEnabled || null,
+      pressed: allizomEnabled || null,
+      onToggle: this.handleAllizomToggle,
+      label: "Toggle allizom"
+    }))), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
       className: "min"
     }, "adsfeed enabled"), /*#__PURE__*/external_React_default().createElement("td", null, adsFeedEnabled ? "true" : "false")), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
       className: "min"
-    }, "spocs_endpoint"), /*#__PURE__*/external_React_default().createElement("td", null, unifiedAdsSpocsEnabled ? unifiedAdsEndpoint : spocs.spocs_endpoint)), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
+    }, "spocs endpoint"), /*#__PURE__*/external_React_default().createElement("td", null, spocsEndpoint)), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
       className: "min"
     }, "Data last fetched"), /*#__PURE__*/external_React_default().createElement("td", null, relativeTime(spocs.lastUpdated))))), /*#__PURE__*/external_React_default().createElement("h4", null, "Spoc data"), /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, spocsData.map(spoc => this.renderStoryData(spoc)))), /*#__PURE__*/external_React_default().createElement("h4", null, "Spoc frequency caps"), /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, spocs.frequency_caps.map(spoc => this.renderStoryData(spoc)))));
   }
@@ -2907,7 +2959,8 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
               advertiser: card.advertiser,
               // Keep the 0-based position, can be adjusted by the telemetry
               // sender if necessary.
-              position: card.pos
+              position: card.pos,
+              attribution: card.attribution
             }
           }));
         }
@@ -2933,6 +2986,7 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
           received_rank: link.received_rank,
           topic: link.topic,
           features: link.features,
+          attribution: link.attribution,
           ...(link.format ? {
             format: link.format
           } : {
@@ -3634,6 +3688,7 @@ class _DSCard extends (external_React_default()).PureComponent {
           features: this.props.features,
           matches_selected_topic: matchesSelectedTopic,
           selected_topics: this.props.selectedTopics,
+          attribution: this.props.attribution,
           ...(this.props.format ? {
             format: this.props.format
           } : {
@@ -3951,6 +4006,7 @@ class _DSCard extends (external_React_default()).PureComponent {
           format
         } : {}),
         category: this.props.category,
+        attribution: this.props.attribution,
         ...(this.props.section ? {
           section: this.props.section,
           section_position: this.props.sectionPosition,
@@ -4790,7 +4846,8 @@ class _CardGrid extends (external_React_default()).PureComponent {
           alt_text: rec.alt_text,
           isTimeSensitive: rec.isTimeSensitive,
           tabIndex: currentCardIndex === this.state.focusedIndex ? 0 : -1,
-          onFocus: () => this.onCardFocus(currentCardIndex)
+          onFocus: () => this.onCardFocus(currentCardIndex),
+          attribution: rec.attribution
         }));
       }
     }
@@ -8331,7 +8388,8 @@ class TopSiteLink extends (external_React_default()).PureComponent {
           advertiser: title.toLocaleLowerCase(),
           source: NEWTAB_SOURCE,
           visible_topsites: visibleTopSites,
-          frecency_boosted: link.type === "frecency-boost"
+          frecency_boosted: link.type === "frecency-boost",
+          attribution: link.attribution
         }
         // For testing.
         ,
@@ -8523,7 +8581,8 @@ class TopSite extends (external_React_default()).PureComponent {
           value: {
             card_type: "spoc",
             tile_id: this.props.link.id,
-            shim: this.props.link.shim && this.props.link.shim.click
+            shim: this.props.link.shim && this.props.link.shim.click,
+            attribution: this.props.link.attribution
           }
         }));
 
@@ -8536,7 +8595,8 @@ class TopSite extends (external_React_default()).PureComponent {
             position: this.props.link.pos,
             tile_id: this.props.link.id,
             advertiser: title.toLocaleLowerCase(),
-            source: NEWTAB_SOURCE
+            source: NEWTAB_SOURCE,
+            attribution: this.props.link.attribution
           }
         }));
       } else if (isSponsored(this.props.link)) {
@@ -8552,7 +8612,8 @@ class TopSite extends (external_React_default()).PureComponent {
             advertiser: title.toLocaleLowerCase(),
             source: NEWTAB_SOURCE,
             visible_topsites: this.props.visibleTopSites,
-            frecency_boosted: this.props.link.type === "frecency-boost"
+            frecency_boosted: this.props.link.type === "frecency-boost",
+            attribution: this.props.link.attribution
           }
         }));
       } else {
@@ -11443,7 +11504,8 @@ function CardSection({
       sectionLayoutName: layoutName,
       isTimeSensitive: rec.isTimeSensitive,
       tabIndex: index === focusedIndex ? 0 : -1,
-      onFocus: () => onCardFocus(index)
+      onFocus: () => onCardFocus(index),
+      attribution: rec.attribution
     });
     return [card];
   })));
@@ -13501,9 +13563,11 @@ function SectionsMgmtPanel_extends() { return SectionsMgmtPanel_extends = Object
 function SectionsMgmtPanel({
   exitEventFired,
   pocketEnabled,
-  onSubpanelToggle
+  onSubpanelToggle,
+  togglePanel,
+  showPanel
 }) {
-  const [showPanel, setShowPanel] = (0,external_React_namespaceObject.useState)(false); // State management with useState
+  const arrowButtonRef = (0,external_React_namespaceObject.useRef)(null);
   const {
     sectionPersonalization
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.DiscoveryStream);
@@ -13616,10 +13680,10 @@ function SectionsMgmtPanel({
 
   // Close followed/blocked topic subpanel when parent menu is closed
   (0,external_React_namespaceObject.useEffect)(() => {
-    if (exitEventFired) {
-      setShowPanel(false);
+    if (exitEventFired && showPanel) {
+      togglePanel();
     }
-  }, [exitEventFired]);
+  }, [exitEventFired, showPanel, togglePanel]);
 
   // Notify parent menu when subpanel opens/closes
   (0,external_React_namespaceObject.useEffect)(() => {
@@ -13627,13 +13691,14 @@ function SectionsMgmtPanel({
       onSubpanelToggle(showPanel);
     }
   }, [showPanel, onSubpanelToggle]);
-  const togglePanel = () => {
-    setShowPanel(prevShowPanel => !prevShowPanel);
-
-    // Fire when the panel is open
-    if (!showPanel) {
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (showPanel) {
       updateCachedData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPanel]);
+  const handlePanelEntered = () => {
+    arrowButtonRef.current?.focus();
   };
   const followedSectionsList = followedSectionsData.map(({
     sectionKey,
@@ -13702,10 +13767,12 @@ function SectionsMgmtPanel({
     in: showPanel,
     timeout: 300,
     classNames: "sections-mgmt-panel",
-    unmountOnExit: true
+    unmountOnExit: true,
+    onEntered: handlePanelEntered
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "sections-mgmt-panel"
   }, /*#__PURE__*/external_React_default().createElement("button", {
+    ref: arrowButtonRef,
     className: "arrow-button",
     onClick: togglePanel
   }, /*#__PURE__*/external_React_default().createElement("h1", {
@@ -14457,7 +14524,9 @@ class ContentSection extends (external_React_default()).PureComponent {
       setPref,
       mayHaveTopicSections,
       exitEventFired,
-      onSubpanelToggle
+      onSubpanelToggle,
+      toggleSectionsMgmtPanel,
+      showSectionsMgmtPanel
     } = this.props;
     const {
       topSitesEnabled,
@@ -14617,7 +14686,9 @@ class ContentSection extends (external_React_default()).PureComponent {
     })), mayHaveTopicSections && /*#__PURE__*/external_React_default().createElement(SectionsMgmtPanel, {
       exitEventFired: exitEventFired,
       pocketEnabled: pocketEnabled,
-      onSubpanelToggle: onSubpanelToggle
+      onSubpanelToggle: onSubpanelToggle,
+      togglePanel: toggleSectionsMgmtPanel,
+      showPanel: showSectionsMgmtPanel
     }))))))), /*#__PURE__*/external_React_default().createElement("span", {
       className: "divider",
       role: "separator"
@@ -14730,7 +14801,9 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       mayHaveListsWidget: this.props.mayHaveListsWidget,
       dispatch: this.props.dispatch,
       exitEventFired: this.state.exitEventFired,
-      onSubpanelToggle: this.onSubpanelToggle
+      onSubpanelToggle: this.onSubpanelToggle,
+      toggleSectionsMgmtPanel: this.props.toggleSectionsMgmtPanel,
+      showSectionsMgmtPanel: this.props.showSectionsMgmtPanel
     })))));
   }
 }
@@ -15612,6 +15685,7 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.toggleDownloadHighlight = this.toggleDownloadHighlight.bind(this);
     this.handleDismissDownloadHighlight = this.handleDismissDownloadHighlight.bind(this);
     this.applyBodyClasses = this.applyBodyClasses.bind(this);
+    this.toggleSectionsMgmtPanel = this.toggleSectionsMgmtPanel.bind(this);
     this.state = {
       fixedSearch: false,
       firstVisibleTimestamp: null,
@@ -15619,7 +15693,8 @@ class BaseContent extends (external_React_default()).PureComponent {
       fixedNavStyle: {},
       wallpaperTheme: "",
       showDownloadHighlightOverride: null,
-      visible: false
+      visible: false,
+      showSectionsMgmtPanel: false
     };
   }
   setFirstVisibleTimestamp() {
@@ -15713,6 +15788,17 @@ class BaseContent extends (external_React_default()).PureComponent {
     if (wallpapersEnabled) {
       this.updateWallpaper();
     }
+    this._onHashChange = () => {
+      const hash = globalThis.location?.hash || "";
+      if (hash === "#customize" || hash === "#customize-topics") {
+        this.openCustomizationMenu();
+        if (hash === "#customize-topics") {
+          this.toggleSectionsMgmtPanel();
+        }
+      }
+    };
+    this._onHashChange();
+    globalThis.addEventListener("hashchange", this._onHashChange);
   }
   componentDidUpdate(prevProps) {
     this.applyBodyClasses();
@@ -15779,6 +15865,9 @@ class BaseContent extends (external_React_default()).PureComponent {
     __webpack_require__.g.removeEventListener("keydown", this.handleOnKeyDown);
     if (this._onVisibilityChange) {
       this.props.document.removeEventListener(Base_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
+    }
+    if (this._onHashChange) {
+      globalThis.removeEventListener("hashchange", this._onHashChange);
     }
   }
   onWindowScroll() {
@@ -16025,6 +16114,11 @@ class BaseContent extends (external_React_default()).PureComponent {
   isWallpaperColorDark([r, g, b]) {
     return 0.2125 * r + 0.7154 * g + 0.0721 * b <= 110;
   }
+  toggleSectionsMgmtPanel() {
+    this.setState(prevState => ({
+      showSectionsMgmtPanel: !prevState.showSectionsMgmtPanel
+    }));
+  }
   shouldDisplayTopicSelectionModal() {
     const prefs = this.props.Prefs.values;
     const pocketEnabled = prefs["feeds.section.topstories"] && prefs["feeds.system.topstories"];
@@ -16192,7 +16286,9 @@ class BaseContent extends (external_React_default()).PureComponent {
       mayHaveWidgets: mayHaveWidgets,
       mayHaveTimerWidget: mayHaveTimerWidget,
       mayHaveListsWidget: mayHaveListsWidget,
-      showing: customizeMenuVisible
+      showing: customizeMenuVisible,
+      toggleSectionsMgmtPanel: this.toggleSectionsMgmtPanel,
+      showSectionsMgmtPanel: this.state.showSectionsMgmtPanel
     }), this.shouldShowOMCHighlight("CustomWallpaperHighlight") && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
       dispatch: this.props.dispatch
     }, /*#__PURE__*/external_React_default().createElement(WallpaperFeatureHighlight, {

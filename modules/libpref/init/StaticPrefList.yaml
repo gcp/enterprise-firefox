@@ -1425,7 +1425,7 @@
 # Control whether we enable the feature of crash pull at all
 - name: browser.crashReports.crashPull
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Should we prompt the user to send targeted crash report requested by devs?
@@ -3017,6 +3017,12 @@
 # Expose Window.TextEvent and make the builtin editors dispatch `textInput`
 # event as a default action of `beforeinput`.
 - name: dom.events.textevent.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether to expose execCommand("paste") to web content.
+- name: dom.execCommand.paste.enabled
   type: bool
   value: true
   mirror: always
@@ -9080,6 +9086,12 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for WASM/EcmaScript module integration in JavaScript.
+- name: javascript.options.experimental.wasm_esm_integration
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
 #endif  // NIGHTLY_BUILD
 
 # Whether to Baseline-compile self-hosted functions the first time they are

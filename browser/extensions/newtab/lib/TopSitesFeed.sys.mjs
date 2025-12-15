@@ -526,6 +526,7 @@ export class ContileIntegration {
           image_url: tile.image_url,
           impression_url: tile.callbacks.impression,
           image_size: 200,
+          attribution: tile.attributions || null,
         };
 
         formattedTileData.push(formattedData);
@@ -650,13 +651,10 @@ export class ContileIntegration {
 
           const endpointBaseUrl = state.Prefs.values[PREF_UNIFIED_ADS_ENDPOINT];
 
-          const preFlightConfig =
-            state.Prefs.values?.trainhopConfig?.marsPreFlight || {};
-
           // We need some basic data that we can pass along to the ohttp request.
           // We purposefully don't use ohttp on this request. We also expect to
           // mostly hit the HTTP cache rather than the network with these requests.
-          if (preFlightConfig.enabled) {
+          if (marsOhttpEnabled) {
             const preflightResponse = await this._topSitesFeed.fetch(
               `${endpointBaseUrl}v1/ads-preflight`,
               {
@@ -1060,6 +1058,7 @@ export class TopSitesFeed {
           sponsored_tile_id: site.id,
           partner: SPONSORED_TILE_PARTNER_AMP,
           block_key: site.id,
+          attribution: site.attribution,
         };
         if (site.image_url && site.image_size >= MIN_FAVICON_SIZE) {
           // Only use the image from Contile if it's hi-res, otherwise, fallback
