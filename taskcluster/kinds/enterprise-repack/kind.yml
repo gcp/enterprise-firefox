@@ -50,6 +50,7 @@ task-defaults:
 
 only-for-build-platforms:
     - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
     - macosx64-enterprise-shippable/opt
     - win64-enterprise-shippable/opt
 
@@ -61,6 +62,15 @@ tasks:
         attributes:
             shippable: true
             build_platform: linux64-enterprise-shippable
+            build_type: opt
+            artifact_prefix: public
+    linux64-aarch64-enterprise-shippable:
+        treeherder:
+            platform: linux64-aarch64-enterprise/opt
+            symbol: Rpk-Ent
+        attributes:
+            shippable: true
+            build_platform: linux64-aarch64-enterprise-shippable
             build_type: opt
             artifact_prefix: public
     macosx64-enterprise-shippable:

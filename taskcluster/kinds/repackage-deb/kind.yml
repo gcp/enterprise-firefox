@@ -25,6 +25,7 @@ only-for-build-platforms:
     - linux64/opt
     - linux64-aarch64/opt
     - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
 
 tasks:
     repackage-deb:
