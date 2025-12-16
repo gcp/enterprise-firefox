@@ -76,7 +76,7 @@ class BrowserFxAccount(FeltTests):
 
         console_addr = f"http://localhost:{self.console_port}"
         assert (
-            fxaccounts_remote_oauth == f"{console_addr}/api/fxa/api/v1"
+            fxaccounts_remote_oauth == f"{console_addr}/api/fxa/oauth/v1"
         ), f"FxAccount remote auth URI correct: {fxaccounts_remote_oauth}"
         assert (
             fxaccounts_remote_profile == f"{console_addr}/api/fxa/profile/v1"
