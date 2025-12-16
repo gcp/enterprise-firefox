@@ -75,13 +75,13 @@ export class EnterpriseStorageManager {
   }
 
   /**
-   * Update the cached account data object and replace the cached promise with 
+   * Update the cached account data object and replace the cached promise with
    * another resolved promise containing the modified account data.
-   * 
+   *
    * @param {object} newFields - fields that need to be updated in the cache.
-   * 
+   *
    * @throws {Error} If no user is logged in or if caller tries to change uid.
-   * 
+   *
    * @returns {Promise<void>} Promise resolving once the in-memory cache is updated
    */
   async updateAccountData(newFields) {
@@ -97,7 +97,7 @@ export class EnterpriseStorageManager {
     }
 
     lazy.log.debug("_updateAccountData with items", Object.keys(newFields));
-    
+
     for (let [name, value] of Object.entries(newFields)) {
       if (value == null) {
         delete data[name];
@@ -105,8 +105,8 @@ export class EnterpriseStorageManager {
       } else {
         data[name] = value;
         if (name === "device") {
-          // Keep track of the latest device id in the prefs. 
-          // It's used by the ConsoleClient to communicate 
+          // Keep track of the latest device id in the prefs.
+          // It's used by the ConsoleClient to communicate
           // the device id to the console.
           const deviceId = data[name]?.id;
           if (deviceId) {
@@ -122,7 +122,7 @@ export class EnterpriseStorageManager {
   }
 
   /**
-   * Clear current account data. By replacing the cached promise with a 
+   * Clear current account data. By replacing the cached promise with a
    * rejected one we restore the initial uninitialized behavior.
    */
   deleteAccountData() {
