@@ -61,12 +61,20 @@ function checkUnlockedPref(prefName, prefValue) {
 
 // Checks that a page was blocked by seeing if it was replaced with about:neterror
 async function checkBlockedPage(url, expectedBlocked) {
+  // Disable ping submission to prevent clearing telemetry data before we can inspect it
+  Services.prefs.setBoolPref(
+    "browser.download.enterprise.telemetry.testing.disableSubmit",
+    true
+  );
+
   let newTab = BrowserTestUtils.addTab(gBrowser);
   gBrowser.selectedTab = newTab;
 
   if (expectedBlocked) {
     let promise = BrowserTestUtils.waitForErrorPage(gBrowser.selectedBrowser);
     BrowserTestUtils.startLoadingURIString(gBrowser, url);
+    // let delayPromise = new Promise(resolve => setTimeout(resolve, 30000));
+    // await delayPromise;
     await promise;
     is(
       newTab.linkedBrowser.documentURI.spec.startsWith(
@@ -75,6 +83,15 @@ async function checkBlockedPage(url, expectedBlocked) {
       true,
       "Should be blocked by policy"
     );
+    // Verify the telemetry was recorded correctly
+    // Note: blocklistDomainBrowsed events are sent to the "enterprise" ping
+    const events =
+      Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise");
+    Assert.ok(events, "Should have recorded events");
+    Assert.equal(events.length, 1, "Should record exactly one event");
+
+    const event = events[0];
+    Assert.ok(event.extra, "Event should have extra data");
   } else {
     let promise = BrowserTestUtils.browserStopped(gBrowser, url);
     BrowserTestUtils.startLoadingURIString(gBrowser, url);
@@ -87,6 +104,12 @@ async function checkBlockedPage(url, expectedBlocked) {
     );
   }
   BrowserTestUtils.removeTab(newTab);
+
+  Services.fog.testResetFOG();
+  // Clear the testing pref
+  Services.prefs.clearUserPref(
+    "browser.download.enterprise.telemetry.testing.disableSubmit"
+  );
 }
 
 async function check_homepage({
