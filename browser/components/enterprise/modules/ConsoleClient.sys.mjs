@@ -227,12 +227,15 @@ export const ConsoleClient = {
    * @returns {Promise<object>}
    */
   async getFxAccountData() {
-    const payload = await this._post(this._paths.SYNC_ACCOUNT, {
-      device_id: Services.prefs.getStringPref(
+    const deviceId = Services.prefs.getStringPref(
         lazy.EnterpriseCommon.ENTERPRISE_DEVICE_ID_PREF,
-        undefined
-      ),
-    });
+      ""
+    );
+    const body = {};
+    if (deviceId !== "") {
+      body.device_id = deviceId;
+    }
+    const payload = await this._post(this._paths.SYNC_ACCOUNT, body);
     return payload;
   },
 
