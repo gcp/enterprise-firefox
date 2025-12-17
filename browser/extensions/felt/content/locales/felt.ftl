@@ -4,6 +4,7 @@
 
 ## FELT (Firefox Enterprise Launcher Tool) SSO Login
 
+felt-window-title = { -brand-short-name } — Login
 felt-sso-title = Sign in
 felt-sso-input-email =
     .description = Use your organizational-issued email
