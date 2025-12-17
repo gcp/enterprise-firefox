@@ -102,7 +102,6 @@ export class EnterpriseStorageManager {
     for (let [name, value] of Object.entries(newFields)) {
       if (value == null) {
         delete data[name];
-        data[name] = null;
       } else {
         data[name] = value;
         if (name === "device") {
