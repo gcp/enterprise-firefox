@@ -97,6 +97,12 @@ async function listenFormEmailSubmission() {
 }
 
 function setupMarionetteEnvironment() {
+  window.fullScreen = false;
+
+  window.FullScreen = {
+    exitDomFullScreen() {},
+  };
+
   window.gBrowser = {
     get selectedBrowser() {
       let rv = document.getElementById("browser");
@@ -134,6 +140,10 @@ function setupMarionetteEnvironment() {
       return window;
     },
 
+    get ownerGlobal() {
+      return window;
+    },
+
     addEventListener() {
       this.selectedBrowser.addEventListener(...arguments);
     },
@@ -142,6 +152,24 @@ function setupMarionetteEnvironment() {
       this.selectedBrowser.removeEventListener(...arguments);
     },
   };
+
+  ChromeUtils.defineLazyGetter(window, "PopupNotifications", () => {
+    // eslint-disable-next-line no-shadow
+    let { PopupNotifications } = ChromeUtils.importESModule(
+      "resource://gre/modules/PopupNotifications.sys.mjs"
+    );
+    try {
+      return new PopupNotifications(
+        window.gBrowser,
+        document.getElementById("notification-popup"),
+        document.getElementById("notification-popup-box"),
+        {}
+      );
+    } catch (ex) {
+      console.error(ex);
+      return null;
+    }
+  });
 
   // Last notification required for marionette to work
   Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
