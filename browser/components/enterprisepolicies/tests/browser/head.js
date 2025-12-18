@@ -63,7 +63,7 @@ function checkUnlockedPref(prefName, prefValue) {
 async function checkBlockedPage(url, expectedBlocked, { referrerURL } = {}) {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.download.enterprise.telemetry.testing.disableSubmit", true],
+      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
       [
         "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
         true,
@@ -110,12 +110,8 @@ async function checkBlockedPage(url, expectedBlocked, { referrerURL } = {}) {
         "Should be blocked by policy"
       );
 
-      let events;
-      await BrowserTestUtils.waitForCondition(async () => {
-        events =
-          Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise");
-        return events?.length;
-      }, "Waiting for blocklistDomainBrowsed event");
+      let events =
+        Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise");
       Assert.ok(events?.length, "Should have recorded events");
       if (!events?.length) {
         return;

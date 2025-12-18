@@ -202,21 +202,14 @@ export let WebsiteFilter = {
     try {
       const processedUrl = this._processTelemetryUrl(url);
       const processedReferrer = this._processTelemetryUrl(referrer);
-      const extra = {};
-      if (processedUrl) {
-        extra.url = processedUrl;
-      }
-      if (processedReferrer) {
-        extra.referrer = processedReferrer;
-      }
-      if (Object.keys(extra).length) {
-        Glean.contentPolicy.blocklistDomainBrowsed.record(extra);
-      } else {
-        Glean.contentPolicy.blocklistDomainBrowsed.record();
-      }
+      const telemetryData = {
+        url: processedUrl || "",
+        referrer: processedReferrer || "",
+      };
+      Glean.contentPolicy.blocklistDomainBrowsed.record(telemetryData);
       if (
         !Services.prefs.getBoolPref(
-          "browser.download.enterprise.telemetry.testing.disableSubmit",
+          "browser.policies.enterprise.telemetry.testing.disableSubmit",
           false
         )
       ) {
