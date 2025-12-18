@@ -149,6 +149,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                         ["browser.sessionstore.restore_on_demand", False],
                         ["browser.sessionstore.resume_from_crash", False],
                         ["browser.policies.live_polling.frequency", 500],
+                        [
+                            "identity.sync.tokenserver.uri",
+                            "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
+                        ],
                     ]
                 }
             )

@@ -209,6 +209,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       .then(async () => {
         this.sendPrefsToFirefox();
         Services.felt.sendTokens();
+
+        // Gets sync tokenserver uri from the console amongst other prefs
         const { prefs } = await lazy.ConsoleClient.getDefaultPrefs();
         prefs.forEach(pref => {
           const name = pref[0];
