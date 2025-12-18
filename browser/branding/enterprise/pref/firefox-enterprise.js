@@ -6,12 +6,6 @@
 
 pref("enterprise.console.address", "https://console.enterfox.eu");
 
-// Endpoint will be provided by the console.
-pref(
-  "identity.sync.tokenserver.uri",
-  "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5"
-);
-
 pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
 
