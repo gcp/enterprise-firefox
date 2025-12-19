@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
+  PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
 });
 
 // Will at least make move forward marionette
@@ -153,32 +154,37 @@ function setupMarionetteEnvironment() {
     },
   };
 
+  // Last notification required for marionette to work
+  Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
+}
+
+function setupPopupNotifications() {
   ChromeUtils.defineLazyGetter(window, "PopupNotifications", () => {
-    // eslint-disable-next-line no-shadow
-    let { PopupNotifications } = ChromeUtils.importESModule(
-      "resource://gre/modules/PopupNotifications.sys.mjs"
-    );
+    const panel = document.getElementById("notification-popup");
+    const anchor = document.getElementById("notification-popup-box");
+
+    panel.addEventListener("popupshowing", () => {
+      // Need to shift the anchor element relative to the panel's height and width
+      const r = panel.getBoundingClientRect();
+      const tx = -(r.width / 2);
+      const ty = -(r.height / 2);
+      anchor.style.transform = `translate(${tx}px, ${ty}px)`;
+    });
+
     try {
-      return new PopupNotifications(
-        window.gBrowser,
-        document.getElementById("notification-popup"),
-        document.getElementById("notification-popup-box"),
-        {}
-      );
+      return new lazy.PopupNotifications(window.gBrowser, panel, anchor, {});
     } catch (ex) {
       console.error(ex);
       return null;
     }
   });
-
-  // Last notification required for marionette to work
-  Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
 }
 
 window.addEventListener(
   "load",
   () => {
     setupMarionetteEnvironment();
+    setupPopupNotifications();
     listenFormEmailSubmission();
   },
   true
