@@ -147,3 +147,14 @@ moz-input-text::part(label) {
 .is-hidden {
   display: none !important;
 }
+
+#notification-popup-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+  opacity: 0.5;
+  pointer-events: none;
+}
