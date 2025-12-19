@@ -60,96 +60,33 @@ function checkUnlockedPref(prefName, prefValue) {
 }
 
 // Checks that a page was blocked by seeing if it was replaced with about:neterror
-async function checkBlockedPage(url, expectedBlocked, { referrerURL } = {}) {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
-      [
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
-        true,
-      ],
-      [
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
-        "full",
-      ],
-    ],
-  });
+async function checkBlockedPage(url, expectedBlocked) {
+  let newTab = BrowserTestUtils.addTab(gBrowser);
+  gBrowser.selectedTab = newTab;
 
-  let newTab;
-  let browser;
-  try {
-    if (referrerURL) {
-      newTab = await BrowserTestUtils.openNewForegroundTab(
-        gBrowser,
-        referrerURL
-      );
-    } else {
-      newTab = BrowserTestUtils.addTab(gBrowser);
-      gBrowser.selectedTab = newTab;
-    }
-    browser = newTab.linkedBrowser;
+  if (expectedBlocked) {
+    let promise = BrowserTestUtils.waitForErrorPage(gBrowser.selectedBrowser);
+    BrowserTestUtils.startLoadingURIString(gBrowser, url);
+    await promise;
+    is(
+      newTab.linkedBrowser.documentURI.spec.startsWith(
+        "about:neterror?e=blockedByPolicy"
+      ),
+      true,
+      "Should be blocked by policy"
+    );
+  } else {
+    let promise = BrowserTestUtils.browserStopped(gBrowser, url);
+    BrowserTestUtils.startLoadingURIString(gBrowser, url);
+    await promise;
 
-    if (expectedBlocked) {
-      let promise = BrowserTestUtils.waitForErrorPage(browser);
-      if (referrerURL) {
-        await SpecialPowers.spawn(browser, [url], async targetURL => {
-          let a = content.document.createElement("a");
-          a.href = targetURL;
-          content.document.body.appendChild(a);
-          a.click();
-        });
-      } else {
-        BrowserTestUtils.startLoadingURIString(browser, url);
-      }
-      await promise;
-      is(
-        browser.documentURI.spec.startsWith("about:neterror?e=blockedByPolicy"),
-        true,
-        "Should be blocked by policy"
-      );
-
-      let events =
-        Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise");
-      Assert.ok(events?.length, "Should have recorded events");
-      if (!events?.length) {
-        return;
-      }
-      Assert.greaterOrEqual(
-        events.length,
-        1,
-        "Should record at least one event"
-      );
-      const event = events.at(-1);
-      Assert.ok(event.extra, "Event should have extra data");
-      Assert.ok("url" in event.extra, "Telemetry should include blocked URL");
-      if (referrerURL) {
-        const matching = events.filter(e => e.extra?.referrer === referrerURL);
-        const recordedReferrers = events
-          .map(e => e.extra?.referrer)
-          .filter(Boolean)
-          .join(", ");
-        Assert.ok(
-          matching.length,
-          `Telemetry should include referrer URL (got: ${recordedReferrers})`
-        );
-      }
-    } else {
-      let promise = BrowserTestUtils.browserStopped(browser, url);
-      BrowserTestUtils.startLoadingURIString(browser, url);
-      await promise;
-
-      is(browser.documentURI.spec, url, "Should not be blocked by policy");
-    }
-  } finally {
-    if (newTab) {
-      await new Promise(resolve => Services.tm.dispatchToMainThread(resolve));
-      let tabClosing = BrowserTestUtils.waitForTabClosing(newTab);
-      BrowserTestUtils.removeTab(newTab);
-      await tabClosing;
-    }
-    Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
+    is(
+      newTab.linkedBrowser.documentURI.spec,
+      url,
+      "Should not be blocked by policy"
+    );
   }
+  BrowserTestUtils.removeTab(newTab);
 }
 
 async function check_homepage({
