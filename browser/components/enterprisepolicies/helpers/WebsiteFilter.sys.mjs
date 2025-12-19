@@ -160,7 +160,7 @@ export let WebsiteFilter = {
             }
           }
         } catch (e) {}
-        this._recordBlocklistDomainBrowsed(url.href, referrerSpec);
+        this._recordBlocklistDomainBrowsed(channel.originalURI.spec, referrerSpec);
 #endif
         channel.cancel(Cr.NS_ERROR_BLOCKED_BY_POLICY);
       }

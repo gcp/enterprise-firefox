@@ -200,8 +200,11 @@ static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
 
   const nsCString urlLogging =
       BlocklistDomainBrowsedTelemetryUrlLoggingPolicy();
+
+  nsCOMPtr<nsIURI> originalURI;
+  aChannel->GetOriginalURI(getter_AddRefs(originalURI));
   const Maybe<nsCString> urlTelemetry =
-      ProcessBlocklistDomainBrowsedTelemetryUrl(aURI, urlLogging);
+      ProcessBlocklistDomainBrowsedTelemetryUrl(originalURI, urlLogging);
 
   const nsCString referrerSpec =
       GetBlocklistDomainBrowsedReferrerSpec(aChannel);

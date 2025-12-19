@@ -196,48 +196,6 @@ add_task(async function test_policy_enterprise_telemetry() {
       }`,
     },
   });
-
-  await checkTelemetryTestCases();
-  await checkTelemetryTestCases({
-    referrerURL: SUPPORT_FILES_PATH + SAVELINKAS_PAGE,
-  });
-
-  await clearWebsiteFilter();
-});
-
-async function checkTelemetryTestCases({ referrerURL } = {}) {
-  await checkBlockedPageTelemetry(
-    SUPPORT_FILES_PATH + BLOCKED_PAGE,
-    referrerURL
-  );
-  await checkBlockedPageTelemetry(
-    "view-source:" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
-    referrerURL
-  );
-  await checkBlockedPageTelemetry(
-    "about:reader?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
-    referrerURL
-  );
-  await checkBlockedPageTelemetry(
-    "about:READER?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
-    referrerURL
-  );
-
-  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", referrerURL);
-
-  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", referrerURL);
-}
-
-function logStuff(message) {
-  console.warn(
-    "*************************************************************************************"
-  );
-  console.warn(message);
-}
-
-// Checks that a page was blocked by seeing if it was replaced with about:neterror
-async function checkBlockedPageTelemetry(url, referrerURL) {
-  logStuff("Starting test for " + url);
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
@@ -252,6 +210,42 @@ async function checkBlockedPageTelemetry(url, referrerURL) {
     ],
   });
 
+  const referrerURL = SUPPORT_FILES_PATH + SAVELINKAS_PAGE;
+  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + BLOCKED_PAGE);
+  await checkBlockedPageTelemetry(
+    SUPPORT_FILES_PATH + BLOCKED_PAGE,
+    referrerURL
+  );
+  await checkBlockedPageTelemetry(
+    "view-source:" + SUPPORT_FILES_PATH + BLOCKED_PAGE
+  );
+  await checkBlockedPageTelemetry(
+    "about:reader?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE
+  );
+  await checkBlockedPageTelemetry(
+    "about:READER?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE
+  );
+
+  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs");
+  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", referrerURL);
+
+  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs");
+  await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", referrerURL);
+
+  await clearWebsiteFilter();
+});
+
+function logStuff(message) {
+  console.warn(
+    "*************************************************************************************"
+  );
+  console.warn(message);
+}
+
+// Checks that a page was blocked by seeing if it was replaced with about:neterror
+async function checkBlockedPageTelemetry(url, referrerURL) {
+  logStuff("Starting test for " + url);
+
   logStuff("Pushed prefs");
   let newTab;
   try {
@@ -260,6 +254,11 @@ async function checkBlockedPageTelemetry(url, referrerURL) {
         gBrowser,
         referrerURL
       );
+
+      await SpecialPowers.spawn(newTab.linkedBrowser, [url], async href => {
+        let link = content.document.getElementById("savelink_blocked");
+        link.href = href;
+      });
       logStuff("Created new tab for referring url: " + referrerURL);
     } else {
       newTab = BrowserTestUtils.addTab(gBrowser);
@@ -305,6 +304,5 @@ async function checkBlockedPageTelemetry(url, referrerURL) {
       BrowserTestUtils.removeTab(newTab);
     }
     Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
   }
 }
