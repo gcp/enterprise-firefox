@@ -2079,10 +2079,8 @@ def add_enterprise_index_routes(config, tasks):
         if (
             not "enterprise" in task["label"]
             or "upload" in task["label"]
-            or not "shippable" in task["label"]
             or task["label"].endswith("/debug")
             or task["label"].startswith("enterprise-test")
-            or task["label"].startswith("test-")
         ):
             yield task
             continue

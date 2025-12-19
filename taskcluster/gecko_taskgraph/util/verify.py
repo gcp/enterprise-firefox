@@ -381,9 +381,7 @@ def verify_trust_domain_v2_routes_enterprise(
 
     if (
         "upload" in task.label
-        or not "shippable" in task.label
         or task.label.startswith("enterprise-test")
-        or task.label.startswith("test-")
         or task.label.startswith("build-signing")
         or task.label.startswith("build-mac-signing")
     ):
@@ -396,7 +394,6 @@ def verify_trust_domain_v2_routes_enterprise(
             raise Exception(
                 f"The following task has a route with invalid index `{task.label}`: {route}"
             )
-
 
 
 @verifications.add("full_task_graph")
