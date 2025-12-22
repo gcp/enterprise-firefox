@@ -87,38 +87,38 @@ static nsCString BlocklistDomainBrowsedTelemetryUrlLoggingPolicy() {
   return urlLogging;
 }
 
-static Maybe<nsCString> ProcessBlocklistDomainBrowsedTelemetryUrl(
+static nsCString ProcessBlocklistDomainBrowsedTelemetryUrl(
     nsIURI* aURI, const nsCString& aPolicy) {
   if (!aURI || aPolicy.EqualsLiteral("none")) {
-    return Nothing();
+    return ""_ns;
   }
 
   if (aPolicy.EqualsLiteral("domain")) {
     nsCString host;
-    if (NS_FAILED(aURI->GetHost(host)) || host.IsEmpty()) {
-      return Nothing();
+    if (NS_FAILED(aURI->GetHost(host))) {
+      return ""_ns;
     }
-    return Some(host);
+    return host;
   }
 
   nsCString spec;
   aURI->GetSpec(spec);
-  return spec.IsEmpty() ? Nothing() : Some(spec);
+  return spec;
 }
 
-static Maybe<nsCString> ProcessBlocklistDomainBrowsedTelemetryUrlSpec(
+static nsCString ProcessBlocklistDomainBrowsedTelemetryUrlSpec(
     const nsCString& aSpec, const nsCString& aPolicy) {
-  if (aSpec.IsEmpty() || aPolicy.EqualsLiteral("none")) {
-    return Nothing();
+  if (aPolicy.EqualsLiteral("none")) {
+    return ""_ns;
   }
 
   if (!aPolicy.EqualsLiteral("domain")) {
-    return Some(aSpec);
+    return aSpec;
   }
 
   nsCOMPtr<nsIURI> parsed;
   if (NS_FAILED(NS_NewURI(getter_AddRefs(parsed), aSpec)) || !parsed) {
-    return Nothing();
+    return ""_ns;
   }
   return ProcessBlocklistDomainBrowsedTelemetryUrl(parsed, aPolicy);
 }
@@ -148,17 +148,17 @@ static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
   const nsCString urlLogging =
       BlocklistDomainBrowsedTelemetryUrlLoggingPolicy();
 
-  const Maybe<nsCString> blockedUrlTelemetry =
+  const nsCString blockedUrlTelemetry =
       ProcessBlocklistDomainBrowsedTelemetryUrl(aURI, urlLogging);
 
   const nsCString referrerSpec =
       GetBlocklistDomainBrowsedReferrerSpec(aChannel);
-  const Maybe<nsCString> referrerTelemetry =
+  const nsCString referrerTelemetry =
       ProcessBlocklistDomainBrowsedTelemetryUrlSpec(referrerSpec, urlLogging);
 
   glean::content_policy::BlocklistDomainBrowsedExtra extra = {
-      .blockedUrl = blockedUrlTelemetry,
-      .referrer = referrerTelemetry,
+      .blockedUrl = Some(blockedUrlTelemetry),
+      .referrer = Some(referrerTelemetry),
   };
   glean::content_policy::blocklist_domain_browsed.Record(Some(extra));
 
