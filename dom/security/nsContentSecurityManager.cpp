@@ -157,8 +157,8 @@ static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
       ProcessBlocklistDomainBrowsedTelemetryUrlSpec(referrerSpec, urlLogging);
 
   glean::content_policy::BlocklistDomainBrowsedExtra extra = {
-      .blockedUrl = Some(blockedUrlTelemetry),
       .referrer = Some(referrerTelemetry),
+      .url = Some(blockedUrlTelemetry),
   };
   glean::content_policy::blocklist_domain_browsed.Record(Some(extra));
 

@@ -202,7 +202,7 @@ export let WebsiteFilter = {
       const processedReferrer = this._processTelemetryUrl(referrer);
       const telemetryData = {
         original_url: processedOrigUrl || "",
-        blocked_url: processedResolvedUrl || "",
+        url: processedResolvedUrl || "",
         referrer: processedReferrer || "",
       };
       Glean.contentPolicy.blocklistDomainBrowsed.record(telemetryData);

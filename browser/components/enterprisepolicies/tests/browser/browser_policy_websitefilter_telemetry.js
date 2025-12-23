@@ -122,7 +122,7 @@ async function checkBlockedPageTelemetry(
     const event = events.at(-1);
     Assert.ok(event.extra, "Event should have extra data");
     Assert.equal(
-      event.extra.blocked_url,
+      event.extra.url,
       expectedBlockedUrl,
       "Telemetry should include blocked URL"
     );

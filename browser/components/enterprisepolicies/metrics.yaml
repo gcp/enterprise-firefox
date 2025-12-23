@@ -30,9 +30,9 @@ content_policy:
     send_in_pings:
       - enterprise
     extra_keys:
-      blocked_url:
+      url:
         description: >
-          The resolved url, after potential redirects, that was blocked.
+          The url that was blocked by policy.
         type: string
       original_url:
         description: >
@@ -41,6 +41,6 @@ content_policy:
         type: string
       referrer:
         description: >
-          The referrer address from which the url was requested, if any.
+          The referrer address from which the url was requested.
         type: string
 #endif
