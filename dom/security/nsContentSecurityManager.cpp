@@ -125,17 +125,11 @@ static nsCString ProcessBlocklistDomainBrowsedTelemetryUrlSpec(
 
 static nsCString GetBlocklistDomainBrowsedReferrerSpec(nsIChannel* aChannel) {
   nsCString referrerSpec;
-  nsCOMPtr<nsIHttpChannel> httpChan = do_QueryInterface(aChannel);
-  if (!httpChan) {
-    return referrerSpec;
+  nsCOMPtr<nsIURI> referrer;
+  NS_GetReferrerFromChannel(aChannel, getter_AddRefs(referrer));
+  if (referrer) {
+    referrer->GetSpec(referrerSpec);
   }
-
-  nsCOMPtr<nsIReferrerInfo> referrerInfo = httpChan->GetReferrerInfo();
-  if (!referrerInfo) {
-    return referrerSpec;
-  }
-
-  referrerInfo->GetComputedReferrerSpec(referrerSpec);
   return referrerSpec;
 }
 
