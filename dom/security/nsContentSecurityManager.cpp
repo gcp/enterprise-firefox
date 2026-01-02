@@ -106,33 +106,6 @@ static nsCString ProcessBlocklistDomainBrowsedTelemetryUrl(
   return spec;
 }
 
-static nsCString ProcessBlocklistDomainBrowsedTelemetryUrlSpec(
-    const nsCString& aSpec, const nsCString& aPolicy) {
-  if (aPolicy.EqualsLiteral("none")) {
-    return ""_ns;
-  }
-
-  if (!aPolicy.EqualsLiteral("domain")) {
-    return aSpec;
-  }
-
-  nsCOMPtr<nsIURI> parsed;
-  if (NS_FAILED(NS_NewURI(getter_AddRefs(parsed), aSpec)) || !parsed) {
-    return ""_ns;
-  }
-  return ProcessBlocklistDomainBrowsedTelemetryUrl(parsed, aPolicy);
-}
-
-static nsCString GetBlocklistDomainBrowsedReferrerSpec(nsIChannel* aChannel) {
-  nsCString referrerSpec;
-  nsCOMPtr<nsIURI> referrer;
-  NS_GetReferrerFromChannel(aChannel, getter_AddRefs(referrer));
-  if (referrer) {
-    referrer->GetSpec(referrerSpec);
-  }
-  return referrerSpec;
-}
-
 static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
                                                   nsIURI* aURI) {
   if (!BlocklistDomainBrowsedTelemetryIsEnabled()) {
@@ -145,10 +118,10 @@ static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
   const nsCString blockedUrlTelemetry =
       ProcessBlocklistDomainBrowsedTelemetryUrl(aURI, urlLogging);
 
-  const nsCString referrerSpec =
-      GetBlocklistDomainBrowsedReferrerSpec(aChannel);
+  nsCOMPtr<nsIURI> referrer;
+  NS_GetReferrerFromChannel(aChannel, getter_AddRefs(referrer));
   const nsCString referrerTelemetry =
-      ProcessBlocklistDomainBrowsedTelemetryUrlSpec(referrerSpec, urlLogging);
+      ProcessBlocklistDomainBrowsedTelemetryUrl(referrer, urlLogging);
 
   glean::content_policy::BlocklistDomainBrowsedExtra extra = {
       .referrer = Some(referrerTelemetry),
