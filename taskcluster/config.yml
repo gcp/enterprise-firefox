@@ -817,8 +817,8 @@ workers:
             os: macosx
             worker-type:
                 by-level:
-                    '3': 'gecko-3-b-osx-arm64'
-                    default: 'gecko-1-b-osx-arm64'
+                    '3': '{trust-domain}-3-b-osx-arm64'
+                    default: '{trust-domain}-1-b-osx-arm64'
         win10-64-2009-hw:
             provisioner: releng-hardware
             implementation: generic-worker
