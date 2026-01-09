@@ -1863,6 +1863,18 @@ pref("browser.newtabpage.activity-stream.mobileDownloadModal.variant-c", false);
 // Show refined card layout on newtab
 pref("browser.newtabpage.activity-stream.discoverystream.refinedCardsLayout.enabled", true);
 
+/**
+ * @backward-compat { version 148 }
+ *
+ * Temporary dual implementation to support train hopping. The old handoff UI
+ * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+ * the module lands on all channels. Controlled by the pref
+ * browser.newtabpage.activity-stream.search.useHandoffComponent.
+ * Remove the old implementation and the pref once this ships to Release.
+ */
+pref("browser.newtabpage.activity-stream.search.useHandoffComponent", true);
+pref("browser.newtabpage.activity-stream.externalComponents.enabled", true);
+
 // Mozilla Ad Routing Service (MARS) unified ads service
 pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", true);
 pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", true);
@@ -2177,11 +2189,12 @@ pref("pdfjs.handleOctetStream", true);
 
 // Is the sidebar positioned ahead of the content browser
 pref("sidebar.position_start", true);
-pref("sidebar.revamp", false);
-// This is nightly only for now, as we need to address bug 1933527 and bug 1934039.
 #ifdef NIGHTLY_BUILD
+pref("sidebar.revamp", true);
+// This is nightly only for now, as we need to address bug 1933527 and bug 1934039.
 pref("sidebar.revamp.round-content-area", true);
 #else
+pref("sidebar.revamp", false);
 pref("sidebar.revamp.round-content-area", false);
 #endif
 pref("sidebar.animation.enabled", true);
@@ -2630,6 +2643,10 @@ pref("privacy.webrtc.deviceGracePeriodTimeoutMs", 3600000);
 // duplicating the macos camera icon. We show the icon by default, users can choose to flip
 // the pref to hide the icons
 pref("privacy.webrtc.showIndicatorsOnMacos14AndAbove", true);
+
+// Testing pref: adds artificial delay (in ms) to gUM requests in webrtc-preview.
+// Used for testing abort logic. 0 means no delay.
+pref("privacy.webrtc.preview.testGumDelayMs", 0);
 
 // Enable Smartblock embed placeholders
 pref("extensions.webcompat.smartblockEmbeds.enabled", true);

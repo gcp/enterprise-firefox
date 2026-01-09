@@ -99,7 +99,6 @@ export class UrlbarInput extends HTMLElement {
           <menupopup class="searchmode-switcher-popup toolbar-menupopup"
                      consumeoutsideclicks="false">
             <label class="searchmode-switcher-popup-description"
-                   data-l10n-id="urlbar-searchmode-popup-description"
                    role="heading" />
             <menuseparator/>
             <menuseparator class="searchmode-switcher-popup-footer-separator"/>
@@ -307,6 +306,16 @@ export class UrlbarInput extends HTMLElement {
     this.controller = new lazy.UrlbarController({ input: this });
     this.view = new lazy.UrlbarView(this);
     this.searchModeSwitcher = new lazy.SearchModeSwitcher(this);
+
+    let searchModeSwitcherDescription = this.querySelector(
+      ".searchmode-switcher-popup-description"
+    );
+    searchModeSwitcherDescription.setAttribute(
+      "data-l10n-id",
+      this.#isAddressbar
+        ? "urlbar-searchmode-popup-description"
+        : "urlbar-searchmode-popup-sticky-description"
+    );
 
     // The event bufferer can be used to defer events that may affect users
     // muscle memory; for example quickly pressing DOWN+ENTER should end up
@@ -5505,28 +5514,43 @@ export class UrlbarInput extends HTMLElement {
    * @param {DragEvent} event
    */
   _on_drop(event) {
-    let droppedItem = getDroppableData(event);
-    let droppedURL = URL.isInstance(droppedItem)
-      ? droppedItem.href
-      : droppedItem;
-    if (droppedURL && droppedURL !== this.window.gBrowser.currentURI.spec) {
-      let principal = Services.droppedLinkHandler.getTriggeringPrincipal(event);
-      this.value = droppedURL;
+    let droppedData = getDroppableData(event);
+    let droppedString = URL.isInstance(droppedData)
+      ? droppedData.href
+      : droppedData;
+    if (
+      droppedString &&
+      droppedString !== this.window.gBrowser.currentURI.spec
+    ) {
+      this.value = droppedString;
       this.setPageProxyState("invalid");
       this.focus();
-      // To simplify tracking of events, register an initial event for event
-      // telemetry, to replace the missing input event.
-      let queryContext = this.#makeQueryContext({ searchString: droppedURL });
-      this.controller.setLastQueryContextCache(queryContext);
-      this.controller.engagementEvent.start(event, queryContext);
-      this.handleNavigation({ triggeringPrincipal: principal });
       if (this.#isAddressbar) {
+        // If we're an address bar, we automatically open the dropped address or
+        // submit the dropped string to the search engine.
+        let principal =
+          Services.droppedLinkHandler.getTriggeringPrincipal(event);
+        // To simplify tracking of events, register an initial event for event
+        // telemetry, to replace the missing input event.
+        let queryContext = this.#makeQueryContext({
+          searchString: droppedString,
+        });
+        this.controller.setLastQueryContextCache(queryContext);
+        this.controller.engagementEvent.start(event, queryContext);
+        this.handleNavigation({ triggeringPrincipal: principal });
         // For safety reasons, in the drop case we don't want to immediately show
         // the dropped value, instead we want to keep showing the current page
         // url until an onLocationChange happens.
         // See the handling in `setURI` for further details.
         this.userTypedValue = null;
         this.setURI({ dueToTabSwitch: true });
+      } else {
+        // If we're a search bar, allow for getting search suggestions, changing
+        // the search engine, or modifying the search term before submitting.
+        this.startQuery({
+          searchString: droppedString,
+          event,
+        });
       }
     }
   }
