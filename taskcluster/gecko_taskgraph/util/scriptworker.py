@@ -508,7 +508,11 @@ def get_signing_type_per_platform(build_platform, is_shippable, config):
     if "devedition" in build_platform:
         return get_devedition_signing_type(config)
     if "enterprise" in build_platform:
-        if is_shippable and "enterprise-main" in config.params["head_ref"] and int(config.params["level"]) == 3:
+        if (
+            is_shippable
+            and "enterprise-main" in config.params["head_ref"]
+            and int(config.params["level"]) == 3
+        ):
             return get_enterprise_main_signing_type(config)
         else:
             return get_enterprise_try_signing_type(config)
