@@ -722,7 +722,7 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
     else:
         locales = map_config["default_locales"]
 
-    resolve_keyed_by(map_config, "s3_bucket_paths", job["label"], platform=platform)
+    resolve_keyed_by(map_config, "bucket_paths", job["label"], platform=platform)
 
     for locale, dep in sorted(itertools.product(locales, dependencies)):
         paths = dict()
@@ -777,14 +777,14 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
             # This format string should ideally be in the configuration file,
             # but this would mean keeping variable names in sync between code + config.
             destinations = [
-                "{s3_bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
-                    s3_bucket_path=bucket_path,
+                "{bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
+                    bucket_path=bucket_path,
                     dest_path=dest_path,
                     locale_prefix=file_config["locale_prefix"],
                     filename=file_config.get("pretty_name", filename),
                 )
                 for dest_path, bucket_path in itertools.product(
-                    file_config["destinations"], map_config["s3_bucket_paths"]
+                    file_config["destinations"], map_config["bucket_paths"]
                 )
             ]
             # Creating map entries
@@ -887,9 +887,7 @@ def generate_beetmover_partials_artifact_map(config, job, partials_info, **kwarg
     else:
         locales = map_config["default_locales"]
 
-    resolve_keyed_by(
-        map_config, "s3_bucket_paths", "s3_bucket_paths", platform=platform
-    )
+    resolve_keyed_by(map_config, "bucket_paths", "bucket_paths", platform=platform)
 
     platforms = deepcopy(map_config.get("platform_names", {}))
     if platform:
@@ -928,14 +926,14 @@ def generate_beetmover_partials_artifact_map(config, job, partials_info, **kwarg
             # This format string should ideally be in the configuration file,
             # but this would mean keeping variable names in sync between code + config.
             destinations = [
-                "{s3_bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
-                    s3_bucket_path=bucket_path,
+                "{bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
+                    bucket_path=bucket_path,
                     dest_path=dest_path,
                     locale_prefix=file_config["locale_prefix"],
                     filename=file_config.get("pretty_name", filename),
                 )
                 for dest_path, bucket_path in itertools.product(
-                    file_config["destinations"], map_config["s3_bucket_paths"]
+                    file_config["destinations"], map_config["bucket_paths"]
                 )
             ]
             # Creating map entries
