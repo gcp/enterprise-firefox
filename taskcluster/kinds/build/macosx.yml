@@ -209,7 +209,7 @@ macosx64/opt:
 
 macosx64-enterprise-shippable/opt:
     description: "MacOS X x64 Enterprise Shippable Cross-compile"
-    # PGO breaks on Bent build when checking the target linker
+    # PGO breaks on Bent build when checking the target linker
     # use-pgo: true
     index:
         job-name: macosx64-enterprise-shippable-opt
