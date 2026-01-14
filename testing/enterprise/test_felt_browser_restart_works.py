@@ -73,9 +73,9 @@ class BrowserRestartWorks(FeltTests):
         self._logger.info(
             f"Checking PID changes from {self._browser_pid} to {new_browser_pid}"
         )
-        assert (
-            new_browser_pid != self._browser_pid
-        ), f"PID changed from {self._browser_pid} to {new_browser_pid}"
+        assert new_browser_pid != self._browser_pid, (
+            f"PID changed from {self._browser_pid} to {new_browser_pid}"
+        )
 
         self._logger.info(f"Closing new browser with PID {new_browser_pid}")
         self._child_driver.set_context("chrome")
