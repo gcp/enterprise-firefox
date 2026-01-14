@@ -326,7 +326,7 @@ export const ConsoleClient = {
     }
 
     const text = await res.text().catch(() => "");
-    throw new Error(`Fetch failed (${res.status}): ${text}`);
+    throw new Error(`Fetch ${method} ${path} failed (${res.status}): ${text}`);
   },
 
   /**

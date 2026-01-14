@@ -97,6 +97,18 @@ async function listenFormEmailSubmission() {
   });
 }
 
+function informAboutPotentialStartupFailure() {
+  if (window.location.search) {
+    const errorClass = new URLSearchParams(window.location.search).get("error");
+    if (errorClass) {
+      document
+        .querySelector(".felt-browser-error")
+        .classList.remove("is-hidden");
+      document.querySelector(`.${errorClass}`).classList.remove("is-hidden");
+    }
+  }
+}
+
 function setupMarionetteEnvironment() {
   window.fullScreen = false;
 
@@ -186,6 +198,7 @@ window.addEventListener(
     setupMarionetteEnvironment();
     setupPopupNotifications();
     listenFormEmailSubmission();
+    informAboutPotentialStartupFailure();
   },
   true
 );

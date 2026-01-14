@@ -160,3 +160,15 @@ body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt)
   opacity: 0.5;
   pointer-events: none;
 }
+
+.felt-browser-error {
+  position: absolute;
+  /* stylelint-disable-next-line */
+  bottom: 32px;
+  /* stylelint-disable-next-line */
+  left: 8px;
+  font-size: medium;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--icon-color-critical);
+  font-weight: var(--font-weight-bold);
+}

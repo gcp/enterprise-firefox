@@ -12,6 +12,7 @@ felt-sso-input-email =
     .accesskey = E
 felt-sso-continue-btn =
     .label = Continue
+felt-browser-error-multiple-crashes = { -brand-short-name } crashed multiple times
 felt-powered-by =
     Powered by { -vendor-short-name }
 # $version is the version of Felt, not Firefox/Enterprise Browser.

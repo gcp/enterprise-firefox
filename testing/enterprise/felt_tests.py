@@ -16,6 +16,7 @@ from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Manager, Process, Value
 
+import psutil
 import requests
 from base_test import EnterpriseTestsBase
 from selenium.webdriver.common.by import By
@@ -538,6 +539,31 @@ class FeltTests(EnterpriseTestsBase):
             return self._child_wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, e))
             )
+
+    def wait_process_exit(self):
+        self._logger.info("Waiting a few seconds ...")
+        if sys.platform == "win32":
+            time.sleep(8)
+        else:
+            time.sleep(3)
+        self._logger.info(f"Checking PID {self._browser_pid}")
+
+        if not psutil.pid_exists(self._browser_pid):
+            self._logger.info(f"No more PID {self._browser_pid}")
+        else:
+            try:
+                process = psutil.Process(pid=self._browser_pid)
+                process_name = process.name()
+                process_exe = process.exe()
+                process_basename = os.path.basename(process_name)
+                process_cmdline = process.cmdline()
+                self._logger.info(
+                    f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
+                )
+                assert process_basename != "firefox", "Process is not Firefox"
+            except psutil.ZombieProcess:
+                self._logger.info(f"Zombie found as {self._browser_pid}")
+                return True
 
     def test_felt_00_chrome_on_email_submit(self, exp):
         self._driver.set_context("chrome")
