@@ -189,6 +189,7 @@ Preferences.addAll([
     id: "privacy.userContext.newTabContainerOnLeftClick.enabled",
     type: "bool",
   },
+  { id: "nimbus.rollouts.enabled", type: "bool" },
 
   // Picture-in-Picture
   {
@@ -1227,7 +1228,9 @@ const DefaultBrowserHelper = {
 
     const pollForDefaultBrowser = () => {
       if (
-        (location.hash == "" || location.hash == "#general") &&
+        (location.hash == "" ||
+          location.hash == "#general" ||
+          location.hash == "#sync") &&
         document.visibilityState == "visible"
       ) {
         const { isBrowserDefault } = this;
@@ -2018,6 +2021,45 @@ Preferences.addSetting(
   }
 );
 
+function createDefaultBrowserConfig({
+  includeIsDefaultPane = true,
+  inProgress = false,
+} = {}) {
+  const isDefaultPane = {
+    id: "isDefaultPane",
+    l10nId: "is-default-browser-2",
+    control: "moz-promo",
+  };
+
+  const isNotDefaultPane = {
+    id: "isNotDefaultPane",
+    l10nId: "is-not-default-browser-2",
+    control: "moz-promo",
+    options: [
+      {
+        control: "moz-button",
+        l10nId: "set-as-my-default-browser-2",
+        id: "setDefaultButton",
+        slot: "actions",
+        controlAttrs: {
+          type: "primary",
+        },
+      },
+    ],
+  };
+
+  const items = includeIsDefaultPane
+    ? [isDefaultPane, isNotDefaultPane]
+    : [isNotDefaultPane];
+
+  return {
+    l10nId: "home-default-browser-title",
+    headingLevel: 2,
+    items,
+    ...(inProgress && { inProgress }),
+  };
+}
+
 SettingGroupManager.registerGroups({
   containers: {
     // This section is marked as in progress for testing purposes
@@ -2088,6 +2130,7 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  defaultBrowser: createDefaultBrowserConfig(),
   startup: {
     items: [
       {
@@ -2127,27 +2170,6 @@ SettingGroupManager.registerGroups({
       {
         id: "alwaysCheckDefault",
         l10nId: "always-check-default",
-      },
-      {
-        id: "isDefaultPane",
-        l10nId: "is-default-browser",
-        control: "moz-promo",
-      },
-      {
-        id: "isNotDefaultPane",
-        l10nId: "is-not-default-browser",
-        control: "moz-promo",
-        options: [
-          {
-            control: "moz-button",
-            l10nId: "set-as-my-default-browser",
-            id: "setDefaultButton",
-            slot: "actions",
-            controlAttrs: {
-              type: "primary",
-            },
-          },
-        ],
       },
     ],
   },
@@ -2202,6 +2224,59 @@ SettingGroupManager.registerGroups({
         control: "moz-button",
         l10nId: "home-restore-defaults",
         controlAttrs: { id: "restoreDefaultHomePageBtn" },
+      },
+    ],
+  },
+  customHomepage: {
+    inProgress: true,
+    headingLevel: 2,
+    items: [
+      {
+        id: "customHomepageCard",
+        control: "moz-card",
+        l10nId: "home-custom-homepage-card",
+        iconSrc: "chrome://global/skin/icons/link.svg",
+        items: [
+          {
+            id: "customHomepageBoxGroup",
+            control: "moz-box-group",
+            controlAttrs: {
+              type: "list",
+            },
+            items: [
+              {
+                id: "customHomepageBoxForm",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+              {
+                id: "customHomepageBoxUrlList",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+              {
+                id: "customHomepageBoxActions",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -3539,6 +3614,26 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  searchShortcuts: {
+    inProgress: true,
+    l10nId: "search-one-click-header-3",
+    headingLevel: 2,
+    items: [
+      {
+        id: "addEngineButton",
+        l10nId: "search-add-engine-2",
+        control: "moz-button",
+        iconSrc: "chrome://global/skin/icons/plus.svg",
+      },
+      {
+        id: "engineList",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "reorderable-list",
+        },
+      },
+    ],
+  },
   dnsOverHttpsAdvanced: {
     inProgress: true,
     l10nId: "preferences-doh-advanced-section",
@@ -3989,6 +4084,10 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  defaultBrowserSync: createDefaultBrowserConfig({
+    includeIsDefaultPane: false,
+    inProgress: true,
+  }),
   sync: {
     inProgress: true,
     l10nId: "sync-group-label",
@@ -4582,6 +4681,7 @@ var gMainPane = {
     initSettingGroup("support");
     initSettingGroup("translations");
     initSettingGroup("performance");
+    initSettingGroup("defaultBrowser");
     initSettingGroup("startup");
     initSettingGroup("importBrowserData");
     initSettingGroup("networkProxy");

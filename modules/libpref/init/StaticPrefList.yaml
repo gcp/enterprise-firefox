@@ -2615,13 +2615,6 @@
   value: true
   mirror: always
 
-# Disable custom highlight API; implementation pending.
-- name: dom.customHighlightAPI.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Allow control characters appear in composition string.
 # When this is false, control characters except
 # CHARACTER TABULATION (horizontal tab) are removed from
@@ -7822,7 +7815,11 @@
 
 - name: gfx.webrender.dcomp-texture-overlay-win
   type: bool
+#if defined(XP_WIN)
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#else
   value: false
+#endif
   mirror: once
 
 - name: gfx.webrender.scissored-cache-clears.enabled
@@ -9348,6 +9345,12 @@
     value: false
     mirror: always
     set_spidermonkey_pref: startup
+
+-   name: javascript.options.wasm_compact_imports
+    type: bool
+    value: false
+    mirror: always
+    set_spidermonkey_pref: always
 
 #if defined(ENABLE_WASM_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
@@ -17284,6 +17287,12 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+  # Whether MITIGATION_EXTENSION_POINT_DISABLE is used for the GPU sandbox.
+-   name: security.sandbox.gpu.extension-point-disable
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 #endif
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
@@ -17474,6 +17483,16 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
+# If true, load PKCS#11 third-party modules in a dedicated utility process
+# rather than the main process. (Well, that's the long-term goal for the code
+# paths behind this pref, but right now this is still work in progress!)
+- name: security.utility_pkcs11_module_process.enabled
+  type: bool
+  value: false
+  mirror: once
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
 - name: security.pki.cert_short_lifetime_in_days
   type: RelaxedAtomicUint32
