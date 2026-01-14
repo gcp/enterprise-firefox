@@ -482,6 +482,8 @@ export const ConsoleClient = {
         ipv4: null,
         ipv6: null,
       },
+      secureBootEnabled:
+        Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
     };
     return devicePosturePayload;
   },

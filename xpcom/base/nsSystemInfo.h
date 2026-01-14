@@ -99,6 +99,10 @@ class nsSystemInfo final : public nsISystemInfo, public nsHashPropertyBag {
   // See comments above the variable definition and in NS_InitXPCOM.
   static uint32_t gUserUmask;
 
+#if defined(MOZ_ENTERPRISE)
+  static bool GetSecureBootStatus();
+#endif
+
 #ifdef MOZ_WIDGET_ANDROID
   static void GetAndroidSystemInfo(mozilla::dom::AndroidSystemInfo* aInfo);
 
