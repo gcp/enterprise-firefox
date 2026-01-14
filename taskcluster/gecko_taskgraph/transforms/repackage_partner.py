@@ -207,6 +207,13 @@ def make_job_description(config, jobs):
             else ["queue:get-artifact:releng/partner/*"]
         )
 
+        if "enterprise-repack-repackage" in job["label"]:
+            repack_id = job.get("extra", {}).get("repack_id")
+            repack_label = "enterprise-repack-repackage-" + repack_id.replace("/", "_")
+            job["label"] = job["label"].replace(
+                "enterprise-repack-repackage", repack_label
+            )
+
         task = {
             "label": job["label"],
             "description": description,
@@ -246,7 +253,6 @@ def make_job_description(config, jobs):
             else:
                 raise ValueError(f"Unsupported {platform}")
 
-            repack_id = task["extra"]["repack_id"]
             task["extra"]["treeherder"] = {
                 "machine": {
                     "platform": th_platform,
@@ -266,6 +272,8 @@ def make_job_description(config, jobs):
                 "linux64-libdmg",
                 "linux64-hfsplus",
                 "linux64-node",
+                "linux64-xar",
+                "linux64-mkbom",
             ])
         yield task
 

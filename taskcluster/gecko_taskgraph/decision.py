@@ -131,6 +131,13 @@ PER_PROJECT_PARAMETERS = {
                             "linux64-aarch64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "repackage-msi": {
@@ -141,11 +148,26 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-repackage": {
                 "sample": {
                     "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "enterfox": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -166,11 +188,27 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-mac-notarization": {
                 "sample": {
                     "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "enterfox": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",

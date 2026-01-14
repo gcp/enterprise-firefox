@@ -138,13 +138,17 @@ def make_task_description(config, jobs):
             )
 
             th_symbol = None
+
             if "enterprise-repack-mac" in config.kind:
-                # TODO: Only one repack, gcpEU for now
-                # HOW TO DEAL WITH MORE???
+                # assumes repacks-per-chunk is 1
                 repack_ids = job.get("extra").get("repack_ids")
+
                 assert len(repack_ids) == 1
                 th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
                 th_symbol = f"{th_group}({repack_ids[0]})"
+
+                repack_label = "enterprise-repack-" + repack_ids[0].replace("/", "_")
+                job["label"] = job["label"].replace("enterprise-repack", repack_label)
             else:
                 th_symbol = _generate_treeherder_symbol(
                     dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol")

@@ -87,8 +87,14 @@ def make_repackage_signing_description(config, jobs):
             )
 
         if "enterprise-repack" in dep_job.label:
+            repack_id = (
+                dep_job.task.get("extra")
+                .get("treeherder")
+                .get("symbol")
+                .replace("/", "_")
+            )
             job["label"] = job["label"].replace(
-                "repackage-signing", "repackage-signing-enterprise-repack"
+                "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
             )
 
         label = job["label"]

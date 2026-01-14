@@ -487,9 +487,6 @@ def make_job_description(config, jobs):
                 else ""
             )
 
-            if "enterprise-repack" in dep_job.label:
-                variant = f"{variant}-gcpEU"
-
             family = "Rpk"
 
             repack_id = dep_job.task.get("extra").get("repack_id")
@@ -514,7 +511,7 @@ def make_job_description(config, jobs):
             if "build-signing-win" in dep_job.label:
                 symbol = "Bs"
 
-            # We want Rpk Rpk-deb Rpk-REPACK_ID on Linux
+            # We want Rpk Rpk-deb Rpk-deb-REPACK_ID on Linux
             if "linux" in job["label"]:
                 if variant:
                     symbol = f"{family}-{variant}"
@@ -630,6 +627,9 @@ def make_job_description(config, jobs):
             )
 
             if "enterprise-repack" in dep_job.label:
+                if config.kind == "repackage-deb":
+                    # will be replaced later
+                    treeherder["symbol"] = "DEB-Ent({repack_id})"
                 attributes["repackage_type"] = f"{config.kind}-enterprise-repack"
 
         if config.kind in ("repackage-flatpak", "repackage-rpm"):
@@ -818,27 +818,26 @@ def make_job_description(config, jobs):
         if "shipping-product" in job and job["shipping-product"] is not None:
             task["shipping-product"] = job["shipping-product"]
 
-        # TODO: This is likely breaking locales ??
         repacks = []
         if "enterprise-repack" in dep_job.kind:
-            this_repack = config.params["release_partner_config"].get(config.kind)
-            if this_repack:
-                for enterprise_name in this_repack.keys():
-                    for repack_name in this_repack[enterprise_name]:
-                        for platform_name in this_repack[enterprise_name][repack_name][
-                            "platforms"
-                        ]:
-                            for repack_locale in this_repack[enterprise_name][
-                                repack_name
-                            ]["locales"]:
-                                if platform_name == build_platform:
-                                    repacks += [
-                                        f"{enterprise_name}/{repack_name}/{repack_locale}"
-                                    ]
+            previous_repack = dep_job.task.get("extra").get("repack_id")
+            if previous_repack and previous_repack not in repacks:
+                repacks += [previous_repack]
             else:
-                previous_repack = dep_job.task.get("extra").get("repack_id")
-                if previous_repack:
-                    repacks += [previous_repack]
+                this_repack = config.params["release_partner_config"].get(config.kind)
+                if this_repack:
+                    for enterprise_name in this_repack.keys():
+                        for repack_name in this_repack[enterprise_name]:
+                            for platform_name in this_repack[enterprise_name][
+                                repack_name
+                            ]["platforms"]:
+                                for repack_locale in this_repack[enterprise_name][
+                                    repack_name
+                                ]["locales"]:
+                                    if platform_name == build_platform:
+                                        repack_final_name = f"{enterprise_name}/{repack_name}/{repack_locale}"
+                                        if repack_final_name not in repacks:
+                                            repacks += [repack_final_name]
 
         if len(repacks) == 0:
             repacks = [None]
@@ -847,11 +846,17 @@ def make_job_description(config, jobs):
             repack_task = copy.deepcopy(task)
 
             if repack:
-                repack_label = repack.replace("/", "-")
+                repack_label = repack.replace("/", "_")
                 build_platform_with_repack = f"{build_platform}-{repack_label}"
                 repack_task["label"] = repack_task["label"].replace(
                     build_platform, build_platform_with_repack
                 )
+
+                if "{repack_id}" in repack_task["treeherder"]["symbol"]:
+                    repack_task["treeherder"]["symbol"] = repack_task["treeherder"][
+                        "symbol"
+                    ].replace("{repack_id}", repack)
+                    repack_task["attributes"]["repackage_type"] += f"-{repack_label}"
 
             repack_task["fetches"] = _generate_download_config(
                 config,
