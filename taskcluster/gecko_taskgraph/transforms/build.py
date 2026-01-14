@@ -312,12 +312,10 @@ def add_enterprise_secret_scopes(config, jobs):
     level = config.params["level"]
     for job in jobs:
         if config.params["project"] == "enterprise-firefox":
-            job.setdefault("scopes", []).extend(
-                [
-                    f"secrets:get:project/releng/gecko/build/level-{level}/gls-gapi.data",
-                    f"secrets:get:project/releng/gecko/build/level-{level}/sb-gapi.data",
-                    f"secrets:get:project/releng/gecko/build/level-{level}/mozilla-desktop-geoloc-api.key",
-                ]
-            )
+            job.setdefault("scopes", []).extend([
+                f"secrets:get:project/releng/gecko/build/level-{level}/gls-gapi.data",
+                f"secrets:get:project/releng/gecko/build/level-{level}/sb-gapi.data",
+                f"secrets:get:project/releng/gecko/build/level-{level}/mozilla-desktop-geoloc-api.key",
+            ])
 
         yield job

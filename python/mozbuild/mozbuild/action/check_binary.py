@@ -247,12 +247,10 @@ def check_networking(binary):
 
     if buildconfig.substs.get("MOZ_ENTERPRISE"):
         # Used by ipc-channel for Felt/Browser communication
-        felt_socket_functions = set(
-            [
-                "send",
-                "recv",
-            ]
-        )
+        felt_socket_functions = set([
+            "send",
+            "recv",
+        ])
 
         networking_functions = networking_functions.difference(felt_socket_functions)
 

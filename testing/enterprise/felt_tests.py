@@ -143,31 +143,27 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
-            m = json.dumps(
-                {
-                    "prefs": [
-                        ["browser.sessionstore.restore_on_demand", False],
-                        ["browser.sessionstore.resume_from_crash", False],
-                        ["browser.policies.live_polling.frequency", 500],
-                        [
-                            "identity.sync.tokenserver.uri",
-                            "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
-                        ],
-                    ]
-                }
-            )
+            m = json.dumps({
+                "prefs": [
+                    ["browser.sessionstore.restore_on_demand", False],
+                    ["browser.sessionstore.resume_from_crash", False],
+                    ["browser.policies.live_polling.frequency", 500],
+                    [
+                        "identity.sync.tokenserver.uri",
+                        "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
+                    ],
+                ]
+            })
         elif path == "/api/browser/hacks/startup":
             # Browser prefs that needs to be set in the prefs.js file
-            m = json.dumps(
-                {
-                    "prefs": [
-                        ["devtools.browsertoolbox.scope", "everything"],
-                        ["marionette.port", 0],
-                        ["enterprise.console.test_float", 1.5],
-                        ["enterprise.console.test_bool", True],
-                    ]
-                }
-            )
+            m = json.dumps({
+                "prefs": [
+                    ["devtools.browsertoolbox.scope", "everything"],
+                    ["marionette.port", 0],
+                    ["enterprise.console.test_float", 1.5],
+                    ["enterprise.console.test_bool", True],
+                ]
+            })
 
         elif path == "/api/browser/policies":
             self.check_auth()
@@ -199,19 +195,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/whoami":
             self.check_auth()
 
-            m = json.dumps(
-                {
-                    "id": str(uuid.uuid4()),
-                    "email": "nobody@mozilla.org",
-                    "name": "moz user",
-                    "picture": "https://s.gravatar.com/avatar/something",
-                    "is_active": True,
-                    "last_login_at": "2025-11-14T14:27:23.575030Z",
-                    "created_at": "2025-10-31T15:11:50.735175Z",
-                    "updated_at": "2025-11-14T14:27:23.602803Z",
-                    "policy_roles_id": None,
-                }
-            )
+            m = json.dumps({
+                "id": str(uuid.uuid4()),
+                "email": "nobody@mozilla.org",
+                "name": "moz user",
+                "picture": "https://s.gravatar.com/avatar/something",
+                "is_active": True,
+                "last_login_at": "2025-11-14T14:27:23.575030Z",
+                "created_at": "2025-10-31T15:11:50.735175Z",
+                "updated_at": "2025-11-14T14:27:23.602803Z",
+                "policy_roles_id": None,
+            })
 
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
@@ -225,14 +219,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     policy_refresh_token = ""
             """
 
-            obj = json.dumps(
-                {
-                    "access_token": f"{policy_access_token}",
-                    "token_type": "bearer",
-                    "expires_in": 71999,
-                    "refresh_token": f"{policy_refresh_token}",
-                }
-            )
+            obj = json.dumps({
+                "access_token": f"{policy_access_token}",
+                "token_type": "bearer",
+                "expires_in": 71999,
+                "refresh_token": f"{policy_refresh_token}",
+            })
 
             m = f"""
 <html>
@@ -291,14 +283,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         print("path: ", path)
         if path == "/sso/token":
             # Sending back the same session
-            m = json.dumps(
-                {
-                    "access_token": self.server.policy_access_token.value,
-                    "token_type": "Bearer",
-                    "expires_in": 71999,
-                    "refresh_token": self.server.policy_refresh_token.value,
-                }
-            )
+            m = json.dumps({
+                "access_token": self.server.policy_access_token.value,
+                "token_type": "Bearer",
+                "expires_in": 71999,
+                "refresh_token": self.server.policy_refresh_token.value,
+            })
 
         elif path == "/sso/device_posture":
             self.server.device_posture_payload = json.loads(

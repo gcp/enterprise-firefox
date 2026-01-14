@@ -246,6 +246,7 @@ def register_callback_action(
                         "action": action,
                         "repository": repository,
                         "push": push,
+                        "parameters": filtered_params,
                     },
                     # and pass everything else through from our own context
                     "user": {

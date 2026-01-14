@@ -4,6 +4,7 @@
 """
 Transform the repackage task into an actual task description.
 """
+
 import copy
 
 from taskgraph.transforms.base import TransformSequence
