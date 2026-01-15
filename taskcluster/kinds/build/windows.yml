@@ -476,7 +476,7 @@ win64/opt:
 
 win64-enterprise-shippable/opt:
     description: "Win64 Enterprise Shinpable Opt"
-    use-pgo: true
+    use-pgo: win64-shippable/opt
     index:
         product: firefox
         job-name: win64-enterprise-shippable-opt
