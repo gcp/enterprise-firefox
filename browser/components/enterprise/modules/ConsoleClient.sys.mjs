@@ -245,7 +245,7 @@ export const ConsoleClient = {
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
   async sendDevicePosture() {
-    const devicePosture = this._collectDevicePosture();
+    const devicePosture = await this._collectDevicePosture();
     const url = this.constructURI(this._paths.DEVICE_POSTURE);
 
     const res = await fetch(url, {
@@ -470,17 +470,26 @@ export const ConsoleClient = {
    * Collects the device posture from TelemetryEnvironment.currentEnvironment
    * and others data sources.
    *
-   * @returns {DevicePosture} devicePosture
+   * @returns {Promise<DevicePosture>} devicePosture
    */
-  _collectDevicePosture() {
+  async _collectDevicePosture() {
+    const getImeiValue = async () => {
+      try {
+        return await Cc["@mozilla.org/imei/provider;1"]
+          .getService()
+          .QueryInterface(Ci.nsIImeiProvider).imei;
+      } catch {
+        return "";
+      }
+    };
+
     const devicePosturePayload = {
       os: lazy.TelemetryEnvironment.currentEnvironment.system.os,
       security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
       build: lazy.TelemetryEnvironment.currentEnvironment.build,
-      // TODO: Client posture IP addr is P2, to be filled later.
       network: {
-        ipv4: null,
-        ipv6: null,
+        // TBC
+        mobileEquipmentId: await getImeiValue(),
       },
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),

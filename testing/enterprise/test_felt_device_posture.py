@@ -44,6 +44,9 @@ class FeltDevicePosture(FeltTests):
             "Device posture reports proper applicationName"
         )
         assert "secureBootEnabled" in device_posture
+        assert "mobileEquipmentId" in device_posture["network"], (
+            "Device posture reports IMEI/MEID"
+        )
         return True
 
     def test_felt_3_access(self, exp):
