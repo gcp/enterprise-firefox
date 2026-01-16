@@ -2018,7 +2018,6 @@ checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 name = "felt"
 version = "0.1.0"
 dependencies = [
- "cookie",
  "cstr",
  "env_logger",
  "ipc-channel",
@@ -2027,7 +2026,6 @@ dependencies = [
  "nserror",
  "nsstring",
  "serde",
- "serde_json",
  "thin-vec",
  "time",
  "xpcom",
