@@ -84,6 +84,8 @@ async function listenFormEmailSubmission() {
     signInBtn.disabled = emailInput.value.trim() === "";
   });
 
+  emailInput.focus();
+
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed
   signInBtn.addEventListener("click", () => {
