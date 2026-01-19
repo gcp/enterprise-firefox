@@ -5,7 +5,7 @@
 
 import sys
 
-from felt_tests import FeltTests
+from felt_tests_sel import FeltTests
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 
 

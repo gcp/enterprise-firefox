@@ -7,7 +7,7 @@ import configparser
 import os
 import sys
 
-from base_test import EnterpriseTestsBase
+from base_test_sel import EnterpriseTestsBase
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 

@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-from felt_tests import FeltTests
+from felt_tests_sel import FeltTests
 from selenium.webdriver.support import expected_conditions as EC
 
 

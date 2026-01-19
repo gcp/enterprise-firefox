@@ -7,7 +7,7 @@ import sys
 import time
 
 import requests
-from felt_tests import FeltTests
+from felt_tests_sel import FeltTests
 from selenium.common.exceptions import WebDriverException
 
 

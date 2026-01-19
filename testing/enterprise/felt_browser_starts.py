@@ -4,7 +4,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-from felt_tests import FeltTests
+from felt_tests_sel import FeltTests
 
 
 class FeltStartsBrowser(FeltTests):

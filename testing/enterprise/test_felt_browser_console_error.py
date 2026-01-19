@@ -5,7 +5,7 @@
 
 import sys
 
-from felt_tests import FeltTestsBase
+from felt_tests_sel import FeltTestsBase
 
 
 class FeltConsoleError(FeltTestsBase):
