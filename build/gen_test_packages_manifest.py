@@ -26,6 +26,7 @@ ALL_HARNESSES = [
     "perftests",
     "fuzztest",
     "trainhop",
+    "enterprise",
 ]
 
 PACKAGE_SPECIFIED_HARNESSES = [
@@ -44,6 +45,7 @@ PACKAGE_SPECIFIED_HARNESSES = [
     "perftests",
     "fuzztest",
     "trainhop",
+    "enterprise",
 ]
 
 # These packages are not present for every build configuration.
