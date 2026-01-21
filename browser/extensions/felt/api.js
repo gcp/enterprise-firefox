@@ -49,6 +49,21 @@ this.felt = class extends ExtensionAPI {
       matches,
     });
 
+    // We use a much simpler version of the context menu so replace the default actor with our own.
+    ChromeUtils.unregisterWindowActor("ContextMenu");
+    ChromeUtils.registerWindowActor("ContextMenu", {
+      parent: {
+        esModuleURI: "chrome://felt/content/ContextMenuParent.sys.mjs",
+      },
+      child: {
+        esModuleURI: "chrome://felt/content/ContextMenuChild.sys.mjs",
+        events: {
+          contextmenu: { mozSystemGroup: true },
+        },
+      },
+      allFrames: true,
+    });
+
     ChromeUtils.registerProcessActor(this.FELT_PROCESS_ACTOR, {
       parent: {
         esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
