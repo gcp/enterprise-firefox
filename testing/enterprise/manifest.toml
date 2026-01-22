@@ -2,4 +2,6 @@
 
 subsuite = "enterprise"
 
+["test_felt_browser_starts.py"]
+
 ["test_firefox_start.py"]

@@ -17,6 +17,7 @@ from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Manager, Process, Value
 
+import felt_consts
 import requests
 from base_test import EnterpriseTestsBase
 from marionette_driver import expected
@@ -145,25 +146,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
             m = json.dumps({
-                "prefs": [
-                    ["browser.sessionstore.restore_on_demand", False],
-                    ["browser.sessionstore.resume_from_crash", False],
-                    ["browser.policies.live_polling.frequency", 500],
+                "prefs": felt_consts.live_prefs
+                + [
                     [
                         "identity.sync.tokenserver.uri",
                         "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
-                    ],
+                    ]
                 ]
             })
         elif path == "/api/browser/hacks/startup":
             # Browser prefs that needs to be set in the prefs.js file
             m = json.dumps({
-                "prefs": [
-                    ["devtools.browsertoolbox.scope", "everything"],
-                    ["marionette.port", 0],
-                    ["enterprise.console.test_float", 1.5],
-                    ["enterprise.console.test_bool", True],
-                ]
+                "prefs": felt_consts.userjs_prefs + [["marionette.port", 0]],
             })
 
         elif path == "/api/browser/policies":

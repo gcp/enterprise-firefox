@@ -116,18 +116,6 @@ task-defaults:
                       path: /builds/worker/artifacts/
 
 tasks:
-    felt-browser-cli:
-        description: Testing start of FELT and browser using CLI
-        attributes:
-            enterprise_test_file: test_felt_browser_starts_fromCli.py
-            enterprise_test_slug: feltCli
-
-    felt-browser-env:
-        description: Testing start of FELT and browser using env
-        attributes:
-            enterprise_test_file: test_felt_browser_starts_fromEnv.py
-            enterprise_test_slug: feltEnv
-
     felt-browser-restart-works:
         description: Testing that browser restart is handled by FELT
         attributes:
