@@ -418,8 +418,11 @@ export class IPProtectionPanel {
     doc.addEventListener("IPProtection:UserEnable", this.handleEvent);
     doc.addEventListener("IPProtection:UserDisable", this.handleEvent);
     doc.addEventListener("IPProtection:SignIn", this.handleEvent);
-    doc.addEventListener("IPProtection:ToggleOnExclusion", this.handleEvent);
-    doc.addEventListener("IPProtection:ToggleOffExclusion", this.handleEvent);
+    doc.addEventListener("IPProtection:UserEnableVPNForSite", this.handleEvent);
+    doc.addEventListener(
+      "IPProtection:UserDisableVPNForSite",
+      this.handleEvent
+    );
   }
 
   #removePanelListeners(doc) {
@@ -429,9 +432,12 @@ export class IPProtectionPanel {
     doc.removeEventListener("IPProtection:UserEnable", this.handleEvent);
     doc.removeEventListener("IPProtection:UserDisable", this.handleEvent);
     doc.removeEventListener("IPProtection:SignIn", this.handleEvent);
-    doc.removeEventListener("IPProtection:ToggleOnExclusion", this.handleEvent);
     doc.removeEventListener(
-      "IPProtection:ToggleOffExclusion",
+      "IPProtection:UserEnableVPNForSite",
+      this.handleEvent
+    );
+    doc.removeEventListener(
+      "IPProtection:UserDisableVPNForSite",
       this.handleEvent
     );
   }
@@ -535,6 +541,13 @@ export class IPProtectionPanel {
     this.setState({ siteData });
   }
 
+  #reloadCurrentTab(win) {
+    if (!win) {
+      return;
+    }
+    win.gBrowser.reloadTab(win.gBrowser.selectedTab);
+  }
+
   #handleEvent(event) {
     if (event.type == "IPProtection:Init") {
       this.updateState();
@@ -580,16 +593,20 @@ export class IPProtectionPanel {
       });
     } else if (event.type == "IPPExceptionsManager:ExclusionChanged") {
       this.#updateSiteData();
-    } else if (event.type == "IPProtection:ToggleOnExclusion") {
-      const win = event.target.ownerGlobal;
-      const principal = win?.gBrowser.contentPrincipal;
-
-      lazy.IPPExceptionsManager.setExclusion(principal, true);
-    } else if (event.type == "IPProtection:ToggleOffExclusion") {
+    } else if (event.type == "IPProtection:UserEnableVPNForSite") {
       const win = event.target.ownerGlobal;
       const principal = win?.gBrowser.contentPrincipal;
 
       lazy.IPPExceptionsManager.setExclusion(principal, false);
+
+      this.#reloadCurrentTab(win);
+    } else if (event.type == "IPProtection:UserDisableVPNForSite") {
+      const win = event.target.ownerGlobal;
+      const principal = win?.gBrowser.contentPrincipal;
+
+      lazy.IPPExceptionsManager.setExclusion(principal, true);
+
+      this.#reloadCurrentTab(win);
     }
   }
 }

@@ -27,6 +27,7 @@ const lazy = XPCOMUtils.declareLazy({
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchModeSwitcher:
     "moz-src:///browser/components/urlbar/SearchModeSwitcher.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
@@ -271,7 +272,7 @@ export class UrlbarInput extends HTMLElement {
   /**
    * Initialization that happens once on the first connect.
    */
-  #initOnce() {
+  #init() {
     this.#sapName = this.getAttribute("sap-name");
     this.#isAddressbar = this.#sapName == "urlbar";
 
@@ -360,12 +361,12 @@ export class UrlbarInput extends HTMLElement {
       return;
     }
 
-    this.#init();
+    this.#connectedCallback();
   }
 
-  #init() {
+  #connectedCallback() {
     if (!this.controller) {
-      this.#initOnce();
+      this.#init();
     }
 
     if (this.sapName == "searchbar") {
@@ -406,8 +407,6 @@ export class UrlbarInput extends HTMLElement {
     // recording abandonment events when the command causes a blur event.
     this.view.panel.addEventListener("command", this, true);
 
-    this.window.addEventListener("customizationstarting", this);
-    this.window.addEventListener("aftercustomization", this);
     this.window.addEventListener("toolbarvisibilitychange", this);
     let menuToolbar = this.window.document.getElementById("toolbar-menubar");
     if (menuToolbar) {
@@ -422,18 +421,22 @@ export class UrlbarInput extends HTMLElement {
       this.addGBrowserListeners();
     }
 
-    // If the search service is not initialized yet, the placeholder
-    // and icon will be updated in delayedStartupInit.
+    // If gBrowser or the search service is not initialized yet,
+    // the placeholder and icon will be updated in delayedStartupInit.
     if (
-      Cu.isESModuleLoaded("resource://gre/modules/SearchService.sys.mjs") &&
-      Services.search.isInitialized
+      Cu.isESModuleLoaded(
+        "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+      ) &&
+      lazy.SearchService.isInitialized
     ) {
       this.searchModeSwitcher.updateSearchIcon();
       this._updatePlaceholderFromDefaultEngine();
     }
 
     // Expanding requires a parent toolbar, and us not being read-only.
-    this.#allowBreakout = !!this.closest("toolbar");
+    this.#allowBreakout =
+      !!this.closest("toolbar") &&
+      !document.documentElement.hasAttribute("customizing");
     if (this.#allowBreakout) {
       // TODO(emilio): This could use CSS anchor positioning rather than this
       // ResizeObserver, eventually.
@@ -444,9 +447,11 @@ export class UrlbarInput extends HTMLElement {
         );
       });
       this._resizeObserver.observe(this.parentNode);
-    }
 
-    this.#updateLayoutBreakout();
+      this.#updateLayoutBreakout();
+    } else {
+      this.#stopBreakout();
+    }
 
     this._addObservers();
   }
@@ -459,10 +464,10 @@ export class UrlbarInput extends HTMLElement {
       return;
     }
 
-    this.#uninit();
+    this.#disconnectedCallback();
   }
 
-  #uninit() {
+  #disconnectedCallback() {
     if (this.sapName == "searchbar") {
       this.parentNode.removeAttribute("overflows");
 
@@ -499,8 +504,6 @@ export class UrlbarInput extends HTMLElement {
     // recording abandonment events when the command causes a blur event.
     this.view.panel.removeEventListener("command", this, true);
 
-    this.window.removeEventListener("customizationstarting", this);
-    this.window.removeEventListener("aftercustomization", this);
     this.window.removeEventListener("toolbarvisibilitychange", this);
     let menuToolbar = this.window.document.getElementById("toolbar-menubar");
     if (menuToolbar) {
@@ -604,10 +607,10 @@ export class UrlbarInput extends HTMLElement {
         if (this.getAttribute("sap-name") == "searchbar" && this.isConnected) {
           if (lazy.UrlbarPrefs.get("browser.search.widget.new")) {
             // The connectedCallback was skipped. Init now.
-            this.#init();
+            this.#connectedCallback();
           } else {
             // Uninit now, the disconnectedCallback will be skipped.
-            this.#uninit();
+            this.#disconnectedCallback();
           }
         }
       }
@@ -1622,7 +1625,9 @@ export class UrlbarInput extends HTMLElement {
             result.source == lazy.UrlbarUtils.RESULT_SOURCE.HISTORY,
           alias: result.payload.keyword,
         };
-        const engine = Services.search.getEngineByName(result.payload.engine);
+        const engine = lazy.SearchService.getEngineByName(
+          result.payload.engine
+        );
 
         if (where == "tab") {
           // The TabOpen event is fired synchronously so tabEvent.target
@@ -2349,10 +2354,10 @@ export class UrlbarInput extends HTMLElement {
     // Exit search mode if the passed-in engine is invalid or hidden.
     let engine;
     if (searchMode?.engineName) {
-      if (!Services.search.isInitialized) {
-        await Services.search.init();
+      if (!lazy.SearchService.isInitialized) {
+        await lazy.SearchService.init();
       }
-      engine = Services.search.getEngineByName(searchMode.engineName);
+      engine = lazy.SearchService.getEngineByName(searchMode.engineName);
       if (!engine || engine.hidden) {
         searchMode = null;
       }
@@ -4578,8 +4583,8 @@ export class UrlbarInput extends HTMLElement {
    */
   _getDefaultSearchEngine() {
     return this.isPrivate
-      ? Services.search.getDefaultPrivate()
-      : Services.search.getDefault();
+      ? lazy.SearchService.getDefaultPrivate()
+      : lazy.SearchService.getDefault();
   }
 
   /**
@@ -4609,7 +4614,7 @@ export class UrlbarInput extends HTMLElement {
       return;
     }
 
-    let engine = Services.search.getEngineByName(engineName);
+    let engine = lazy.SearchService.getEngineByName(engineName);
     if (engine.isConfigEngine) {
       this._setPlaceholder(engineName);
     } else {
@@ -5573,16 +5578,6 @@ export class UrlbarInput extends HTMLElement {
         });
       }
     }
-  }
-
-  _on_customizationstarting() {
-    this.incrementBreakoutBlockerCount();
-    this.blur();
-  }
-
-  _on_aftercustomization() {
-    this.decrementBreakoutBlockerCount();
-    this.#updateLayoutBreakout();
   }
 
   _on_uidensitychanged() {

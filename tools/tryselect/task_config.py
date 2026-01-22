@@ -19,7 +19,6 @@ from textwrap import dedent
 import mozpack.path as mozpath
 import requests
 from mozbuild.base import BuildEnvironmentNotFoundException, MozbuildObject
-from taskgraph.util import taskcluster
 
 from .tasks import resolve_tests_by_suite
 from .util.ssh import get_ssh_user
@@ -339,6 +338,8 @@ class ExistingTasks(ParameterConfig):
     ]
 
     def find_decision_task(self, use_existing_tasks):
+        from taskgraph.util import taskcluster
+
         branch = "try"
         if use_existing_tasks == "last_try_push":
             # Use existing tasks from user's previous try push.
@@ -365,6 +366,8 @@ class ExistingTasks(ParameterConfig):
     def get_parameters(self, use_existing_tasks, **kwargs):
         if not use_existing_tasks:
             return
+
+        from taskgraph.util import taskcluster
 
         if use_existing_tasks.startswith("task-id="):
             tid = use_existing_tasks[len("task-id=") :]
@@ -397,7 +400,7 @@ class Rebuild(TryConfig):
             ["--rebuild"],
             {
                 "action": RangeAction,
-                "min": 2,
+                "min": 1,
                 "max": 20,
                 "default": None,
                 "type": int,
@@ -410,16 +413,17 @@ class Rebuild(TryConfig):
         if not rebuild:
             return
 
-        if (
-            not kwargs.get("new_test_config", False)
-            and kwargs.get("full")
-            and rebuild > 3
-        ):
-            print(
-                "warning: limiting --rebuild to 3 when using --full. "
-                "Use custom push actions to add more."
-            )
-            rebuild = 3
+        if not kwargs.get("new_test_config", False):
+            if rebuild == 1:
+                print(
+                    "warning: setting --rebuild to 1 is the same as not specifying it."
+                )
+            elif kwargs.get("full") and rebuild > 3:
+                print(
+                    "warning: limiting --rebuild to 3 when using --full. "
+                    "Use custom push actions to add more."
+                )
+                rebuild = 3
 
         return {
             "rebuild": rebuild,

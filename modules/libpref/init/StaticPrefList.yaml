@@ -4703,6 +4703,12 @@
   value: false
   mirror: always
 
+# pref controls `digital` credentials being exposed
+- name: dom.security.credentialmanagement.digital.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # pref controls `identity` credentials being exposed
 - name: dom.security.credentialmanagement.identity.enabled
   type: bool
@@ -9097,13 +9103,6 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-  # Experimental support for upsert in JavaScript.
-- name: javascript.options.experimental.upsert
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
 # Experimental support for Symbols as WeakMap keys in JavaScript.
 - name: javascript.options.experimental.symbols_as_weakmap_keys
   type: bool
@@ -9722,7 +9721,7 @@
 # unstable GPU process, otherwise simply crash the parent process.
 - name: layers.gpu-process.allow-fallback-to-parent
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: true
   mirror: once
 
 - name: layers.gpu-process.enabled
@@ -15850,6 +15849,14 @@
 - name: network.mimesniff.extra_moz_html_tags
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# When true, we will also sniff content beginning with <!--
+# but not followed by space or > as HTML. This differs from the mimesniff
+# standard but matches Chrome.
+- name: network.mimesniff.non_standard_html_comment
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The maximum count that we allow socket prrocess to crash. If this count is

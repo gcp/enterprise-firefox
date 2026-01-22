@@ -11,6 +11,7 @@ JAR_MANIFESTS += ["jar.mn"]
 
 MOZ_SRC_FILES += [
     "GuardianClient.sys.mjs",
+    "IPPAutoRestore.sys.mjs",
     "IPPAutoStart.sys.mjs",
     "IPPChannelFilter.sys.mjs",
     "IPPEnrollAndEntitleManager.sys.mjs",
@@ -25,6 +26,7 @@ MOZ_SRC_FILES += [
     "IPProtectionPanel.sys.mjs",
     "IPProtectionServerlist.sys.mjs",
     "IPProtectionService.sys.mjs",
+    "IPProtectionToolbarButton.sys.mjs",
     "IPProtectionUsage.sys.mjs",
     "IPPSignInWatcher.sys.mjs",
     "IPPStartupCache.sys.mjs",

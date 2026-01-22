@@ -16,7 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowAccountAuth.sys.mjs",
   AIWindowMenu:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
-
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   ChatStore:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs",
@@ -51,6 +51,7 @@ export const AIWindow = {
       this._windowStates.set(win, {});
       this.initializeAITabsToolbar(win);
       this._initializeAskButtonOnToolbox(win);
+      this._updateWindowSwitcherPosition(win);
     }
 
     if (this._initialized) {
@@ -107,6 +108,30 @@ export const AIWindow = {
     if (modeSwitcherButton) {
       modeSwitcherButton.hidden = !this.isAIWindowEnabled() || isPrivateWindow;
     }
+  },
+
+  _onVerticalTabsPrefChange() {
+    ChromeUtils.nondeterministicGetWeakMapKeys(this._windowStates).forEach(
+      win => {
+        if (win && !win.closed) {
+          this._updateWindowSwitcherPosition(win);
+        }
+      }
+    );
+  },
+
+  _updateWindowSwitcherPosition(win) {
+    const modeSwitcherButton = win.document.getElementById("ai-window-toggle");
+
+    const targetToolbar = win.document.getElementById(
+      this.verticalTabsEnabled ? "nav-bar" : "TabsToolbar"
+    );
+
+    const titlebarContainer = targetToolbar.querySelector(
+      ".titlebar-buttonbox-container"
+    );
+
+    titlebarContainer.before(modeSwitcherButton);
   },
 
   /*
@@ -324,7 +349,7 @@ export const AIWindow = {
   async performSearch(query, window) {
     let engine = null;
     try {
-      engine = await Services.search.getDefault();
+      engine = await lazy.SearchService.getDefault();
     } catch (error) {
       console.error(`Failed to get default search engine:`, error);
     }
@@ -388,4 +413,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.aiwindow.enabled",
   false,
   AIWindow._onAIWindowEnabledPrefChange.bind(AIWindow)
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  AIWindow,
+  "verticalTabsEnabled",
+  "sidebar.verticalTabs",
+  false,
+  AIWindow._onVerticalTabsPrefChange.bind(AIWindow)
 );

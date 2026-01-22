@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from io import BytesIO, StringIO
 from pathlib import Path
 
@@ -35,6 +36,27 @@ if sys.platform == "win32":
     system_encoding = "mbcs"
 else:
     system_encoding = "utf-8"
+
+
+LOG_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
+
+
+def get_latest_file(directory, prefix):
+    """Find the most recent file in a directory that starts with prefix, or None."""
+    log_dir = Path(directory)
+    try:
+        files = [f for f in log_dir.iterdir() if f.name.startswith(prefix)]
+    except OSError:
+        return None
+    if not files:
+        return None
+    return max(files, key=lambda f: f.stat().st_mtime)
+
+
+def construct_log_filename(prefix, suffix=".json"):
+    """Generate a timestamped log filename."""
+    timestamp = time.strftime(LOG_TIMESTAMP_FORMAT)
+    return f"{prefix}_log_{timestamp}{suffix}"
 
 
 class MissingL10nError(Exception):
@@ -1385,3 +1407,29 @@ def ensure_l10n_central(command_context):
                 raise NotAGitRepositoryError(
                     f"Directory is not a git repository: {l10n_base_dir}"
                 )
+
+
+# Taskcluster API root URL (Firefox's production instance)
+TASKCLUSTER_ROOT_URL = "https://firefox-ci-tc.services.mozilla.com"
+
+
+def get_root_url(block_proxy=False):
+    if "TASKCLUSTER_PROXY_URL" in os.environ and not block_proxy:
+        return os.environ["TASKCLUSTER_PROXY_URL"].rstrip("/")
+
+    if "TASKCLUSTER_ROOT_URL" in os.environ:
+        return os.environ["TASKCLUSTER_ROOT_URL"].rstrip("/")
+
+    return TASKCLUSTER_ROOT_URL
+
+
+def get_taskcluster_client(service: str, block_proxy=False):
+    import taskcluster
+
+    if "TASKCLUSTER_PROXY_URL" in os.environ and not block_proxy:
+        options = {"rootUrl": os.environ["TASKCLUSTER_PROXY_URL"].rstrip("/")}
+    else:
+        options = taskcluster.optionsFromEnvironment({
+            "rootUrl": get_root_url(block_proxy)
+        })
+    return getattr(taskcluster, service[0].upper() + service[1:])(options)
