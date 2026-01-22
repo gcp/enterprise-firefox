@@ -116,12 +116,6 @@ task-defaults:
                       path: /builds/worker/artifacts/
 
 tasks:
-    firefox-start:
-        description: Testing normal Firefox starts
-        attributes:
-            enterprise_test_file: test_firefox_start.py
-            enterprise_test_slug: fxStart
-
     felt-browser-cli:
         description: Testing start of FELT and browser using CLI
         attributes:

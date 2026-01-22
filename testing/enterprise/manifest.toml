@@ -1,3 +1,5 @@
 [DEFAULT]
 
 subsuite = "enterprise"
+
+["test_firefox_start.py"]
