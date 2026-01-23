@@ -355,7 +355,9 @@ AnchorPosResolutionParams::AutoResolutionOverrideParams::
               // It is presumed that this is called on a reflowed frame.
               return false;
             }
-            return references->Lookup(references->mDefaultAnchorName)->isSome();
+            const auto* entry = references->Lookup(
+                {references->mDefaultAnchorName, references->mAnchorTreeScope});
+            return entry && entry->isSome();
           }())} {}
 
 AnchorResolvedMargin AnchorResolvedMarginHelper::ResolveAnchor(
@@ -1087,7 +1089,7 @@ nsStylePosition::nsStylePosition()
       mHeight(StyleSize::Auto()),
       mMinHeight(StyleSize::Auto()),
       mMaxHeight(StyleMaxSize::None()),
-      mPositionAnchor(StylePositionAnchor::None()),
+      mPositionAnchor(StylePositionAnchorKeyword::None()),
       mPositionVisibility(StylePositionVisibility::ANCHORS_VISIBLE),
       mPositionTryFallbacks(StylePositionTryFallbacks()),
       mPositionTryOrder(StylePositionTryOrder::Normal),
@@ -2300,7 +2302,7 @@ nsStyleDisplay::nsStyleDisplay()
       mWebkitLineClamp(0),
       mShapeMargin(LengthPercentage::Zero()),
       mShapeOutside(StyleShapeOutside::None()),
-      mAnchorScope(StyleAnchorScope::None()) {
+      mAnchorScope(StyleAnchorScopeKeyword::None()) {
   MOZ_COUNT_CTOR(nsStyleDisplay);
 }
 

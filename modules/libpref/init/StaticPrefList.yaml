@@ -9001,6 +9001,14 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+# Whether object fuses are used to optimize constant properties on all JS
+# objects that are used as prototypes.
+- name: javascript.options.objectfuse_for_all_protos
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 - name: javascript.options.compact_on_user_inactive
   type: bool
   value: true
@@ -15578,6 +15586,12 @@
 - name: network.trr.force_http3_first
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# When true, allow HTTP/3 first behavior when enabled via remote settings
+- name: network.trr.allow_default_http3_first
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When true, a http request will be upgraded to https when HTTPS RR is
