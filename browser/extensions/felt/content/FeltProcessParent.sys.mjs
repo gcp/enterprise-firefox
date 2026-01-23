@@ -580,10 +580,9 @@ export class FeltProcessParent extends JSProcessActorParent {
   async profileName() {
     if (this.loggedInUserInfo !== null) {
       return `${lazy.FeltCommon.ENTERPRISE_PROFILE}-${await hashTo40bits(this.loggedInUserInfo.id)}`;
-    } else {
-      console.error(`FeltExtension: loggedInUserInfo not set`);
-      return lazy.FeltCommon.ENTERPRISE_PROFILE;
     }
+    console.error(`FeltExtension: loggedInUserInfo not set`);
+    return lazy.FeltCommon.ENTERPRISE_PROFILE;
   }
 }
 
