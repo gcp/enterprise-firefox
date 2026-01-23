@@ -197,6 +197,7 @@ treeherder:
         'Tent': 'Enterprise specific selenium tests'
         'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
         'Rpk-Ent': 'Enterprise repacks'
+        'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
