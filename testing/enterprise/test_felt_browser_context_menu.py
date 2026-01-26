@@ -477,9 +477,20 @@ class BrowserContextMenu(FeltTestsBase):
 
         self._driver.set_context("content")
 
-        import time
+        def selection_complete(_driver):
+            info = self._driver.execute_script(
+                """
+                return {
+                    start: arguments[0].selectionStart,
+                    end: arguments[0].selectionEnd,
+                    length: arguments[0].value.length
+                };
+                """,
+                login_input,
+            )
+            return info["start"] == 0 and info["end"] == info["length"]
 
-        time.sleep(0.1)
+        self._wait.until(selection_complete, "Selection was applied")
 
         selection_info = self._driver.execute_script(
             """
@@ -699,9 +710,20 @@ class BrowserContextMenu(FeltTestsBase):
 
         self._driver.set_context("content")
 
-        import time
+        def selection_complete(_driver):
+            info = self._driver.execute_script(
+                """
+                return {
+                    start: arguments[0].selectionStart,
+                    end: arguments[0].selectionEnd,
+                    length: arguments[0].value.length
+                };
+                """,
+                password_input,
+            )
+            return info["start"] == 0 and info["end"] == info["length"]
 
-        time.sleep(0.1)
+        self._wait.until(selection_complete, "Selection was applied")
 
         selection_info = self._driver.execute_script(
             """
