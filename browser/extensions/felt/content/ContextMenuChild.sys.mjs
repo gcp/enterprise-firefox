@@ -36,6 +36,14 @@ export class ContextMenuChild extends JSWindowActorChild {
       return;
     }
 
+    // Set the event target so command controllers know what to operate on.
+    // Then update commands to send state (including undo/redo availability)
+    // to the parent process.
+    this.docShell.docViewer
+      .QueryInterface(Ci.nsIDocumentViewerEdit)
+      .setCommandNode(event.composedTarget);
+    event.composedTarget.ownerGlobal.updateCommands("contentcontextmenu");
+
     this.sendAsyncMessage("FeltChild:ContextMenu", {
       onPasswordInput: (editFlags & lazy.SpellCheckHelper.PASSWORD) !== 0,
       screenXDevPx: event.screenX * this.contentWindow.devicePixelRatio,
