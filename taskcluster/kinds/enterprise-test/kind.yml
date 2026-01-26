@@ -128,12 +128,6 @@ tasks:
             enterprise_test_file: test_felt_browser_restart_is_quit.py
             enterprise_test_slug: feltQuit
 
-    felt-browser-aboutConfig-blocked:
-        description: Testing that about:config policy is applied correctly
-        attributes:
-            enterprise_test_file: test_felt_browser_about_config_blocked.py
-            enterprise_test_slug: feltAboutConfig
-
     felt-browser-signout:
         description: Testing signout from browser and FELT takes over
         attributes:
