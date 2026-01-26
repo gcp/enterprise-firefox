@@ -4,6 +4,8 @@ subsuite = "enterprise"
 
 ["test_felt_browser_about_config_blocked.py"]
 
+["test_felt_browser_signout.py"]
+
 ["test_felt_browser_starts.py"]
 
 ["test_felt_device_posture.py"]
