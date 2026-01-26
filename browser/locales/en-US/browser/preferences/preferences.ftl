@@ -297,19 +297,22 @@ settings-tabs-show-image-in-preview =
     .accessKey = h
 
 
-browser-layout-header = Browser Layout
+browser-layout-header2 =
+    .label = Browser Layout
 
-browser-layout-horizontal-tabs =
+browser-layout-horizontal-tabs2 =
     .label = Horizontal tabs
-browser-layout-horizontal-tabs-desc = Display at top of browser
+    .title = Tabs at the top
+    .description = Tabs at the top
 
-browser-layout-vertical-tabs =
+browser-layout-vertical-tabs2 =
     .label = Vertical tabs
-browser-layout-vertical-tabs-desc = Display on the side, in the sidebar
+    .title = Tabs on the side, in the sidebar
+    .description = Tabs on the side, in the sidebar
 
-browser-layout-show-sidebar =
+browser-layout-show-sidebar2 =
     .label = Show sidebar
-browser-layout-show-sidebar-desc = Quickly access bookmarks, tabs from your phone, AI chatbots, and more without leaving your main view.
+    .description = Quickly access bookmarks, tabs from your phone, AI chatbots, and more without leaving your main view.
 
 ## General Section - Language & Appearance
 
@@ -396,6 +399,33 @@ preferences-text-zoom-override-warning =
 language-header = Language
 
 choose-language-description = Choose your preferred language for displaying pages
+
+website-language-heading =
+  .label = Website language
+  .description = Some web pages are displayed in multiple languages. Choose languages in your preferred order.
+
+website-preferred-language =
+  .label = Preferred languages
+
+website-add-language =
+  .label = Add language
+
+website-add-language-button =
+  .aria-label = Add selected language
+  .title = Add selected language
+
+# The pattern used to generate strings presented to the user in the
+# website languages selection list.
+#
+# Example:
+#   Icelandic
+#   Spanish (Chile)
+#
+# Variables:
+#   $locale (String) - A name of the locale (for example: "Icelandic", "Spanish (Chile)")
+website-remove-language-button =
+  .aria-label = Remove { $locale }
+  .title = Remove { $locale }
 
 choose-button =
     .label = Choose…

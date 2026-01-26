@@ -11,7 +11,8 @@ const { AppConstants } = ChromeUtils.importESModule(
 );
 
 /**
- * @import {UrlbarSearchOneOffs} from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  */
 
 const lazy = XPCOMUtils.declareLazy({
@@ -1531,18 +1532,20 @@ export class UrlbarInput extends HTMLElement {
           ),
         });
 
+        let activeSplitView = this.window.gBrowser.selectedTab.splitview;
+
         let switched = this.window.switchToTabHavingURI(
           Services.io.newURI(url),
           true,
           loadOpts,
-
           lazy.UrlbarProviderOpenTabs.isNonPrivateUserContextId(
             result.payload.userContextId
           )
             ? result.payload.userContextId
-            : null
+            : null,
+          activeSplitView
         );
-        if (switched && prevTab.isEmpty) {
+        if (switched && !activeSplitView && prevTab.isEmpty) {
           this.window.gBrowser.removeTab(prevTab);
         }
 
@@ -2753,10 +2756,15 @@ export class UrlbarInput extends HTMLElement {
     return true;
   }
 
+  /**
+   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {"browser-search-engine-modified"} topic
+   * @param {string} data
+   */
   observe(subject, topic, data) {
     switch (topic) {
       case lazy.SearchUtils.TOPIC_ENGINE_MODIFIED: {
-        let engine = subject.QueryInterface(Ci.nsISearchEngine);
+        let engine = subject.wrappedJSObject;
         switch (data) {
           case lazy.SearchUtils.MODIFIED_TYPE.CHANGED:
           case lazy.SearchUtils.MODIFIED_TYPE.REMOVED: {
@@ -3857,7 +3865,7 @@ export class UrlbarInput extends HTMLElement {
     if (openUILinkWhere == "current") {
       params.targetBrowser = browser;
       params.indicateErrorPageLoad = true;
-      params.allowPinnedTabHostChange = true;
+      params.allowPinnedTabHostChange = this.#isAddressbar;
       params.allowPopups = url.startsWith("javascript:");
     } else {
       params.initiatingDoc = this.window.document;

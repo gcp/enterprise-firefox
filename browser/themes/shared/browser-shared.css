@@ -101,7 +101,6 @@ body {
   /* on macOS the animation of the toolbox in fullscreen needs the toolbox to be higher */
   --browser-area-z-index-toolbox-while-animating: 4;
 
-  --toolbarbutton-border-radius: var(--button-border-radius);
   --identity-box-margin-inline: 4px;
   --urlbar-min-height: max(32px, 1.4em);
   --urlbar-icon-padding: calc((var(--urlbar-min-height) - 2px /* border */ - 2px /* padding */ - 16px /* icon */) / 2);
@@ -410,14 +409,12 @@ body {
 /* Profiles menu */
 
 #menu_newProfile {
-  -moz-context-properties: fill;
-  fill: currentColor;
   --menuitem-icon: url(chrome://global/skin/icons/plus.svg);
 }
 
 .menuitem-iconic-profile {
+  --menuitem-icon-fill: var(--menu-profiles-theme-bg);
   -moz-context-properties: fill, stroke;
-  fill: var(--menu-profiles-theme-bg);
   stroke: var(--menu-profiles-theme-fg);
 }
 
@@ -1453,6 +1450,23 @@ popupnotificationcontent {
 
   :root:not([ai-window]) &::after {
     display: none;
+  }
+}
+
+/* AI window immersive view (hidden address bar and buttons) */
+:root[ai-window][aiwindow-immersive-view] {
+  #nav-bar:not(.browser-titlebar) {
+    height: 0;
+    min-height: 0;
+    visibility: hidden;
+  }
+
+  /* immersive view styles exclusive for first run */
+  &[aiwindow-first-run] {
+    .toolbar-items {
+      opacity: 0.2;
+      pointer-events: none;
+    }
   }
 }
 

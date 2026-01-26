@@ -6,7 +6,7 @@ android-lint = "31.13.2"
 # Kotlin
 coroutines = "1.10.2"
 kotlin = "2.3.0"
-serialization = "1.9.0"
+serialization = "1.10.0"
 
 # AndroidX
 activity = "1.12.2"
@@ -75,7 +75,7 @@ tomlj = "1.1.1"
 detekt = "1.23.8"
 google-java-format = "1.28.0"
 ktlint = "1.8.0"
-spotless = "8.1.0"
+spotless = "8.2.0"
 
 # Mozilla
 glean = "66.3.0"

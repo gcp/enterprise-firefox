@@ -5,6 +5,8 @@
 import { createEditor } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/input-cta.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/memories-icon-button.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
@@ -15,8 +17,9 @@ const { AppConstants } = ChromeUtils.importESModule(
 );
 
 /**
- * @import {UrlbarSearchOneOffs} from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
- * @import {SmartbarAction} from "moz-src:///browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
+ * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
+ * @import { SmartbarAction } from "moz-src:///browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
  */
 
 const lazy = XPCOMUtils.declareLazy({
@@ -146,6 +149,7 @@ export class SmartbarInput extends HTMLElement {
         <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
       </hbox>
       <hbox class="smartbar-button-container">
+        <html:memories-icon-button></html:memories-icon-button>
         <html:input-cta action=""></html:input-cta>
       </hbox>
       <vbox class="urlbarView"
@@ -1642,6 +1646,7 @@ export class SmartbarInput extends HTMLElement {
       ? { url: resultUrl, postData: null }
       : lazy.UrlbarUtils.getUrlFromResult(result, { element });
     openParams.postData = postData;
+    let isSplitViewActive = this.window.gBrowser.selectedTab.splitview;
 
     switch (result.type) {
       case lazy.UrlbarUtils.RESULT_TYPE.URL: {
@@ -1689,7 +1694,8 @@ export class SmartbarInput extends HTMLElement {
         // and button is provided to switch to tab.
         if (
           this.hasAttribute("action-override") ||
-          (lazy.UrlbarPrefs.get("secondaryActions.switchToTab") &&
+          ((lazy.UrlbarPrefs.get("secondaryActions.switchToTab") ||
+            isSplitViewActive) &&
             element?.dataset.action !== "tabswitch")
         ) {
           where = "current";
@@ -2963,10 +2969,15 @@ export class SmartbarInput extends HTMLElement {
     return true;
   }
 
+  /**
+   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {"browser-search-engine-modified"} topic
+   * @param {string} data
+   */
   observe(subject, topic, data) {
     switch (topic) {
       case lazy.SearchUtils.TOPIC_ENGINE_MODIFIED: {
-        let engine = subject.QueryInterface(Ci.nsISearchEngine);
+        let engine = subject.wrappedJSObject;
         switch (data) {
           case lazy.SearchUtils.MODIFIED_TYPE.CHANGED:
           case lazy.SearchUtils.MODIFIED_TYPE.REMOVED: {

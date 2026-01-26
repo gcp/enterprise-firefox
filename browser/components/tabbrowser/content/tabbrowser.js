@@ -432,6 +432,10 @@
       return this.tabContainer.allGroups;
     }
 
+    get splitViews() {
+      return this.tabContainer.allSplitViews;
+    }
+
     get tabsInCollapsedTabGroups() {
       return this.tabGroups
         .filter(tabGroup => tabGroup.collapsed)
@@ -4135,17 +4139,26 @@
      */
 
     /**
+     * @typedef {object} SplitViewWorkingData
+     * @property {MozTabbrowserTab[]} tabs
+     * @property {MozTabSplitViewWrapper|undefined} node
+     * @property {number} numberOfTabs
+     */
+
+    /**
      * @param {boolean} restoreTabsLazily
      * @param {number} selectTab see SessionStoreInternal.restoreTabs { aSelectTab }
      * @param {TabStateData[]} tabDataList
      * @param {TabGroupStateData[]} tabGroupDataList
+     * @param {TabSplitViewStateData[]} splitViewDataList
      * @returns {MozTabbrowserTab[]}
      */
     createTabsForSessionRestore(
       restoreTabsLazily,
       selectTab,
       tabDataList,
-      tabGroupDataList
+      tabGroupDataList,
+      splitViewDataList = []
     ) {
       let tabs = [];
       let tabsFragment = document.createDocumentFragment();
@@ -4153,12 +4166,21 @@
       let hiddenTabs = new Map();
       /** @type {Map<TabGroupStateData['id'], TabGroupWorkingData>} */
       let tabGroupWorkingData = new Map();
+      /** @type {Map<TabSplitViewStateData['id'], SplitViewWorkingData>} */
+      let splitViewWorkingData = new Map();
 
       for (const tabGroupData of tabGroupDataList) {
         tabGroupWorkingData.set(tabGroupData.id, {
           stateData: tabGroupData,
           node: undefined,
           containingTabsFragment: document.createDocumentFragment(),
+        });
+      }
+      for (const splitViewData of splitViewDataList) {
+        splitViewWorkingData.set(splitViewData.id, {
+          numberOfTabs: splitViewData.numberOfTabs,
+          node: undefined,
+          tabs: [],
         });
       }
 
@@ -4240,6 +4262,14 @@
           }
         }
 
+        let splitView = splitViewWorkingData.get(tabData.splitViewId);
+        if (tabData.splitViewId) {
+          splitView.tabs.push(tab);
+          if (splitView.tabs.length == splitView.numberOfTabs) {
+            splitView.node = this._createTabSplitView(tabData.splitViewId);
+          }
+        }
+
         tabs.push(tab);
 
         if (tabData.pinned) {
@@ -4251,8 +4281,14 @@
           const tabGroup = tabGroupWorkingData.get(groupId);
           // if a tab refers to a tab group we don't know, skip any group
           // processing
+
           if (tabGroup) {
-            tabGroup.containingTabsFragment.appendChild(tab);
+            if (!splitView) {
+              tabGroup.containingTabsFragment.appendChild(tab);
+            } else if (splitView?.node) {
+              tabGroup.containingTabsFragment.appendChild(splitView.node);
+            }
+
             // if this is the first time encountering a tab group, create its
             // DOM node once and place it in the tabs bar fragment
             if (!tabGroup.node) {
@@ -4271,7 +4307,12 @@
             hiddenTabs.set(tab, tabData.extData && tabData.extData.hiddenBy);
           }
 
-          tabsFragment.appendChild(tab);
+          if (!splitView) {
+            tabsFragment.appendChild(tab);
+          } else if (splitView?.node) {
+            tabsFragment.appendChild(splitView.node);
+          }
+
           if (tabWasReused) {
             this.tabContainer._invalidateCachedTabs();
           }
@@ -4283,10 +4324,15 @@
       // inject the top-level tab and tab group DOM nodes
       this.tabContainer.appendChild(tabsFragment);
 
-      // inject tab DOM nodes into the now-connected tab group DOM nodes
+      // inject tab DOM nodes into the now-connected tab group and split view DOM nodes
       for (const tabGroup of tabGroupWorkingData.values()) {
         if (tabGroup.node) {
           tabGroup.node.appendChild(tabGroup.containingTabsFragment);
+        }
+      }
+      for (const splitView of splitViewWorkingData.values()) {
+        if (splitView.node) {
+          splitView.node.addTabs(splitView.tabs, true);
         }
       }
 
@@ -4756,7 +4802,8 @@
         (a, b) => b.lastSeenActive - a.lastSeenActive
       );
       let duplicateTabs = [];
-      let keys = [];
+      /** @type {Map<string, Set<number>>} */
+      let userContextIdsPerUri = new Map();
       for (let tab of lastSeenTabs) {
         const uri = tab.linkedBrowser?.currentURI;
         if (!uri) {
@@ -4764,20 +4811,15 @@
           // Safest to leave it be.
           continue;
         }
-
-        const key = {
-          uri,
-          userContextId: tab.userContextId,
-        };
-        if (
-          !tab.pinned &&
-          keys.some(
-            k => k.userContextId == key.userContextId && k.uri.equals(key.uri)
-          )
-        ) {
+        let userContextIds = userContextIdsPerUri.getOrInsertComputed(
+          uri.spec,
+          () => new Set()
+        );
+        let userContextId = tab.userContextId;
+        if (!tab.pinned && userContextIds.has(userContextId)) {
           duplicateTabs.push(tab);
         }
-        keys.push(key);
+        userContextIds.add(userContextId);
       }
       return duplicateTabs;
     }
@@ -10152,16 +10194,12 @@ var TabContextMenu = {
       .getElementById("context_closeTab")
       .setAttribute("data-l10n-args", tabCountInfo);
 
-    let closeDuplicateEnabled = Services.prefs.getBoolPref(
-      "browser.tabs.context.close-duplicate.enabled"
-    );
     let closeDuplicateTabsItem = document.getElementById(
       "context_closeDuplicateTabs"
     );
-    closeDuplicateTabsItem.hidden = !closeDuplicateEnabled;
-    closeDuplicateTabsItem.disabled =
-      !closeDuplicateEnabled ||
-      !gBrowser.getDuplicateTabsToClose(this.contextTab).length;
+    closeDuplicateTabsItem.disabled = !gBrowser.getDuplicateTabsToClose(
+      this.contextTab
+    ).length;
 
     // Disable "Close Multiple Tabs" if all sub menuitems are disabled
     document.getElementById("context_closeTabOptions").disabled =

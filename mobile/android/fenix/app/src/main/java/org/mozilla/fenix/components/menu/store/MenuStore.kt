@@ -42,7 +42,6 @@ private fun reducer(state: MenuState, action: MenuAction): MenuState {
         is MenuAction.CustomizeReaderView,
         is MenuAction.Navigate,
         is MenuAction.OnCFRShown,
-        is MenuAction.OpenInRegularTab,
         is MenuAction.OnCFRDismiss,
         -> state
 
@@ -82,18 +81,6 @@ private fun reducer(state: MenuState, action: MenuAction): MenuState {
                 availableAddons = state.extensionMenuState.availableAddons.plus(action.addon),
                 addonInstallationInProgress = null,
             )
-        }
-
-        is MenuAction.UpdateShowExtensionsOnboarding -> state.copyWithExtensionMenuState { extensionState ->
-            extensionState.copy(showExtensionsOnboarding = action.showExtensionsOnboarding)
-        }
-
-        is MenuAction.UpdateShowDisabledExtensionsOnboarding -> state.copyWithExtensionMenuState { extensionState ->
-            extensionState.copy(showDisabledExtensionsOnboarding = action.showDisabledExtensionsOnboarding)
-        }
-
-        is MenuAction.UpdateManageExtensionsMenuItemVisibility -> state.copyWithExtensionMenuState {
-            it.copy(shouldShowManageExtensionsMenuItem = action.isVisible)
         }
 
         is MenuAction.UpdateAvailableAddons -> state.copyWithExtensionMenuState {

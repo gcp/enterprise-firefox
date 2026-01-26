@@ -110,12 +110,6 @@ class MenuTelemetryMiddleware(
                 ),
             )
 
-            MenuAction.Navigate.ReleaseNotes -> Events.whatsNewTapped.record(
-                Events.WhatsNewTappedExtra(
-                    source = "MENU",
-                ),
-            )
-
             MenuAction.Navigate.Settings -> {
                 when (accessPoint) {
                     MenuAccessPoint.Browser -> Events.browserMenuAction.record(
@@ -262,14 +256,6 @@ class MenuTelemetryMiddleware(
                 )
             }
 
-            MenuAction.Navigate.ExtensionsLearnMore -> {
-                Events.browserMenuAction.record(
-                    Events.BrowserMenuActionExtra(
-                        item = "extensions_learn_more",
-                    ),
-                )
-            }
-
             is MenuAction.Navigate.AddonDetails -> {
                 Events.browserMenuAction.record(
                     Events.BrowserMenuActionExtra(
@@ -302,14 +288,6 @@ class MenuTelemetryMiddleware(
                 )
             }
 
-            MenuAction.OpenInRegularTab -> {
-                Events.browserMenuAction.record(
-                    Events.BrowserMenuActionExtra(
-                        item = "open_in_regular_tab",
-                    ),
-                )
-            }
-
             MenuAction.OnCFRShown -> Menu.showCfr.record(NoExtras())
 
             MenuAction.OnCFRDismiss -> Menu.dismissCfr.record(NoExtras())
@@ -323,9 +301,6 @@ class MenuTelemetryMiddleware(
             is MenuAction.InstallAddonFailed,
             is MenuAction.InstallAddonSuccess,
             is MenuAction.UpdateInstallAddonInProgress,
-            is MenuAction.UpdateShowExtensionsOnboarding,
-            is MenuAction.UpdateShowDisabledExtensionsOnboarding,
-            is MenuAction.UpdateManageExtensionsMenuItemVisibility,
             is MenuAction.UpdateAvailableAddons,
             -> Unit
         }

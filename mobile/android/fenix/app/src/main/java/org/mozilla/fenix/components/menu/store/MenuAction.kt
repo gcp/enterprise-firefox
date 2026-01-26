@@ -93,11 +93,6 @@ sealed class MenuAction : Action {
     data object DismissMenuBanner : MenuAction()
 
     /**
-     * [MenuAction] dispatched when a private tab is open in normal tab.
-     */
-    data object OpenInRegularTab : MenuAction()
-
-    /**
      * [MenuAction] dispatched when the extension state is updated.
      *
      * @property recommendedAddons The recommended [Addon]s to suggest.
@@ -143,16 +138,6 @@ sealed class MenuAction : Action {
     ) : MenuAction()
 
     /**
-     * [MenuAction] dispatched when we what to show manage extensions menu item.
-     *
-     * @property isVisible Indicates if manage extensions menu item
-     * should be displayed to the user.
-     */
-    data class UpdateManageExtensionsMenuItemVisibility(
-        val isVisible: Boolean,
-    ) : MenuAction()
-
-    /**
      * [MenuAction] dispatched when an addon installation was completed with success.
      *
      * @property addon The [Addon] that was installed.
@@ -168,25 +153,6 @@ sealed class MenuAction : Action {
      */
     data class InstallAddonFailed(
         val addon: Addon,
-    ) : MenuAction()
-
-    /**
-     * [MenuAction] dispatched when extensions promotion banner onboarding should be visible or not.
-     *
-     * @property showExtensionsOnboarding Show extensions promotion banner onboarding.
-     */
-    data class UpdateShowExtensionsOnboarding(
-        val showExtensionsOnboarding: Boolean,
-    ) : MenuAction()
-
-    /**
-     * [MenuAction] dispatched when disabled extensions promotion banner onboarding should be visible or not.
-     *
-     * @property showDisabledExtensionsOnboarding Show extensions promotion banner onboarding when
-     * all installed extensions have been disabled.
-     */
-    data class UpdateShowDisabledExtensionsOnboarding(
-        val showDisabledExtensionsOnboarding: Boolean,
     ) : MenuAction()
 
     /**
@@ -262,11 +228,6 @@ sealed class MenuAction : Action {
         data object Passwords : Navigate()
 
         /**
-         * [Navigate] action dispatched when navigating to release notes.
-         */
-        data object ReleaseNotes : Navigate()
-
-        /**
          * [Navigate] action dispatched when navigating to edit the existing bookmark.
          */
         data object EditBookmark : Navigate()
@@ -304,11 +265,6 @@ sealed class MenuAction : Action {
          * [Navigate] action dispatched when navigating to the AMO page.
          */
         data object DiscoverMoreExtensions : Navigate()
-
-        /**
-         * [Navigate] action dispatched when navigating to the SUMO page for installing add-ons.
-         */
-        data object ExtensionsLearnMore : Navigate()
 
         /**
          * [Navigate] action dispatched when navigating to the given [addon] details.

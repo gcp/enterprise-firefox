@@ -6,6 +6,7 @@
 #include "Buffer.h"
 
 #include "Device.h"
+#include "PromiseHelpers.h"
 #include "ipc/WebGPUChild.h"
 #include "js/ArrayBuffer.h"
 #include "js/RootingAPI.h"
@@ -205,17 +206,10 @@ already_AddRefed<dom::Promise> Buffer::MapAsync(
 
   mMapRequest = promise;
 
-  auto pending_promise = WebGPUChild::PendingBufferMapPromise{
-      RefPtr(promise),
-      RefPtr(this),
-  };
-  auto& pending_promises = GetChild()->mPendingBufferMapPromises;
-  if (auto search = pending_promises.find(GetId());
-      search != pending_promises.end()) {
-    search->second.push_back(std::move(pending_promise));
-  } else {
-    pending_promises.insert({GetId(), {std::move(pending_promise)}});
-  }
+  GetChild()->EnqueueBufferMapPromise(GetId(), PendingBufferMapPromise{
+                                                   RefPtr(promise),
+                                                   RefPtr(this),
+                                               });
 
   return promise.forget();
 }
@@ -367,29 +361,37 @@ void Buffer::UnmapArrayBuffers(JSContext* aCx, ErrorResult& aRv) {
 
 void Buffer::ResolveMapRequest(dom::Promise* aPromise, BufferAddress aOffset,
                                BufferAddress aSize, bool aWritable) {
-  MOZ_RELEASE_ASSERT(mMapRequest == aPromise);
+  if (mMapRequest != aPromise) {
+    // The map request has been cancelled by unmap().
+    return;
+  }
   SetMapped(aOffset, aSize, aWritable);
-  mMapRequest->MaybeResolveWithUndefined();
-  mMapRequest = nullptr;
+  promise::MaybeResolveWithUndefined(std::move(mMapRequest));
 }
 
 void Buffer::RejectMapRequest(dom::Promise* aPromise,
                               const nsACString& message) {
-  MOZ_RELEASE_ASSERT(mMapRequest == aPromise);
-  mMapRequest->MaybeRejectWithOperationError(message);
-  mMapRequest = nullptr;
+  if (mMapRequest != aPromise) {
+    // The map request has been cancelled by unmap().
+    return;
+  }
+  promise::MaybeRejectWithOperationError(std::move(mMapRequest),
+                                         nsCString(message));
 }
 
 void Buffer::RejectMapRequestWithAbortError(dom::Promise* aPromise) {
-  MOZ_RELEASE_ASSERT(mMapRequest == aPromise);
+  if (mMapRequest != aPromise) {
+    // The map request has been cancelled by unmap().
+    return;
+  }
   AbortMapRequest();
 }
 
 void Buffer::AbortMapRequest() {
   if (mMapRequest) {
-    mMapRequest->MaybeRejectWithAbortError("Buffer unmapped");
+    promise::MaybeRejectWithAbortError(std::move(mMapRequest),
+                                       nsCString("Buffer unmapped"));
   }
-  mMapRequest = nullptr;
 }
 
 void Buffer::Unmap(JSContext* aCx, ErrorResult& aRv) {

@@ -8,7 +8,7 @@ describe("settings ai features", () => {
 
   beforeEach(async function setup() {
     await SpecialPowers.pushPrefEnv({
-      set: [["browser.settings-redesign.aiFeatures.enabled", true]],
+      set: [["browser.preferences.aiControls", true]],
     });
     await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
     doc = gBrowser.selectedBrowser.contentDocument;
@@ -41,7 +41,7 @@ describe("settings ai features", () => {
 
     await openAiFeaturePanel();
 
-    const providerControl = doc.getElementById("chatbotProvider");
+    const providerControl = doc.getElementById("aiControlSidebarChatbot");
     Assert.ok(providerControl, "control exists");
     Assert.ok(
       BrowserTestUtils.isVisible(providerControl),
@@ -53,7 +53,7 @@ describe("settings ai features", () => {
       "Pref is empty"
     );
 
-    Assert.equal(providerControl.value, "", "No provider set");
+    Assert.equal(providerControl.value, "available", "No provider set");
 
     const settingChanged = waitForSettingChange(providerControl.setting);
     providerControl.focus();
@@ -66,10 +66,10 @@ describe("settings ai features", () => {
     EventUtils.sendKey("return");
     await settingChanged;
 
-    Assert.notEqual(providerControl.value, "", "Provider changed");
+    Assert.notEqual(providerControl.value, "available", "Provider changed");
     Assert.notEqual(
       Services.prefs.getStringPref("browser.ml.chat.provider"),
-      "",
+      "available",
       "Pref is not empty"
     );
 
@@ -137,6 +137,7 @@ describe("settings ai features", () => {
       const personalizeButton = doc.getElementById(
         "personalizeSmartWindowButton"
       );
+      personalizeButton.scrollIntoView();
       const paneLoaded = waitForPaneChange("personalizeSmartWindow");
       EventUtils.synthesizeMouseAtCenter(personalizeButton, {}, win);
       await paneLoaded;
@@ -145,6 +146,7 @@ describe("settings ai features", () => {
     async function openManageMemoriesPanel() {
       await openSmartWindowPanel();
       const manageButton = doc.getElementById("manageMemoriesButton");
+      manageButton.scrollIntoView();
       const paneLoaded = waitForPaneChange("manageMemories");
       EventUtils.synthesizeMouseAtCenter(manageButton, {}, win);
       await paneLoaded;

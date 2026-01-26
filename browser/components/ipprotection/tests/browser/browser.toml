@@ -5,6 +5,7 @@ support-files = [
 
 prefs = [
   "browser.ipProtection.log=true",
+  "browser.ipProtection.features.siteExceptions=true",
   "dom.security.https_first=false",
 ]
 
@@ -15,6 +16,8 @@ prefs = [
 ["browser_IPProtectionService.js"]
 
 ["browser_guardian_client.js"]
+
+["browser_ipprotection_confirmation_hints_site_exclusion.js"]
 
 ["browser_ipprotection_content.js"]
 

@@ -594,8 +594,6 @@ class _QuickSuggestTestUtils {
         provider,
         telemetryType,
         isSponsored: false,
-        isBlockable: true,
-        isManageable: true,
       },
     };
 
@@ -935,14 +933,15 @@ class _QuickSuggestTestUtils {
         title,
         description,
         url,
+        subtitleL10n: {
+          id: "urlbar-result-addons-subtitle",
+        },
         originalUrl,
         icon,
         isSponsored: false,
-        shouldShowUrl: true,
         bottomTextL10n: {
           id: "firefox-suggest-addons-recommended",
         },
-        helpUrl: lazy.QuickSuggest.HELP_URL,
         telemetryType: "amo",
       },
     };
@@ -1190,7 +1189,7 @@ class _QuickSuggestTestUtils {
     index = -1,
     isSponsored = true,
     isBestMatch = false,
-    isManageable = true,
+    isManageable = undefined,
     hasSponsoredLabel = isSponsored || isBestMatch,
   }) {
     this.Assert.ok(
@@ -1270,14 +1269,6 @@ class _QuickSuggestTestUtils {
       isManageable,
       "Result isManageable"
     );
-
-    if (!isManageable) {
-      this.Assert.equal(
-        result.payload.helpUrl,
-        lazy.QuickSuggest.HELP_URL,
-        "Result helpURL"
-      );
-    }
 
     this.Assert.ok(
       row._buttons.get("result-menu"),

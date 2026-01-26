@@ -22,11 +22,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IPPSignInWatcher:
     "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs",
 });
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import {
   LINKS,
   ERRORS,
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "BANDWIDTH_USAGE_ENABLED",
+  "browser.ipProtection.bandwidth.enabled",
+  false
+);
 
 let hasCustomElements = new WeakSet();
 
@@ -89,8 +97,12 @@ export class IPProtectionPanel {
    * Continuous onboarding message to display in-panel, empty string if none applicable
    * @property {boolean} paused
    * True if the VPN service has been paused due to bandwidth limits
+   * @property {boolean} isSiteExceptionsEnabled
+   * True if site exceptions support is enabled, else false.
    * @property {object} siteData
    * Data about the currently loaded site, including "isExclusion".
+   * @property {object} bandwidthUsage
+   *  An object containing the current and max usage
    */
 
   /**
@@ -125,6 +137,17 @@ export class IPProtectionPanel {
   }
 
   /**
+   * Gets the value of the pref
+   * browser.ipProtection.features.siteExceptions.
+   */
+  get isExceptionsFeatureEnabled() {
+    return Services.prefs.getBoolPref(
+      "browser.ipProtection.features.siteExceptions",
+      false
+    );
+  }
+
+  /**
    * Creates an instance of IPProtectionPanel for a specific browser window.
    *
    * Inserts the panel component customElements registry script.
@@ -151,7 +174,11 @@ export class IPProtectionPanel {
       onboardingMessage: "",
       bandwidthWarning: "",
       paused: false,
+      isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
       siteData: this.#getSiteData(),
+      bandwidthUsage: lazy.BANDWIDTH_USAGE_ENABLED
+        ? { currentBandwidthUsage: 0, maxBandwidth: 150 }
+        : null,
     };
 
     // The progress listener to listen for page navigations.
@@ -269,6 +296,9 @@ export class IPProtectionPanel {
     }
 
     this.#updateSiteData();
+    this.setState({
+      isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
+    });
 
     if (this.panel) {
       this.updateState();

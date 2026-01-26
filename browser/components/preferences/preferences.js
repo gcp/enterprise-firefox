@@ -17,7 +17,7 @@
 
 /** @import MozButton from "chrome://global/content/elements/moz-button.mjs" */
 /** @import {SettingConfig, SettingEmitChange} from "chrome://global/content/preferences/Setting.mjs" */
-/** @import {SettingControlConfig} from "chrome://browser/content/preferences/widgets/setting-control.mjs" */
+/** @import {SettingControlConfig, SettingOptionConfig} from "chrome://browser/content/preferences/widgets/setting-control.mjs" */
 /** @import {SettingGroup} from "chrome://browser/content/preferences/widgets/setting-group.mjs" */
 /** @import {SettingPane, SettingPaneConfig} from "chrome://browser/content/preferences/widgets/setting-pane.mjs" */
 
@@ -281,9 +281,16 @@ const CONFIG_PANES = Object.freeze({
   },
   ai: {
     l10nId: "preferences-ai-controls-header",
-    groupIds: ["debugModelManagement", "aiFeatures", "aiWindowFeatures"],
+    iconSrc: "chrome://global/skin/icons/highlights.svg",
+    groupIds: [
+      "aiControlsDescription",
+      "aiFeatures",
+      "aiStatesDescription",
+      "aiWindowFeatures",
+    ],
     module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
-    visible: () => srdSectionEnabled("aiFeatures"),
+    visible: () =>
+      Services.prefs.getBoolPref("browser.preferences.aiControls", false),
   },
   history: {
     parent: "privacy",

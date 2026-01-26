@@ -79,16 +79,6 @@ class MenuTelemetryMiddlewareTest {
     }
 
     @Test
-    fun `WHEN open in regular tab THEN record open in regular tab menu telemetry`() {
-        val store = createStore()
-        assertNull(Events.browserMenuAction.testGetValue())
-
-        store.dispatch(MenuAction.OpenInRegularTab)
-
-        assertTelemetryRecorded(Events.browserMenuAction, item = "open_in_regular_tab")
-    }
-
-    @Test
     fun `WHEN removing a shortcut from top sites THEN record the remove from top sites browser menu telemetry`() {
         val store = createStore()
         assertNull(Events.browserMenuAction.testGetValue())
@@ -171,20 +161,6 @@ class MenuTelemetryMiddlewareTest {
         store.dispatch(MenuAction.Navigate.Passwords)
 
         assertTelemetryRecorded(Events.browserMenuAction, item = "passwords")
-    }
-
-    @Test
-    fun `WHEN navigating to the release notes page from home page menu THEN record the whats new interaction telemetry`() {
-        val store = createStore()
-        assertNull(Events.whatsNewTapped.testGetValue())
-
-        store.dispatch(MenuAction.Navigate.ReleaseNotes)
-
-        assertNotNull(Events.whatsNewTapped.testGetValue())
-        val snapshot = Events.whatsNewTapped.testGetValue()!!
-
-        assertEquals(1, snapshot.size)
-        assertEquals("MENU", snapshot.single().extra?.getValue("source"))
     }
 
     @Test
@@ -529,16 +505,6 @@ class MenuTelemetryMiddlewareTest {
         store.dispatch(MenuAction.Navigate.DiscoverMoreExtensions)
 
         assertTelemetryRecorded(Events.browserMenuAction, item = "discover_more_extensions")
-    }
-
-    @Test
-    fun `WHEN navigating to the sumo page for installing add-ons THEN record the extensions learn more browser menu telemetry`() {
-        val store = createStore()
-        assertNull(Events.browserMenuAction.testGetValue())
-
-        store.dispatch(MenuAction.Navigate.ExtensionsLearnMore)
-
-        assertTelemetryRecorded(Events.browserMenuAction, item = "extensions_learn_more")
     }
 
     @Test

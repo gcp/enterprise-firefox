@@ -25,6 +25,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  MemoriesSchedulers:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesSchedulers.sys.mjs",
 });
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -64,6 +66,12 @@ export const AIWindow = {
       () => new lazy.ChatStore()
     );
     this._initialized = true;
+
+    // On startup/restart, if the first window initialized is an
+    // AI window, we need to start the memories schedulers.
+    if (this.isAIWindowActive(win)) {
+      lazy.MemoriesSchedulers.maybeRunAndSchedule();
+    }
   },
 
   _reconcileNewTabPages(win, previousNewTabURL) {
@@ -382,6 +390,10 @@ export const AIWindow = {
       this._reconcileNewTabPages(win, previousNewTabURL);
       this._initializeAskButtonOnToolbox(win);
       Services.obs.notifyObservers(win, "ai-window-state-changed");
+
+      if (isTogglingToAIWindow) {
+        lazy.MemoriesSchedulers.maybeRunAndSchedule();
+      }
     }
   },
 
@@ -404,6 +416,39 @@ export const AIWindow = {
     }
 
     return true;
+  },
+
+  /**
+   * Toggles the immersive view (hidden address bar and disabled tabs) depending on the URL passed
+   *
+   * @param {nsIURI} currentURI
+   * @param {Window} win
+   */
+  updateImmersiveView(currentURI, win) {
+    if (!currentURI || !this.isAIWindowActiveAndEnabled(win)) {
+      return;
+    }
+
+    /* any URL that should have the immersive view */
+    const validImmersiveURIs = [FIRSTRUN_URI, AIWINDOW_URI];
+    const root = win.document.getElementById("main-window");
+    const isImmersiveView = validImmersiveURIs.some(uri =>
+      uri.equalsExceptRef(currentURI)
+    );
+
+    /* sets attr only for first run for css reasons */
+    const isFirstRun = currentURI.equalsExceptRef(FIRSTRUN_URI);
+    root.toggleAttribute("aiwindow-first-run", isFirstRun && isImmersiveView);
+    root.toggleAttribute("aiwindow-immersive-view", isImmersiveView);
+
+    /* disabling the current tab from being clicked from the keyboard */
+
+    const selectedTab = win.gBrowser.selectedTab;
+    if (isFirstRun) {
+      selectedTab?.setAttribute("tabindex", -1);
+    } else {
+      selectedTab?.removeAttribute("tabindex");
+    }
   },
 };
 
