@@ -941,6 +941,7 @@ mac-signing:
                   entitlements:
                       by-build-platform:
                           .*devedition.*: public/build/security/firefoxdeveloperedition.browser.xml
+                          .*enterprise.*: public/build/security/firefoxenterprise.browser.xml
                           default:
                               by-project:
                                   mozilla-central: public/build/security/nightly.browser.xml

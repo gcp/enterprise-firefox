@@ -20,6 +20,7 @@ PROVISIONING_PROFILE_FILENAMES = {
     "devedition": "orgmozillafirefoxdeveloperedition.provisionprofile",
     "enterprise": "orgmozillafirefoxenterprise.provisionprofile",
     "nightly": "orgmozillanightly.provisionprofile",
+    "enterprise": "orgmozillafirefoxenterprise.provisionprofile",
 }
 
 
