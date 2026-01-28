@@ -13275,15 +13275,21 @@ bool InitOptionParser(OptionParser& op) {
                        "NUMBER of instructions.",
                        -1) ||
 #ifdef JS_CODEGEN_RISCV64
-      !op.addBoolOption('\0', "riscv-debug", "debug print riscv info.") ||
+      !op.addBoolOption('\0', "riscv-debug",
+                        "Print riscv debugging messages.") ||
 #endif
 #ifdef JS_SIMULATOR_RISCV64
-      !op.addBoolOption('\0', "trace-sim", "print simulator info.") ||
-      !op.addBoolOption('\0', "debug-sim", "debug simulator.") ||
+      !op.addBoolOption('\0', "riscv-sim-trace",
+                        "Print the RISC-V simulator info.") ||
+      !op.addBoolOption('\0', "riscv-sim-debug",
+                        "Debug the RISC-V simulator.") ||
       !op.addBoolOption('\0', "riscv-trap-to-simulator-debugger",
-                        "trap into simulator debuggger.") ||
+                        "Trap into the RISC-V simulator debuggger.") ||
+      !op.addBoolOption('\0', "riscv-sim-icache-checks",
+                        "Enable icache flush checks in the RISC-V "
+                        "simulator.") ||
       !op.addIntOption('\0', "riscv-sim-stop-at", "NUMBER",
-                       "Stop the riscv simulator after the given "
+                       "Stop the RISC-V simulator after the given "
                        "NUMBER of instructions.",
                        -1) ||
 #endif
@@ -13348,8 +13354,6 @@ bool InitOptionParser(OptionParser& op) {
                         "Enable WebAssembly js-string-builtins proposal.") ||
       !op.addBoolOption('\0', "enable-iterator-sequencing",
                         "Enable Iterator Sequencing") ||
-      !op.addBoolOption('\0', "enable-math-sumprecise",
-                        "Enable Math.sumPrecise") ||
       !op.addBoolOption('\0', "enable-error-iserror", "Enable Error.isError") ||
       !op.addBoolOption('\0', "enable-iterator-range",
                         "Enable Iterator.range") ||
@@ -13406,9 +13410,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   }
   if (op.getBoolOption("enable-uint8array-base64")) {
     JS::Prefs::setAtStartup_experimental_uint8array_base64(true);
-  }
-  if (op.getBoolOption("enable-math-sumprecise")) {
-    JS::Prefs::setAtStartup_experimental_math_sumprecise(true);
   }
   if (op.getBoolOption("enable-atomics-pause")) {
     JS::Prefs::setAtStartup_experimental_atomics_pause(true);
@@ -14349,11 +14350,14 @@ bool SetContextJITOptions(JSContext* cx, const OptionParser& op) {
   }
 #  endif
 #  ifdef JS_SIMULATOR_RISCV64
-  if (op.getBoolOption("trace-sim")) {
+  if (op.getBoolOption("riscv-sim-trace")) {
     jit::Simulator::FLAG_trace_sim = true;
   }
-  if (op.getBoolOption("debug-sim")) {
+  if (op.getBoolOption("riscv-sim-debug")) {
     jit::Simulator::FLAG_debug_sim = true;
+  }
+  if (op.getBoolOption("riscv-sim-icache-checks")) {
+    jit::SimulatorProcess::ICacheCheckingDisableCount = 0;
   }
   if (op.getBoolOption("riscv-trap-to-simulator-debugger")) {
     jit::Simulator::FLAG_riscv_trap_to_simulator_debugger = true;

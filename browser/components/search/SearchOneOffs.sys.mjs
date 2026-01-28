@@ -24,7 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * @property {Values<typeof UrlbarUtils.RESULT_SOURCE>} [source]
  *   The result source of the button. Only appropriate for one-off buttons
  *   on the urlbar.
- * @property {nsISearchEngine} engine
+ * @property {SearchEngine} engine
  *   The search engine associated with the button.
  */
 
@@ -974,7 +974,7 @@ export class SearchOneOffs {
    *
    * @param {event} event
    *        The event that triggered the pick.
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *        The engine that was picked.
    * @param {boolean} forceNewTab
    *        True if the search results page should be loaded in a new tab.
@@ -1107,12 +1107,12 @@ export class SearchOneOffs {
       if (isPrivateButton) {
         lazy.SearchService.setDefaultPrivate(
           newDefaultEngine,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR_CONTEXT
         );
       } else {
         lazy.SearchService.setDefault(
           newDefaultEngine,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR_CONTEXT
         );
       }
     }

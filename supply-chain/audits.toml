@@ -404,7 +404,7 @@ notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
 [[wildcard-audits.mtu]]
 who = "Max Leonard Inden <mail@max-inden.de>"
 criteria = "safe-to-deploy"
-user-id = 83100
+user-id = 83100 # Max Inden (mxinden)
 start = "2025-01-29"
 end = "2026-09-24"
 
@@ -3122,6 +3122,11 @@ criteria = "safe-to-deploy"
 version = "0.4.3"
 
 [[audits.http]]
+who = "Max Leonard Inden <mail@max-inden.de>"
+criteria = "safe-to-deploy"
+version = "0.2.9"
+
+[[audits.http]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "0.2.8 -> 0.2.9"
@@ -4433,7 +4438,7 @@ delta = "0.2.6 -> 0.2.9"
 [[audits.mtu]]
 who = "Max Leonard Inden <mail@max-inden.de>"
 criteria = "safe-to-deploy"
-delta = "0.2.9 -> 0.2.9@git:b3338f904e2b9cdd59fbb2ade6b36d1a2ced4eba"
+delta = "0.3.0 -> 0.3.0@git:71889dfc61f8e61cc2cc37be78f0ec6b7ff39c0d"
 importable = false
 
 [[audits.naga]]
@@ -4546,11 +4551,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.naga]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.net2]]
@@ -7254,11 +7259,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.wgpu-core]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.wgpu-core-deps-apple]]
@@ -7294,11 +7299,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.wgpu-core-deps-apple]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.wgpu-core-deps-windows-linux-android]]
@@ -7334,11 +7339,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.wgpu-core-deps-windows-linux-android]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.wgpu-hal]]
@@ -7452,11 +7457,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.wgpu-hal]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.wgpu-types]]
@@ -7565,11 +7570,11 @@ delta = "27.0.0 -> 28.0.0"
 [[audits.wgpu-types]]
 who = [
     "Jim Blandy <jimb@red-bean.com>",
-    "Erich Gubler <erichdongubler@gmail.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Erich Gubler <erichdongubler@gmail.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "28.0.0 -> 28.0.0@git:87a3fda0d189f4280127939851f20655c71b1272"
+delta = "28.0.0 -> 28.0.0@git:eaffaf2024611c4156c1d532e387c29320b9118f"
 importable = false
 
 [[audits.whatsys]]

@@ -2984,8 +2984,7 @@ var TabsProgressListener = {
       PopupNotifications.locationChange(aBrowser);
     }
 
-    let tab = gBrowser.getTabForBrowser(aBrowser);
-    if (tab && tab._sharingState) {
+    if (aBrowser._sharingState) {
       gBrowser.resetBrowserSharing(aBrowser);
     }
 

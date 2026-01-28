@@ -9084,13 +9084,6 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-# Experimental support for Math.sumPrecise in JavaScript.
-- name: javascript.options.experimental.math_sumprecise
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
   # Experimental support for Atomics.pause in JavaScript.
 - name: javascript.options.experimental.atomics_pause
   type: bool
@@ -10220,6 +10213,13 @@
 - name: layout.css.basic-shape-shape.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is multiple color items upported for color-mix()?
+- name: layout.css.color-mix-multi-color.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -13498,6 +13498,13 @@
 - name: network.auth.sspi_detect_hash
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Chunk size for BackgroundFileSaver async copy operations. Should be a power
+# of 2 for optimal performance.
+- name: network.backgroundfilesaver.async_copy_chunk_size
+  type: RelaxedAtomicUint32
+  value: 1048576  # 1MB (1024 * 1024)
   mirror: always
 
 # Default buffer size for buffered stream operations. The actual value used will

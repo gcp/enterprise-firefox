@@ -27,6 +27,8 @@ const lazy = XPCOMUtils.declareLazy({
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchEngineInstallError:
+    "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   SearchUIUtilsL10n: () => {
@@ -210,22 +212,24 @@ export var SearchUIUtils = {
         browsingContext?.embedderElement?.contentPrincipal?.originAttributes
       );
     } catch (ex) {
-      let titleMsgName;
-      let descMsgName;
-      switch (ex.result) {
-        case Ci.nsISearchService.ERROR_DUPLICATE_ENGINE:
-          titleMsgName = "opensearch-error-duplicate-title";
-          descMsgName = "opensearch-error-duplicate-desc";
-          break;
-        case Ci.nsISearchService.ERROR_ENGINE_CORRUPTED:
-          titleMsgName = "opensearch-error-format-title";
-          descMsgName = "opensearch-error-format-desc";
-          break;
-        default:
-          // i.e. ERROR_DOWNLOAD_FAILURE
-          titleMsgName = "opensearch-error-download-title";
-          descMsgName = "opensearch-error-download-desc";
-          break;
+      // Use a general download error message, unless we have something more
+      // specific.
+      let titleMsgName = "opensearch-error-download-title";
+      let descMsgName = "opensearch-error-download-desc";
+
+      if (ex instanceof lazy.SearchEngineInstallError) {
+        switch (ex.type) {
+          case "duplicate-title":
+            titleMsgName = "opensearch-error-duplicate-title";
+            descMsgName = "opensearch-error-duplicate-desc";
+            break;
+          case "corrupted":
+            titleMsgName = "opensearch-error-format-title";
+            descMsgName = "opensearch-error-format-desc";
+            break;
+          default:
+          // e.g. download failure, use the more general message.
+        }
       }
 
       let [title, text] = await lazy.SearchUIUtilsL10n.formatValues([
@@ -391,7 +395,7 @@ export var SearchUIUtils = {
    *   The policyContainer to use for a new window or tab.
    * @param {boolean} [options.inBackground]
    *   Set to true for the tab to be loaded in the background.
-   * @param {?nsISearchEngine} [options.engine]
+   * @param {?SearchEngine} [options.engine]
    *   The search engine to use for the search. If not supplied, this will default
    *   to the default search engine for normal or private mode, depending on
    *   ``options.usePrivateWindow``.
@@ -467,7 +471,7 @@ export var SearchUIUtils = {
    *
    * @param {object} options
    *   Options object.
-   * @param {nsISearchEngine} options.engine
+   * @param {SearchEngine} options.engine
    *   The engine to search with.
    * @param {WindowProxy} options.window
    *   The window where the search was triggered.

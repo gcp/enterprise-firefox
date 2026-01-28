@@ -37,6 +37,7 @@ add_task(async function () {
     }
     alreadyFocused = true;
 
+    let expectedRects = [];
     rects = rects.filter(rect => {
       let width = frame.width;
 
@@ -77,6 +78,7 @@ add_task(async function () {
       for (let e of exceptions) {
         if (e.condition(rect)) {
           todo(false, e.name + ", " + rectText);
+          expectedRects.push(rect);
           return false;
         }
       }
@@ -89,14 +91,8 @@ add_task(async function () {
       continue;
     }
 
-    // Before dumping a frame with unexpected differences for the first time,
-    // ensure at least one previous frame has been logged so that it's possible
-    // to see the differences when examining the log.
-    if (!unexpectedRects) {
-      dumpFrame(previousFrame);
-    }
+    await reportFlickerWithAPNG(previousFrame, frame, i, expectedRects);
     unexpectedRects += rects.length;
-    dumpFrame(frame);
   }
   is(unexpectedRects, 0, "should have 0 unknown flickering areas");
 });

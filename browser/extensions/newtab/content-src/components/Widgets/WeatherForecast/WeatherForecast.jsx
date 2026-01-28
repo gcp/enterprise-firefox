@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+import React from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { LocationSearch } from "content-src/components/Weather/LocationSearch";
@@ -170,7 +171,7 @@ function WeatherForecast({ dispatch }) {
               />
             )}
             <panel-item
-              data-l10n-id="newtab-weather-menu-hide-weather"
+              data-l10n-id="newtab-weather-menu-hide-weather-v2"
               onClick={handleHideWeather}
             />
             <panel-item

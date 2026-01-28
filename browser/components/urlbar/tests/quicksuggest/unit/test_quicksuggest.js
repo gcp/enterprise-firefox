@@ -209,10 +209,7 @@ add_setup(async function init() {
 
   // Install a default test engine.
   let engine = await addTestSuggestionsEngine();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   UrlbarPrefs.set("quicksuggest.ampTopPickCharThreshold", 0);
 
@@ -1078,6 +1075,7 @@ add_task(async function dedupeAgainstURL_timestamps() {
     [dupeURL, ...badTimestampURLs].map(uri => ({
       uri,
       title: TIMESTAMP_SEARCH_STRING,
+      transition: PlacesUtils.history.TRANSITION_TYPED,
     }))
   );
 
@@ -1218,6 +1216,118 @@ add_task(async function dedupeAgainstURL_timestamps() {
 
   UrlbarPrefs.clear("suggest.searches");
   await PlacesUtils.history.clear();
+});
+
+add_task(async function show_less_frequently() {
+  UrlbarPrefs.set("suggest.quicksuggest.all", true);
+  UrlbarPrefs.set("suggest.quicksuggest.sponsored", true);
+  UrlbarPrefs.set("amp.showLessFrequentlyCount", 0);
+  UrlbarPrefs.set("amp.minKeywordLength", 0);
+
+  await QuickSuggestTestUtils.setConfig({
+    show_less_frequently_cap: 3,
+  });
+
+  let remoteSetting = REMOTE_SETTINGS_RESULTS[6];
+  let result = QuickSuggestTestUtils.ampResult({
+    title: remoteSetting.title,
+    url: remoteSetting.url,
+    fullKeyword: remoteSetting.full_keywords[0][0],
+    suggestedIndex: -1,
+  });
+
+  const testData = [
+    {
+      input: "amp full key",
+      before: {
+        canShowLessFrequently: true,
+        showLessFrequentlyCount: 0,
+        minKeywordLength: 0,
+      },
+      after: {
+        canShowLessFrequently: true,
+        showLessFrequentlyCount: 1,
+        minKeywordLength: 13,
+      },
+    },
+    {
+      input: "amp full keywor",
+      before: {
+        canShowLessFrequently: true,
+        showLessFrequentlyCount: 1,
+        minKeywordLength: 13,
+      },
+      after: {
+        canShowLessFrequently: true,
+        showLessFrequentlyCount: 2,
+        minKeywordLength: 16,
+      },
+    },
+    {
+      input: "amp full keyword",
+      before: {
+        canShowLessFrequently: true,
+        showLessFrequentlyCount: 2,
+        minKeywordLength: 16,
+      },
+      after: {
+        canShowLessFrequently: false,
+        showLessFrequentlyCount: 3,
+        minKeywordLength: 17,
+      },
+    },
+  ];
+
+  for (let { input, before, after } of testData) {
+    let feature = QuickSuggest.getFeature("AmpSuggestions");
+
+    await check_results({
+      context: createContext(input, {
+        providers: [UrlbarProviderQuickSuggest.name],
+        isPrivate: false,
+      }),
+      matches: [result],
+    });
+
+    Assert.equal(
+      UrlbarPrefs.get("amp.minKeywordLength"),
+      before.minKeywordLength
+    );
+    Assert.equal(feature.canShowLessFrequently, before.canShowLessFrequently);
+    Assert.equal(
+      feature.showLessFrequentlyCount,
+      before.showLessFrequentlyCount
+    );
+
+    triggerCommand({
+      result,
+      feature,
+      command: "show_less_frequently",
+      searchString: input,
+    });
+
+    Assert.equal(
+      UrlbarPrefs.get("amp.minKeywordLength"),
+      after.minKeywordLength
+    );
+    Assert.equal(feature.canShowLessFrequently, after.canShowLessFrequently);
+    Assert.equal(
+      feature.showLessFrequentlyCount,
+      after.showLessFrequentlyCount
+    );
+
+    await check_results({
+      context: createContext(input, {
+        providers: [UrlbarProviderQuickSuggest.name],
+        isPrivate: false,
+      }),
+      matches: [],
+    });
+  }
+
+  UrlbarPrefs.clear("amp.showLessFrequentlyCount");
+  UrlbarPrefs.clear("amp.minKeywordLength");
+  await QuickSuggestTestUtils.setConfig(QuickSuggestTestUtils.DEFAULT_CONFIG);
 });
 
 // Tests `UrlbarResult` dismissal.
@@ -1437,7 +1547,10 @@ add_task(async function tabToSearch() {
   let engine = SearchService.getEngineByName("Test");
 
   // Also need to add a visit to trigger TTS.
-  await PlacesTestUtils.addVisits(engineURL);
+  await PlacesTestUtils.addVisits({
+    url: engineURL,
+    transition: PlacesUtils.history.TRANSITION_TYPED,
+  });
 
   let context = createContext(SPONSORED_SEARCH_STRING, {
     isPrivate: false,

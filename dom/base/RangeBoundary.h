@@ -7,6 +7,8 @@
 #ifndef mozilla_RangeBoundary_h
 #define mozilla_RangeBoundary_h
 
+#include <fmt/format.h>
+
 #include "mozilla/Assertions.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -14,6 +16,7 @@
 #include "mozilla/dom/HTMLSlotElement.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "nsCOMPtr.h"
+#include "nsFmtString.h"
 #include "nsIContent.h"
 
 class nsRange;
@@ -83,6 +86,15 @@ using ConstRawRangeBoundary =
  */
 enum class RangeBoundarySetBy : bool { Offset = false, Ref = true };
 
+enum class RangeBoundaryFor {
+  // Use Start if the boundary is start of a non-collapsed range.
+  Start,
+  // Use End if the boundary is end of a non-collapsed range.
+  End,
+  // Use Collapsed if the boundary is for collapsed range start/end.
+  Collapsed,
+};
+
 // This class has two types of specializations, one using reference counting
 // pointers and one using raw pointers (both non-const and const versions). The
 // latter help us avoid unnecessary AddRef/Release calls.
@@ -123,6 +135,75 @@ class RangeBoundaryBase {
   static_assert(std::is_same_v<RawRefType, nsIContent> ||
                 std::is_same_v<RawRefType, const nsIContent>);
 
+ private:
+  /**
+   * Make an instance from "ref" which is the previous sibling of what the
+   * instance will point to.
+   */
+  [[nodiscard]] static RangeBoundaryBase FromRef(
+      RawRefType& aRef, TreeKind aTreeKind = TreeKind::DOM) {
+    nsINode* const parentNode = ComputeParentNode(&aRef, aTreeKind);
+    if (MOZ_UNLIKELY(!parentNode)) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    return RangeBoundaryBase(parentNode, &aRef, aTreeKind);
+  }
+
+ public:
+  /**
+   * Make an instance from a child node which the instance will point to.
+   */
+  [[nodiscard]] static RangeBoundaryBase FromChild(
+      RawRefType& aChild, TreeKind aTreeKind = TreeKind::DOM) {
+    nsINode* const parentNode = ComputeParentNode(&aChild, aTreeKind);
+    if (MOZ_UNLIKELY(!parentNode)) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    nsIContent* const ref = ComputeRef(parentNode, &aChild, aTreeKind);
+    return RangeBoundaryBase(parentNode, ref, aTreeKind);
+  }
+
+  /**
+   * Make an instance pointing after aChild.
+   */
+  [[nodiscard]] static RangeBoundaryBase After(
+      RawRefType& aChild, TreeKind aTreeKind = TreeKind::DOM) {
+    // If the caller wants a point after aChild, we can use aChild as the ref.
+    return FromRef(aChild, aTreeKind);
+  }
+
+  /**
+   * Make an instance which points to the start of aParent.
+   */
+  [[nodiscard]] static RangeBoundaryBase StartOfParent(
+      RawParentType& aParent,
+      RangeBoundarySetBy aPointTo = RangeBoundarySetBy::Ref,
+      TreeKind aTreeKind = TreeKind::DOM) {
+    if (MOZ_UNLIKELY(aParent.NodeType() == nsINode::DOCUMENT_TYPE_NODE)) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    return RangeBoundaryBase(&aParent, nullptr, 0, aPointTo, aTreeKind);
+  }
+
+  /**
+   * Make an instance which points to the end of aParent.
+   */
+  [[nodiscard]] static RangeBoundaryBase EndOfParent(
+      RawParentType& aParent,
+      RangeBoundarySetBy aSetBy = RangeBoundarySetBy::Ref,
+      TreeKind aTreeKind = TreeKind::DOM) {
+    if (MOZ_UNLIKELY(aParent.NodeType() == nsINode::DOCUMENT_TYPE_NODE)) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    if (aSetBy == RangeBoundarySetBy::Ref && aParent.IsContainerNode()) {
+      MOZ_ASSERT(!aParent.IsCharacterData());
+      nsIContent* const lastChild = ComputeLastChild(&aParent, aTreeKind);
+      return RangeBoundaryBase(&aParent, lastChild, aTreeKind);
+    }
+    const uint32_t length = ComputeLength(&aParent, aTreeKind);
+    return RangeBoundaryBase(&aParent, length, aSetBy, aTreeKind);
+  }
+
   RangeBoundaryBase(RawParentType* aContainer, RawRefType* aRef,
                     TreeKind aTreeKind = TreeKind::DOM)
       : mParent(aContainer),
@@ -133,11 +214,29 @@ class RangeBoundaryBase {
         aTreeKind == TreeKind::DOM || aTreeKind == TreeKind::Flat,
         "Only TreeKind::DOM and TreeKind::Flat are valid at the moment.");
     if (mRef) {
-      NS_WARNING_ASSERTION(IsValidParent(mParent, mRef),
-                           "Initializing RangeBoundary with invalid value");
+      NS_WARNING_ASSERTION(
+          IsValidParent(mParent, mRef),
+          nsFmtCString(
+              FMT_STRING(
+                  "Constructing RangeBoundary with invalid value:\nthis={}"),
+              *this)
+              .get());
+      MOZ_ASSERT(IsValidParent(mParent, mRef),
+                 "Initializing RangeBoundary with invalid value");
     } else {
       mOffset.emplace(0);
     }
+  }
+
+  [[nodiscard]] static RangeBoundaryBase MakeIfValidRef(
+      RawParentType* aContainer, RawRefType* aRef,
+      TreeKind aTreeKind = TreeKind::DOM) {
+    if (MOZ_UNLIKELY(!aContainer ||
+                     aContainer->NodeType() == nsINode::DOCUMENT_TYPE_NODE ||
+                     (aRef && !IsValidParent(aContainer, aRef, aTreeKind)))) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    return RangeBoundaryBase(aContainer, aRef, aTreeKind);
   }
 
   RangeBoundaryBase(RawParentType* aContainer, uint32_t aOffset,
@@ -151,7 +250,12 @@ class RangeBoundaryBase {
     MOZ_ASSERT(
         aTreeKind == TreeKind::DOM || aTreeKind == TreeKind::Flat,
         "Only TreeKind::DOM and TreeKind::Flat are valid at the moment.");
-    if (IsSetByRef() && mParent && mParent->IsContainerNode()) {
+    if (IsSetByOffset()) {
+      // If aPointTo is "Offset", this may be created for a StaticRange so that
+      // we may not need to warn invalid boundary.
+      return;
+    }
+    if (mParent && mParent->IsContainerNode()) {
       // Find a reference node
       if (aOffset == GetLength(mParent)) {
         mRef = GetLastChild(mParent);
@@ -160,35 +264,151 @@ class RangeBoundaryBase {
       }
       NS_WARNING_ASSERTION(
           mRef || aOffset == 0,
-          nsPrintfCString("Constructing RangeBoundary with invalid "
-                          "value:\nthis=%s",
-                          ToString(*this).c_str())
+          nsFmtCString(
+              FMT_STRING(
+                  "Constructing RangeBoundary with invalid value:\nthis={}"),
+              *this)
               .get());
+      MOZ_ASSERT(mRef || aOffset == 0);
+      return;
     }
-    NS_WARNING_ASSERTION(!mRef || IsValidParent(mParent, mRef),
-                         "Constructing RangeBoundary with invalid value");
+    NS_WARNING_ASSERTION(
+        !mRef || IsValidParent(mParent, mRef),
+        nsFmtCString(
+            FMT_STRING(
+                "Constructing RangeBoundary with invalid value:\nthis={}"),
+            *this)
+            .get());
+    MOZ_ASSERT(!mRef || IsValidParent(mParent, mRef));
+  }
+
+  [[nodiscard]] static RangeBoundaryBase MakeIfValidOffset(
+      RawParentType* aContainer, uint32_t aOffset,
+      RangeBoundarySetBy aSetBy = RangeBoundarySetBy::Ref,
+      TreeKind aTreeKind = TreeKind::DOM) {
+    if (MOZ_UNLIKELY(!aContainer ||
+                     aContainer->NodeType() == nsINode::DOCUMENT_TYPE_NODE ||
+                     aOffset > ComputeLength(aContainer, aTreeKind))) {
+      return RangeBoundaryBase(aTreeKind);
+    }
+    return RangeBoundaryBase(aContainer, aOffset, aSetBy, aTreeKind);
   }
 
   [[nodiscard]] TreeKind GetTreeKind() const { return mTreeKind; }
 
-  RangeBoundaryBase AsRangeBoundaryInFlatTree() const {
-    // FIXME: Here does wrong things mParent may be not a proper flat tree
-    // parent of mRef if mTreeKind == TreeKind::DOM.  Additionally, mOffset and
-    // mRef may be different when the child node is in flat tree.  Therefore, we
-    // need to recompute mRef and mOffset too.
-    if (mOffset) {
-      if (mTreeKind == TreeKind::Flat) {
-        MOZ_ASSERT_IF(IsSet(), IsSetAndValid());
-        return RangeBoundaryBase(mParent, mRef, *mOffset, mSetBy,
-                                 TreeKind::Flat);
-      }
-      // We don't assert IsSetAndValid() here because it's possible
-      // that a RangeBoundary is not valid for TreeKind::DOM but valid
-      // for TreeKind::Flat.
+  RangeBoundaryBase AsRangeBoundaryInFlatTree(RangeBoundaryFor aFor) const {
+    if (mTreeKind == TreeKind::Flat) {
+      return *this;
+    }
+    MOZ_ASSERT(IsSet());
+    if (!mParent->IsContainerNode()) {
+      MOZ_ASSERT(mOffset);
       return RangeBoundaryBase(mParent, *mOffset, mSetBy, TreeKind::Flat);
     }
-    MOZ_ASSERT_IF(IsSet(), IsSetAndValid());
-    return RangeBoundaryBase(mParent, mRef, TreeKind::Flat);
+    enum class ChildKind : bool { ChildAtOffset, Ref };
+    // The child node which we're pointing may have different parent node in the
+    // flat tree.  E.g., the child node is slotted into a <slot>, the child node
+    // is a child of ShadowRoot.  Therefore, we need to compute proper container
+    // from the pointing child.
+    const auto ComputeRangeBoundaryInFlatTreeFromChildNode =
+        [&](RawRefType* aChild, ChildKind aChildKind) {
+          RangeBoundaryBase ret = aChildKind == ChildKind::ChildAtOffset
+                                      ? FromChild(*aChild, TreeKind::Flat)
+                                      : FromRef(*aChild, TreeKind::Flat);
+          if (MOZ_LIKELY(ret.IsSet())) {
+            return ret;
+          }
+          // If we're pointing a node which won't appear in the flat tree, the
+          // parent must be a shadow host.  Let's return start or end of the
+          // shadow root.
+          dom::ShadowRoot* const shadowRoot =
+              mParent->GetShadowRootForSelection();
+          MOZ_ASSERT(shadowRoot);
+          MOZ_ASSERT(aChild->GetContainingShadow() != shadowRoot);
+          // See nsContentUtils::ComparePointsWithIndices(), we treat the offset
+          // of `ShadowRoot` as `0.5`.  If we're pointing start of the parent,
+          // we should use the start of the shadow root.  Otherwise, we should
+          // use the end of the shadow root.
+          return IsStartOfContainer()
+                     ? StartOfParent(*shadowRoot, mSetBy, TreeKind::Flat)
+                     : EndOfParent(*shadowRoot, mSetBy, TreeKind::Flat);
+        };
+    // Each RangeBoundaryBase instance may have implicit "direction".  There are
+    // following scenarios:
+    // 1. Created for start boundary of a non-collapsed range
+    // 2. Created for end boundary of a non-collapsed range
+    // 3. Created for a collapsed range
+    // 4. Created for the other purposes to point a child node or an offset.
+    // In #1, the child node at the offset is what the setter focuses.
+    // On the other hand, in #2 and #3, the previous sibling of the child node
+    // at the offset is what the setter focus.  Unfortunately, a child node
+    // and its previous sibling may keep the relation in the flat tree.
+    // Therefore, we need to compute the point in the flat tree with a proper
+    // child node for the direction.
+    // In #4, the caller should consider how this instance should be treated as.
+    if (aFor == RangeBoundaryFor::Start) {
+      // If we're pointing a child node, return the point in the flat tree
+      // parent of the child node at the offset because the setter wanted the
+      // point at the offset.
+      if (RawRefType* const child = GetChildAtOffset()) {
+        return ComputeRangeBoundaryInFlatTreeFromChildNode(
+            child, ChildKind::ChildAtOffset);
+      }
+      // Otherwise, we're pointing the end of the container in the DOM tree.
+      // If there is a ref, we should use it because we can guess that the
+      // setter wanted to point AFTER the last child rather than the end of the
+      // container.
+      if (RawRefType* const lastChild = Ref()) {
+        return ComputeRangeBoundaryInFlatTreeFromChildNode(lastChild,
+                                                           ChildKind::Ref);
+      }
+    } else {
+      MOZ_ASSERT(aFor == RangeBoundaryFor::End ||
+                 aFor == RangeBoundaryFor::Collapsed);
+      // If we're for an end boundary of a range (or the boundary is for a
+      // collapsed range) and we are not pointing the start of the container,
+      // return the point in the flat tree parent of the ref because the setter
+      // must have wanted the point AFTER the ref.
+      if (RawRefType* const ref = Ref()) {
+        return ComputeRangeBoundaryInFlatTreeFromChildNode(ref, ChildKind::Ref);
+      }
+      // Otherwise, we're pointing the start of the container in the DOM tree.
+      // If there is the first child node, return the point in the flat tree
+      // parent of the first child node because we can guess that the setter
+      // wanted to point BEFORE the first child rather than the start of the
+      // container.
+      if (RawRefType* const child = GetChildAtOffset()) {
+        return ComputeRangeBoundaryInFlatTreeFromChildNode(
+            child, ChildKind::ChildAtOffset);
+      }
+    }
+    // Otherwise, return the point in the empty parent.
+    MOZ_ASSERT(!mParent->HasChildNodes());
+    return EndOfParent(*mParent, mSetBy, TreeKind::Flat);
+  }
+
+  RangeBoundaryBase AsRangeBoundaryInDOMTree() const {
+    if (mTreeKind == TreeKind::DOM) {
+      return *this;
+    }
+    MOZ_ASSERT(IsSet());
+    if (!mParent->IsContainerNode()) {
+      MOZ_ASSERT(mOffset);
+      return RangeBoundaryBase(mParent, *mOffset, mSetBy, TreeKind::DOM);
+    }
+    // If we're pointing a child node, let's recompute the point in the non-flat
+    // tree from the child node.
+    if (nsIContent* const child = GetChildAtOffset()) {
+      return FromChild(*child, TreeKind::DOM);
+    }
+    // Otherwise, we're pointing the end of the container in the flat tree.
+    // If the last children are assigned to a slot, let's return after the last
+    // assigned node.
+    if (nsIContent* const lastChild = GetLastChild(mParent)) {
+      return FromRef(*lastChild, TreeKind::DOM);
+    }
+    // Okay, there is no child in mParent, let's return end of it.
+    return EndOfParent(*mParent, mSetBy, TreeKind::DOM);
   }
 
   /**
@@ -261,9 +481,8 @@ class RangeBoundaryBase {
       // `mParent` anymore.
       // If the returned index for `mRef` does not match to `mOffset`, `mRef`
       // needs to be updated.
-      auto indexOfRefObject = mTreeKind == TreeKind::DOM
-                                  ? mParent->ComputeIndexOf(mRef)
-                                  : mParent->ComputeFlatTreeIndexOf(mRef);
+      const Maybe<uint32_t> indexOfRefObject =
+          mRef ? ComputeIndexOf(mParent, mRef, mTreeKind) : Nothing();
       if (indexOfRefObject.isNothing() || *mOffset != *indexOfRefObject + 1) {
         mRef = GetChildAt(mParent, *mOffset - 1);
       }
@@ -296,15 +515,25 @@ class RangeBoundaryBase {
       }
       MOZ_ASSERT_IF(mTreeKind == TreeKind::DOM,
                     *Offset(OffsetFilter::kValidOrInvalidOffsets) == 0);
-      NS_ASSERTION(*Offset(OffsetFilter::kValidOrInvalidOffsets) == 0,
-                   nsPrintfCString("Invalid range boundary:\nthis=%s",
-                                   ToString(*this).c_str())
-                       .get());
+      NS_ASSERTION(
+          *Offset(OffsetFilter::kValidOrInvalidOffsets) == 0,
+          nsFmtCString(FMT_STRING("Invalid range boundary:\nthis=%{}"), *this)
+              .get());
       return GetFirstChild(mParent);
     }
-    MOZ_ASSERT(
+    NS_ASSERTION(
         GetChildAt(mParent, *Offset(OffsetFilter::kValidOrInvalidOffsets)) ==
-        GetNextSibling(ref));
+            GetNextSibling(ref),
+        nsFmtCString(
+            "Invalid range "
+            "boundary:\nthis={}\nGetChildAt()={}\nGetNextSibling(ref)={}\n",
+            *this,
+            ToString(
+                RefPtr{GetChildAt(
+                    mParent, *Offset(OffsetFilter::kValidOrInvalidOffsets))})
+                .c_str(),
+            ToString(RefPtr{GetNextSibling(ref)}).c_str())
+            .get());
     return GetNextSibling(ref);
   }
 
@@ -327,13 +556,13 @@ class RangeBoundaryBase {
       MOZ_ASSERT(*Offset(OffsetFilter::kValidOffsets) == 0,
                  "invalid RangeBoundary");
       nsIContent* firstChild = GetFirstChild(mParent);
-      if (NS_WARN_IF(!firstChild)) {
+      if (!firstChild) {
         // Already referring the end of the container.
         return nullptr;
       }
       return GetNextSibling(firstChild);
     }
-    if (NS_WARN_IF(!GetNextSibling(ref))) {
+    if (!GetNextSibling(ref)) {
       // Already referring the end of the container.
       return nullptr;
     }
@@ -350,7 +579,7 @@ class RangeBoundaryBase {
       return nullptr;
     }
     RawRefType* const ref = Ref();
-    if (NS_WARN_IF(!ref)) {
+    if (!ref) {
       // Already referring the start of the container.
       return nullptr;
     }
@@ -406,6 +635,22 @@ class RangeBoundaryBase {
     return Some(kFallbackOffset);
   }
 
+  [[nodiscard]] static Maybe<uint32_t> ComputeIndexOf(const nsINode* aParent,
+                                                      const nsIContent* aChild,
+                                                      TreeKind aKind) {
+    MOZ_ASSERT(aParent);
+    MOZ_ASSERT(aChild);
+    if (aKind == TreeKind::DOM) {
+      return aParent->ComputeIndexOf(aChild);
+    }
+    // If aParent has a shadow root which is for <use> or a UI widget, we
+    // shouldn't treat it as a shadow host.
+    if (aParent->GetShadowRoot() && !aParent->GetShadowRootForSelection()) {
+      return aParent->ComputeIndexOf(aChild);
+    }
+    return aParent->ComputeFlatTreeIndexOf(aChild);
+  }
+
   friend std::ostream& operator<<(
       std::ostream& aStream,
       const RangeBoundaryBase<ParentType, RefType>& aRangeBoundary) {
@@ -428,6 +673,11 @@ class RangeBoundaryBase {
     return aStream;
   }
 
+  friend auto format_as(
+      const RangeBoundaryBase<ParentType, RefType>& aRangeBoundary) {
+    return ToString(aRangeBoundary);
+  }
+
  private:
   void DetermineOffsetFromReference() const {
     MOZ_ASSERT(mParent);
@@ -442,12 +692,40 @@ class RangeBoundaryBase {
       return;
     }
 
-    const Maybe<uint32_t> index = mTreeKind == TreeKind::DOM
-                                      ? mParent->ComputeIndexOf(mRef)
-                                      : mParent->ComputeFlatTreeIndexOf(mRef);
-
+    const Maybe<uint32_t> index = ComputeIndexOf(mParent, mRef, mTreeKind);
+    NS_WARNING_ASSERTION(
+        index.isSome(),
+        nsFmtCString(
+            FMT_STRING("mRef is not a child of mParent:\nthis={}\nmRef is in "
+                       "shadow tree={}\n"),
+            *this, YesOrNo(mRef && mRef->IsInShadowTree()))
+            .get());
     MOZ_ASSERT(*index != UINT32_MAX);
     mOffset.emplace(MOZ_LIKELY(index.isSome()) ? *index + 1u : 0u);
+  }
+
+  // FIXME: HTMLSlotElement should have this as an API.
+  static bool SlotElementIsForSelection(const dom::HTMLSlotElement& aSlot) {
+    dom::ShadowRoot* const shadowRoot = aSlot.GetContainingShadow();
+    if (MOZ_UNLIKELY(!shadowRoot)) {
+      return true;  // XXX Correct?
+    }
+    if (shadowRoot->IsUAWidget()) {
+      return false;  // <details>, <video>, etc.
+    }
+    dom::Element* const host = shadowRoot->GetHost();
+    if (!host) {
+      return true;
+    }
+    return host->CanAttachShadowDOM();  // Not an SVG <use>, etc.
+  }
+
+  // FIXME: nsINode should have this as an API.
+  static const dom::HTMLSlotElement* GetAsSlotForSelection(
+      const nsINode* aNode) {
+    const dom::HTMLSlotElement* const slot =
+        dom::HTMLSlotElement::FromNode(aNode);
+    return slot && SlotElementIsForSelection(*slot) ? slot : nullptr;
   }
 
   RawRefType* GetNextSibling(const nsIContent* aCurrentNode) const {
@@ -455,12 +733,15 @@ class RangeBoundaryBase {
     MOZ_ASSERT(aCurrentNode);
 
     if (mTreeKind == TreeKind::Flat) {
-      if (const auto* slot = dom::HTMLSlotElement::FromNode(mParent)) {
+      if (const auto* slot = GetAsSlotForSelection(mParent)) {
         const Span assigned = slot->AssignedNodes();
-        const auto index = assigned.IndexOf(aCurrentNode);
-        if (index != assigned.npos && index + 1 < assigned.Length()) {
-          if (auto* nextSibling = RawRefType::FromNode(assigned[index + 1])) {
-            return nextSibling;
+        if (!assigned.IsEmpty()) {
+          const auto index = assigned.IndexOf(aCurrentNode);
+          if (NS_WARN_IF(index == decltype(assigned)::npos)) {
+            return nullptr;  // The node is not in the flat tree.
+          }
+          if (index + 1 < assigned.Length()) {
+            return RawRefType::FromNode(assigned[index + 1]);
           }
           return nullptr;
         }
@@ -469,10 +750,43 @@ class RangeBoundaryBase {
     return aCurrentNode->GetNextSibling();
   }
 
+  [[nodiscard]] static nsIContent* ComputeRef(const nsINode* aParent,
+                                              const nsIContent* aChild,
+                                              TreeKind aKind) {
+    MOZ_ASSERT(aParent);
+    MOZ_ASSERT(aChild);
+    MOZ_ASSERT(aParent == ComputeParentNode(aChild, aKind));
+    if (aKind == TreeKind::Flat) {
+      if (const auto* slot = GetAsSlotForSelection(aParent)) {
+        const Span assigned = slot->AssignedNodes();
+        if (!assigned.IsEmpty()) {
+          const auto index = assigned.IndexOf(aChild);
+          if (NS_WARN_IF(index == decltype(assigned)::npos)) {
+            return nullptr;  // The node is not in the flat tree.
+          }
+          if (index) {
+            return nsIContent::FromNode(assigned[index - 1]);
+          }
+          return nullptr;
+        }
+      }
+    }
+    nsIContent* const prevSibling = aChild->GetPreviousSibling();
+    NS_ASSERTION(
+        !prevSibling || aParent == ComputeParentNode(prevSibling, aKind),
+        nsFmtCString(
+            FMT_STRING("Invalid previous "
+                       "sibling:\npreviousSibling={}\naChild={}\naParent={}"),
+            ToString(RefPtr{prevSibling}).c_str(),
+            ToString(RefPtr{aChild}).c_str(), ToString(RefPtr{aParent}).c_str())
+            .get());
+    return prevSibling;
+  }
+
   RawRefType* GetFirstChild(const nsINode* aNode) const {
     MOZ_ASSERT(aNode);
     if (mTreeKind == TreeKind::Flat) {
-      if (const auto* slot = dom::HTMLSlotElement::FromNode(aNode)) {
+      if (const auto* slot = GetAsSlotForSelection(aNode)) {
         const Span assigned = slot->AssignedNodes();
         if (!assigned.IsEmpty()) {
           if (RawRefType* child = RawRefType::FromNode(assigned[0])) {
@@ -482,70 +796,124 @@ class RangeBoundaryBase {
         }
       }
 
-      if (const auto* shadowRoot = aNode->GetShadowRoot()) {
+      if (const auto* shadowRoot = aNode->GetShadowRootForSelection()) {
         return shadowRoot->GetFirstChild();
       }
     }
     return aNode->GetFirstChild();
   }
 
-  bool IsValidParent(const nsINode* aParent, const nsIContent* aChild) const {
-    MOZ_ASSERT(aParent);
+  [[nodiscard]] static nsINode* ComputeParentNode(const nsIContent* aChild,
+                                                  TreeKind aKind) {
     MOZ_ASSERT(aChild);
-    if (mTreeKind == TreeKind::Flat) {
-      if (const auto* slot = aChild->GetAssignedSlot()) {
-        return slot == aParent;
-      }
+    if (aKind == TreeKind::DOM) {
+      return aChild->GetParentNode();
+    }
 
-      if (const auto* shadowRoot =
-              dom::ShadowRoot::FromNodeOrNull(aChild->GetParent())) {
-        if (shadowRoot->GetHost() == aParent) {
-          return true;
-        }
+    if (dom::HTMLSlotElement* const slot = aChild->GetAssignedSlot()) {
+      if (SlotElementIsForSelection(*slot)) {
+        return slot;
       }
     }
-    return aChild->GetParentNode() == aParent;
+
+    nsINode* const parentNode = aChild->GetParentNode();
+    if (!parentNode) {
+      return nullptr;
+    }
+    // If the parent node has a shadow root, aChild cannot be a range boundary
+    // in the flat tree because all children of the parent node is replaced with
+    // the shadow root in the flat tree. So, it can appears in the flat tree
+    // only when it's slotted.
+    if (parentNode->GetShadowRootForSelection()) {
+      return nullptr;
+    }
+    // If aChild is a child of a ShadowRoot which is for <use> or a UA widget,
+    // we want to put it into the host because the ShadowRoot is a native one,
+    // not visible from the web.
+    if (const dom::ShadowRoot* const shadowRoot = parentNode->GetShadowRoot()) {
+      return shadowRoot->GetHost();
+    }
+    // Don't use shadow host as parent node if aChild is a child of a
+    // ShadowRoot even though we allow the relation in IsValidParent().
+    // If we return the host, `Selection` will make wrong composed range.
+    return parentNode;
   }
 
-  uint32_t GetLength(const nsINode* aNode) const {
+  [[nodiscard]] static bool IsValidParent(const nsINode* aParent,
+                                          const nsIContent* aChild,
+                                          TreeKind aKind) {
+    MOZ_ASSERT(aParent);
+    MOZ_ASSERT(aChild);
+    if (aParent == ComputeParentNode(aChild, aKind)) {
+      return true;
+    }
+    if (aKind == TreeKind::Flat) {
+      // It's okay if aParent is a host of a shadow tree and aChild is a child
+      // of the ShadowRoot.
+      if (aParent->GetShadowRootForSelection() == aChild->GetParentNode()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  [[nodiscard]] bool IsValidParent(const nsINode* aParent,
+                                   const nsIContent* aChild) const {
+    return IsValidParent(aParent, aChild, mTreeKind);
+  }
+
+  [[nodiscard]] static uint32_t ComputeLength(const nsINode* aNode,
+                                              TreeKind aKind) {
     MOZ_ASSERT(aNode);
-    if (mTreeKind == TreeKind::Flat) {
-      if (const auto* slot = dom::HTMLSlotElement::FromNode(aNode)) {
+    if (aKind == TreeKind::Flat) {
+      if (const auto* slot = GetAsSlotForSelection(aNode)) {
         const Span assigned = slot->AssignedNodes();
         if (!assigned.IsEmpty()) {
           return assigned.Length();
         }
       }
 
-      if (const auto* shadowRoot = aNode->GetShadowRoot()) {
+      if (const auto* shadowRoot = aNode->GetShadowRootForSelection()) {
         return shadowRoot->Length();
       }
     }
     return aNode->Length();
   }
 
-  RawRefType* GetChildAt(const nsINode* aParent, uint32_t aOffset) const {
-    MOZ_ASSERT(aParent);
-    return mTreeKind == TreeKind::Flat
-               ? RawRefType::FromNodeOrNull(
-                     aParent->GetChildAtInFlatTree(aOffset))
-               : aParent->GetChildAt_Deprecated(aOffset);
+  [[nodiscard]] uint32_t GetLength(const nsINode* aNode) const {
+    return ComputeLength(aNode, mTreeKind);
   }
 
-  RawRefType* GetLastChild(const nsINode* aParent) const {
+  RawRefType* GetChildAt(const nsINode* aParent, uint32_t aOffset) const {
     MOZ_ASSERT(aParent);
-    if (mTreeKind == TreeKind::Flat) {
-      if (const auto* slot = dom::HTMLSlotElement::FromNode(aParent)) {
+    if (mTreeKind == TreeKind::DOM) {
+      return aParent->GetChildAt_Deprecated(aOffset);
+    }
+    if (aParent->GetShadowRoot() && !aParent->GetShadowRootForSelection()) {
+      return aParent->GetChildAt_Deprecated(aOffset);
+    }
+    return nsIContent::FromNodeOrNull(aParent->GetChildAtInFlatTree(aOffset));
+  }
+
+  [[nodiscard]] static nsIContent* ComputeLastChild(const nsINode* aParent,
+                                                    TreeKind aKind) {
+    MOZ_ASSERT(aParent);
+    if (aKind == TreeKind::Flat) {
+      if (const auto* slot = GetAsSlotForSelection(aParent)) {
         const Span assigned = slot->AssignedNodes();
         if (!assigned.IsEmpty()) {
           return RawRefType::FromNode(assigned[assigned.Length() - 1]);
         }
       }
-      if (const auto* shadowRoot = aParent->GetShadowRoot()) {
+      if (const auto* shadowRoot = aParent->GetShadowRootForSelection()) {
         return shadowRoot->GetLastChild();
       }
     }
     return aParent->GetLastChild();
+  }
+
+  [[nodiscard]] nsIContent* GetLastChild(const nsINode* aParent) const {
+    return ComputeLastChild(aParent, mTreeKind);
   }
 
   void InvalidateOffset() {
@@ -602,7 +970,8 @@ class RangeBoundaryBase {
   }
 
   bool IsSetAndValid() const {
-    if (!IsSet()) {
+    if (!IsSet() ||
+        MOZ_UNLIKELY(mParent->NodeType() == nsINode::DOCUMENT_TYPE_NODE)) {
       return false;
     }
 
