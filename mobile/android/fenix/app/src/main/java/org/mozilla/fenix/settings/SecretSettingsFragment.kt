@@ -394,6 +394,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreference>(R.string.pref_key_enable_shake_to_summarize).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = context.settings().shakeToSummarizeFeatureEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreference>(R.string.pref_key_persistent_debug_menu).apply {
             isVisible = true
             isChecked = context.settings().isDebugMenuPersistentlyRevealed
@@ -403,12 +409,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
         requirePreference<SwitchPreference>(R.string.pref_key_crash_pull_never_show_again).apply {
             isVisible = true
             isChecked = context.settings().crashPullNeverShowAgain
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<SwitchPreference>(R.string.pref_key_tab_manager_enhancements).apply {
-            isVisible = true
-            isChecked = context.settings().tabManagerEnhancementsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 

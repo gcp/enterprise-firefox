@@ -30,6 +30,16 @@ android {
                 arguments += ["room.incremental": "true"]
             }
         }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            // We use this in androidTest to disable tests which will fail without the crashreporter
+            // enabled (since they rely on the crashtools binary).
+            buildConfigField 'boolean', 'MOZ_CRASHREPORTER', gradle.mozconfig.substs.MOZ_CRASHREPORTER ? 'true' : 'false';
+        }
     }
 
     sourceSets {
@@ -81,6 +91,14 @@ dependencies {
     testImplementation libs.mozilla.glean
     testImplementation libs.mozilla.glean.forUnitTests
     testImplementation libs.robolectric
+
+    androidTestImplementation project(':components:support-android-test')
+    androidTestImplementation libs.androidx.test.junit
+    androidTestImplementation libs.mozilla.glean
+
+    // Depend on browser-engine-gecko to get the libcrashtools.so binary for tests. We don't use jniLibs because it
+    // is only available as part of the geckoview APK artifact in CI.
+    androidTestRuntimeOnly project(':components:browser-engine-gecko')
 }
 
 ext {

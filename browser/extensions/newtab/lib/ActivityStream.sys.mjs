@@ -791,6 +791,20 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "discoverystream.dailyBrief.v2.enabled",
+    {
+      title: "Boolean flag to enable daily brief v2 with Briefing Card",
+      value: false,
+    },
+  ],
+  [
+    "discoverystream.sections.layout",
+    {
+      title: "CSV string of section layouts configs",
+      value: "7-double-row-2-ad",
+    },
+  ],
+  [
     "discoverystream.shortcuts.personalization.enabled",
     {
       title: "Boolean flag to enable shortcuts personalization",

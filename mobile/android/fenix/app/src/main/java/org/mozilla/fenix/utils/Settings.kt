@@ -2556,6 +2556,14 @@ class Settings(
     )
 
     /**
+     * Indicates if the Shake to Summarize feature is enabled.
+     */
+    var shakeToSummarizeFeatureEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_shake_to_summarize),
+        default = Config.channel.isDebug,
+    )
+
+    /**
      * Indicates if a microsurvey should be shown to the user.
      */
     var shouldShowMicrosurveyPrompt by booleanPreference(
@@ -2836,14 +2844,6 @@ class Settings(
     var distributionId by stringPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_distribution_id),
         default = "",
-    )
-
-    /**
-     * Whether the Tab Manager enhancements are enabled.
-     */
-    var tabManagerEnhancementsEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_tab_manager_enhancements),
-        default = { DefaultTabManagementFeatureHelper.enhancementsEnabled },
     )
 
     /**

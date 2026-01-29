@@ -4004,7 +4004,10 @@ class _DSCard extends (external_React_default()).PureComponent {
       "data-l10n-id": `newtab-topic-label-${this.props.topic}`
     }), /*#__PURE__*/external_React_default().createElement("div", {
       className: "img-wrapper"
-    }, images), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
+    }, images, this.props.isDailyBriefV2 && this.props.topic && /*#__PURE__*/external_React_default().createElement("span", {
+      className: "ds-card-daily-brief-topic",
+      "data-l10n-id": `newtab-topic-label-${this.props.topic}`
+    })), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
       flightId: this.props.flightId,
       rows: [{
         id: this.props.id,
@@ -10181,7 +10184,8 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
 
     result.forEach(section => {
       const { sectionKey } = section;
-      section.data = sectionsMap[sectionKey];
+      const sectionRecs = sectionsMap[sectionKey] || [];
+      section.data = sectionRecs.filter(rec => !rec.isHeadline);
     });
 
     return result;
@@ -10249,15 +10253,23 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
             sections: handleSections(data.sections, data.recommendations).map(
               section => {
                 const sectionsSpocsPositions = [];
-                section.layout.responsiveLayouts
-                  // Initial position for spocs is going to be for the smallest breakpoint.
-                  // We can then move it from there via breakpoints.
-                  .find(item => item.columnCount === 1)
-                  .tiles.forEach(tile => {
-                    if (tile.hasAd) {
-                      sectionsSpocsPositions.push({ index: tile.position });
-                    }
-                  });
+                const smallestBreakpointLayout =
+                  section.layout.responsiveLayouts
+                    // Initial position for spocs is going to be for the smallest breakpoint.
+                    // We can then move it from there via breakpoints.
+                    .find(item => item.columnCount === 1);
+
+                smallestBreakpointLayout.tiles.forEach(tile => {
+                  if (tile.hasAd) {
+                    const widgetsBeforeThisPosition =
+                      smallestBreakpointLayout.tiles.filter(
+                        t => t.allowsWidget && t.position < tile.position
+                      ).length;
+                    const adjustedPosition =
+                      tile.position - widgetsBeforeThisPosition;
+                    sectionsSpocsPositions.push({ index: adjustedPosition });
+                  }
+                });
                 return {
                   ...section,
                   data: handleSpocs(
@@ -11194,10 +11206,112 @@ const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state =>
   IntersectionObserver: globalThis.IntersectionObserver,
   document: globalThis.document
 }))(_Weather);
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/BriefingCard/BriefingCard.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+const TIMESTAMP_DISPLAY_DURATION = 15 * 60 * 1000;
+
+/**
+ * The BriefingCard component displays "In The Know" headlines.
+ * It is the first card in the "Your Briefing" section.
+ */
+const BriefingCard = ({
+  sectionClassNames = "",
+  headlines = [],
+  lastUpdated
+}) => {
+  const [showTimestamp, setShowTimestamp] = (0,external_React_namespaceObject.useState)(false);
+  const [timeAgo, setTimeAgo] = (0,external_React_namespaceObject.useState)("");
+  const [isDismissed, setIsDismissed] = (0,external_React_namespaceObject.useState)(false);
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    const menuOption = LinkMenuOptions.BlockUrls(headlines, 0, "DAILY_BRIEFING");
+    dispatch(menuOption.action);
+  };
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!lastUpdated) {
+      setShowTimestamp(false);
+      return undefined;
+    }
+    const updateTimestamp = () => {
+      const now = Date.now();
+      const timeSinceUpdate = now - lastUpdated;
+
+      // Only show a timestamp for the first 15 minutes after feed refresh.
+      // This avoids showing an outdated timestamp for a cached version of the feed.
+      if (now - lastUpdated < TIMESTAMP_DISPLAY_DURATION) {
+        setShowTimestamp(true);
+        const minutes = Math.ceil(timeSinceUpdate / 60000);
+        setTimeAgo(minutes);
+      } else {
+        setShowTimestamp(false);
+      }
+    };
+    updateTimestamp();
+    const interval = setInterval(updateTimestamp, 60000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+  if (isDismissed || headlines.length === 0) {
+    return null;
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: `briefing-card ${sectionClassNames}`
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "briefing-card-context-menu-button",
+    iconSrc: "chrome://global/skin/icons/more.svg",
+    menuId: "briefing-card-menu",
+    type: "ghost"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    id: "briefing-card-menu"
+  }, /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-daily-briefing-card-menu-dismiss",
+    onClick: handleDismiss
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-header"
+  }, /*#__PURE__*/external_React_default().createElement("h3", {
+    className: "briefing-card-title",
+    "data-l10n-id": "newtab-daily-briefing-card-title"
+  }), showTimestamp && /*#__PURE__*/external_React_default().createElement("span", {
+    className: "briefing-card-timestamp",
+    "data-l10n-id": "newtab-daily-briefing-card-timestamp",
+    "data-l10n-args": JSON.stringify({
+      minutes: timeAgo
+    })
+  })), /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("ol", {
+    className: "briefing-card-headlines"
+  }, headlines.map(headline => /*#__PURE__*/external_React_default().createElement("li", {
+    key: headline.id,
+    className: "briefing-card-headline"
+  }, /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
+    url: headline.url,
+    dispatch: dispatch,
+    className: "briefing-card-headline-link",
+    title: headline.title
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-headline-title"
+  }, headline.title), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-headline-footer"
+  }, headline.icon_src && /*#__PURE__*/external_React_default().createElement("img", {
+    src: headline.icon_src,
+    alt: "",
+    className: "briefing-card-headline-icon"
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "briefing-card-headline-source"
+  }, headline.publisher)))))));
+};
+
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/CardSections/CardSections.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -11228,11 +11342,16 @@ const CardSections_PREF_LEADERBOARD_POSITION = "newtabAdSize.leaderboard.positio
 const PREF_REFINED_CARDS_ENABLED = "discoverystream.refinedCardsLayout.enabled";
 const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personalization.inferred.user.enabled";
 const CardSections_PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
+const PREF_DAILY_BRIEF_V2_ENABLED = "discoverystream.dailyBrief.v2.enabled";
 const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.startupCache.enabled";
+
+// Feed URL
+const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/api/v1/curated-recommendations";
 function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
   let layoutData = {
     classNames: [],
-    imageSizes: {}
+    imageSizes: {},
+    allowsWidget: false
   };
   responsiveLayouts.forEach(layout => {
     layout.tiles.forEach((tile, tileIndex) => {
@@ -11240,6 +11359,9 @@ function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
         layoutData.classNames.push(`col-${layout.columnCount}-${tile.size}`);
         layoutData.classNames.push(`col-${layout.columnCount}-position-${tileIndex}`);
         layoutData.imageSizes[layout.columnCount] = tile.size;
+        if (tile.allowsWidget) {
+          layoutData.allowsWidget = true;
+        }
 
         // The API tells us whether the tile should show the excerpt or not.
         // Apply extra styles accordingly.
@@ -11305,7 +11427,8 @@ function CardSection({
     messageData
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const {
-    sectionPersonalization
+    sectionPersonalization,
+    feeds
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.DiscoveryStream);
   const {
     isForStartupCache
@@ -11361,6 +11484,8 @@ function CardSection({
   const availableTopics = prefs[CardSections_PREF_TOPICS_AVAILABLE];
   const refinedCardsLayout = prefs[PREF_REFINED_CARDS_ENABLED];
   const spocsStartupCacheEnabled = prefs[CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED];
+  const dailyBriefV2Enabled = prefs.trainhopConfig?.dailyBriefing?.v2Enabled || prefs[PREF_DAILY_BRIEF_V2_ENABLED];
+  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
   const mayHaveSectionsPersonalization = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const {
     sectionKey,
@@ -11437,12 +11562,130 @@ function CardSection({
     // So it can be displayed without orphans in grids with 2, 3, and 4 columns.
     maxTile = 12;
   }
+  const shouldShowBriefingCard = sectionKey === dailyBriefSectionId && dailyBriefV2Enabled;
+  const getBriefingData = () => {
+    const EMPTY_BRIEFING = {
+      headlines: [],
+      lastUpdated: null
+    };
+    if (!shouldShowBriefingCard) {
+      return EMPTY_BRIEFING;
+    }
+    const sections = feeds?.data[CURATED_RECOMMENDATIONS_FEED_URL];
+    if (!sections) {
+      return EMPTY_BRIEFING;
+    }
+    const headlines = sections.data.recommendations.filter(rec => rec.section === dailyBriefSectionId && rec.isHeadline);
+    return {
+      headlines,
+      lastUpdated: sections.lastUpdated
+    };
+  };
+  const {
+    headlines: briefingHeadlines,
+    lastUpdated: briefingLastUpdated
+  } = getBriefingData();
+  const hasBriefingHeadlines = briefingHeadlines.length === 3;
   const displaySections = section.data.slice(0, maxTile);
   const isSectionEmpty = !displaySections?.length;
-  const shouldShowLabels = sectionKey === "top_stories_section" && showTopics;
+  const shouldShowLabels = sectionKey === dailyBriefSectionId && showTopics;
   if (isSectionEmpty) {
     return null;
   }
+  function buildCards() {
+    const cards = [];
+    let dataIndex = 0;
+    for (let position = 0; position < maxTile; position++) {
+      const layoutData = getLayoutData(responsiveLayouts, position, refinedCardsLayout);
+      const {
+        classNames,
+        imageSizes
+      } = layoutData;
+      const shouldRenderWidget = shouldShowBriefingCard && layoutData.allowsWidget && hasBriefingHeadlines;
+      if (shouldRenderWidget) {
+        cards.push(/*#__PURE__*/external_React_default().createElement(BriefingCard, {
+          key: "briefing-card",
+          sectionClassNames: classNames.join(" "),
+          headlines: briefingHeadlines,
+          lastUpdated: briefingLastUpdated
+        }));
+        continue;
+      }
+      if (dataIndex >= displaySections.length) {
+        break;
+      }
+      const rec = displaySections[dataIndex];
+      const currentIndex = dataIndex;
+
+      // Render a placeholder card when:
+      // 1. No recommendation is available.
+      // 2. The item is flagged as a placeholder.
+      // 3. Spocs are loading for with spocs startup cache disabled.
+      const isPlaceholder = !rec || rec.placeholder || placeholder || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream;
+      if (isPlaceholder) {
+        cards.push(/*#__PURE__*/external_React_default().createElement(PlaceholderDSCard, {
+          key: `dscard-${currentIndex}`
+        }));
+      } else {
+        cards.push(/*#__PURE__*/external_React_default().createElement(DSCard, {
+          key: `dscard-${rec.id}`,
+          pos: rec.pos,
+          flightId: rec.flight_id,
+          image_src: rec.image_src,
+          raw_image_src: rec.raw_image_src,
+          icon_src: rec.icon_src,
+          word_count: rec.word_count,
+          time_to_read: rec.time_to_read,
+          title: rec.title,
+          topic: rec.topic,
+          features: rec.features,
+          excerpt: rec.excerpt,
+          url: rec.url,
+          id: rec.id,
+          shim: rec.shim,
+          fetchTimestamp: rec.fetchTimestamp,
+          type: type,
+          context: rec.context,
+          sponsor: rec.sponsor,
+          sponsored_by_override: rec.sponsored_by_override,
+          dispatch: dispatch,
+          source: rec.domain,
+          publisher: rec.publisher,
+          pocket_id: rec.pocket_id,
+          context_type: rec.context_type,
+          bookmarkGuid: rec.bookmarkGuid,
+          recommendation_id: rec.recommendation_id,
+          firstVisibleTimestamp: firstVisibleTimestamp,
+          corpus_item_id: rec.corpus_item_id,
+          scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
+          recommended_at: rec.recommended_at,
+          received_rank: rec.received_rank,
+          format: rec.format,
+          alt_text: rec.alt_text,
+          mayHaveSectionsCards: mayHaveSectionsCards,
+          showTopics: shouldShowLabels,
+          selectedTopics: selectedTopics,
+          availableTopics: availableTopics,
+          ctaButtonSponsors: ctaButtonSponsors,
+          ctaButtonVariant: ctaButtonVariant,
+          sectionsClassNames: classNames.join(" "),
+          sectionsCardImageSizes: imageSizes,
+          section: sectionKey,
+          sectionPosition: sectionPosition,
+          sectionFollowed: following,
+          sectionLayoutName: layoutName,
+          isTimeSensitive: rec.isTimeSensitive,
+          tabIndex: currentIndex === focusedIndex ? 0 : -1,
+          onFocus: () => onCardFocus(currentIndex),
+          attribution: rec.attribution,
+          isDailyBriefV2: shouldShowBriefingCard
+        }));
+      }
+      dataIndex++;
+    }
+    return cards;
+  }
+  const cards = buildCards();
   const sectionContextWrapper = /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-context-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -11506,75 +11749,7 @@ function CardSection({
   })), mayHaveSectionsPersonalization ? sectionContextWrapper : null), /*#__PURE__*/external_React_default().createElement("div", {
     className: `ds-section-grid ds-card-grid`,
     onKeyDown: handleCardKeyDown
-  }, section.data.slice(0, maxTile).map((rec, index) => {
-    const layoutData = getLayoutData(responsiveLayouts, index, refinedCardsLayout);
-    const {
-      classNames,
-      imageSizes
-    } = layoutData;
-    // Render a placeholder card when:
-    // 1. No recommendation is available.
-    // 2. The item is flagged as a placeholder.
-    // 3. Spocs are loading for with spocs startup cache disabled.
-    if (!rec || rec.placeholder || placeholder || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream) {
-      return /*#__PURE__*/external_React_default().createElement(PlaceholderDSCard, {
-        key: `dscard-${index}`
-      });
-    }
-    const card = /*#__PURE__*/external_React_default().createElement(DSCard, {
-      key: `dscard-${rec.id}`,
-      pos: rec.pos,
-      flightId: rec.flight_id,
-      image_src: rec.image_src,
-      raw_image_src: rec.raw_image_src,
-      icon_src: rec.icon_src,
-      word_count: rec.word_count,
-      time_to_read: rec.time_to_read,
-      title: rec.title,
-      topic: rec.topic,
-      features: rec.features,
-      excerpt: rec.excerpt,
-      url: rec.url,
-      id: rec.id,
-      shim: rec.shim,
-      fetchTimestamp: rec.fetchTimestamp,
-      type: type,
-      context: rec.context,
-      sponsor: rec.sponsor,
-      sponsored_by_override: rec.sponsored_by_override,
-      dispatch: dispatch,
-      source: rec.domain,
-      publisher: rec.publisher,
-      pocket_id: rec.pocket_id,
-      context_type: rec.context_type,
-      bookmarkGuid: rec.bookmarkGuid,
-      recommendation_id: rec.recommendation_id,
-      firstVisibleTimestamp: firstVisibleTimestamp,
-      corpus_item_id: rec.corpus_item_id,
-      scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
-      recommended_at: rec.recommended_at,
-      received_rank: rec.received_rank,
-      format: rec.format,
-      alt_text: rec.alt_text,
-      mayHaveSectionsCards: mayHaveSectionsCards,
-      showTopics: shouldShowLabels,
-      selectedTopics: selectedTopics,
-      availableTopics: availableTopics,
-      ctaButtonSponsors: ctaButtonSponsors,
-      ctaButtonVariant: ctaButtonVariant,
-      sectionsClassNames: classNames.join(" "),
-      sectionsCardImageSizes: imageSizes,
-      section: sectionKey,
-      sectionPosition: sectionPosition,
-      sectionFollowed: following,
-      sectionLayoutName: layoutName,
-      isTimeSensitive: rec.isTimeSensitive,
-      tabIndex: index === focusedIndex ? 0 : -1,
-      onFocus: () => onCardFocus(index),
-      attribution: rec.attribution
-    });
-    return [card];
-  })));
+  }, cards));
 }
 function CardSections({
   data,
@@ -13126,6 +13301,7 @@ function WeatherForecast({
   const {
     searchActive
   } = weatherData;
+  const maximizedWidgets = prefs["widgets.maximized"];
   function handleChangeLocation() {
     dispatch(actionCreators.BroadcastToContent({
       type: actionTypes.WEATHER_SEARCH_ACTIVE,
@@ -13173,7 +13349,7 @@ function WeatherForecast({
     }));
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: "weather-forecast-widget"
+    className: `weather-forecast-widget${maximizedWidgets ? "" : " small-widget"}`
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "city-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -13186,7 +13362,8 @@ function WeatherForecast({
     className: "weather-forecast-context-menu-button",
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: "weather-forecast-context-menu",
-    type: "ghost"
+    type: "ghost",
+    size: `${maximizedWidgets ? "default" : "small"}`
   }), /*#__PURE__*/external_React_default().createElement("panel-list", {
     id: "weather-forecast-context-menu"
   }, prefs["weather.locationSearchEnabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -13213,7 +13390,7 @@ function WeatherForecast({
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-learn-more",
     onClick: handleLearnMore
-  })))), /*#__PURE__*/external_React_default().createElement("div", {
+  })))), maximizedWidgets && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "current-weather-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-icon-column"
@@ -13235,9 +13412,9 @@ function WeatherForecast({
     className: "low-temperature"
   }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "arrow-icon arrow-down"
-  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("div", {
+  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("hr", null)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-row"
-  }, /*#__PURE__*/external_React_default().createElement("p", {
+  }, maximizedWidgets && /*#__PURE__*/external_React_default().createElement("p", {
     className: "today-forecast",
     "data-l10n-id": "newtab-weather-todays-forecast"
   }), /*#__PURE__*/external_React_default().createElement("ul", {
@@ -13253,7 +13430,7 @@ function WeatherForecast({
   }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
   }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")))), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "weather-forecast-footer"
+    className: "forecast-footer"
   }, /*#__PURE__*/external_React_default().createElement("a", {
     href: "#",
     className: "full-forecast",
@@ -13368,6 +13545,7 @@ function Widgets() {
   const nimbusListsTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsEnabled;
   const nimbusTimerTrainhopEnabled = prefs.trainhopConfig?.widgets?.timerEnabled;
   const nimbusWeatherForecastTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
+  const nimbusMaximizedTrainhopEnabled = prefs.trainhopConfig?.widgets?.maximized;
   const listsEnabled = (nimbusListsTrainhopEnabled || nimbusListsEnabled || prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) && prefs[PREF_WIDGETS_LISTS_ENABLED];
   const timerEnabled = (nimbusTimerTrainhopEnabled || nimbusTimerEnabled || prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) && prefs[PREF_WIDGETS_TIMER_ENABLED];
   const weatherForecastEnabled = nimbusWeatherForecastTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
@@ -13437,14 +13615,14 @@ function Widgets() {
     className: "widgets-title-container"
   }, /*#__PURE__*/external_React_default().createElement("h1", {
     "data-l10n-id": "newtab-widget-section-title"
-  }), prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED] && /*#__PURE__*/external_React_default().createElement("moz-button", {
+  }), (nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]) && /*#__PURE__*/external_React_default().createElement("moz-button", {
     id: "toggle-widgets-size-button",
     type: "icon ghost",
     size: "small"
     // Toggle the icon and hover text
     ,
-    "data-l10n-id": isMaximized ? "newtab-widget-section-maximize" : "newtab-widget-section-minimize",
-    iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen" : "fullscreen-exit"}.svg`,
+    "data-l10n-id": isMaximized ? "newtab-widget-section-minimize" : "newtab-widget-section-maximize",
+    iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen-exit" : "fullscreen"}.svg`,
     onClick: handleToggleMaximizeClick,
     onKeyDown: handleToggleMaximizeKeyDown
   }), /*#__PURE__*/external_React_default().createElement("moz-button", {
@@ -13456,7 +13634,7 @@ function Widgets() {
     onClick: handleHideAllWidgetsClick,
     onKeyDown: handleHideAllWidgetsKeyDown
   })), /*#__PURE__*/external_React_default().createElement("div", {
-    className: `widgets-container ${isMaximized ? "is-maximized" : ""}`
+    className: `widgets-container${isMaximized ? " is-maximized" : ""}`
   }, listsEnabled && /*#__PURE__*/external_React_default().createElement(Lists, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,

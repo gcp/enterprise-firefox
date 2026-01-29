@@ -13182,12 +13182,9 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
     // Intl natives.
     case InlinableNative::IntlGuardToCollator:
     case InlinableNative::IntlGuardToDateTimeFormat:
-    case InlinableNative::IntlGuardToDisplayNames:
     case InlinableNative::IntlGuardToDurationFormat:
-    case InlinableNative::IntlGuardToListFormat:
     case InlinableNative::IntlGuardToNumberFormat:
     case InlinableNative::IntlGuardToPluralRules:
-    case InlinableNative::IntlGuardToRelativeTimeFormat:
     case InlinableNative::IntlGuardToSegmenter:
     case InlinableNative::IntlGuardToSegments:
     case InlinableNative::IntlGuardToSegmentIterator:

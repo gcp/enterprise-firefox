@@ -26,14 +26,11 @@
 #ifdef JS_HAS_INTL_API
 #  include "builtin/intl/Collator.h"
 #  include "builtin/intl/DateTimeFormat.h"
-#  include "builtin/intl/DisplayNames.h"
 #  include "builtin/intl/DurationFormat.h"
 #  include "builtin/intl/IntlObject.h"
-#  include "builtin/intl/ListFormat.h"
 #  include "builtin/intl/Locale.h"
 #  include "builtin/intl/NumberFormat.h"
 #  include "builtin/intl/PluralRules.h"
-#  include "builtin/intl/RelativeTimeFormat.h"
 #  include "builtin/intl/Segmenter.h"
 #endif
 #include "builtin/MapObject.h"
@@ -1851,18 +1848,12 @@ static const JSFunctionSpec intrinsic_functions[] = {
           CallNonGenericSelfhostedMethod<Is<CollatorObject>>, 2, 0),
     JS_FN("intl_CallDateTimeFormatMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<DateTimeFormatObject>>, 2, 0),
-    JS_FN("intl_CallDisplayNamesMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<DisplayNamesObject>>, 2, 0),
     JS_FN("intl_CallDurationFormatMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<DurationFormatObject>>, 2, 0),
-    JS_FN("intl_CallListFormatMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<ListFormatObject>>, 2, 0),
     JS_FN("intl_CallNumberFormatMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<NumberFormatObject>>, 2, 0),
     JS_FN("intl_CallPluralRulesMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<PluralRulesObject>>, 2, 0),
-    JS_FN("intl_CallRelativeTimeFormatMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<RelativeTimeFormatObject>>, 2, 0),
     JS_FN("intl_CallSegmentIteratorMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<SegmentIteratorObject>>, 2, 0),
     JS_FN("intl_CallSegmenterMethodIfWrapped",
@@ -1870,7 +1861,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_CallSegmentsMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<SegmentsObject>>, 2, 0),
     JS_FN("intl_CompareStrings", intl_CompareStrings, 3, 0),
-    JS_FN("intl_ComputeDisplayName", intl_ComputeDisplayName, 6, 0),
     JS_FN("intl_CreateSegmentIterator", intl_CreateSegmentIterator, 1, 0),
     JS_FN("intl_CreateSegmentsObject", intl_CreateSegmentsObject, 2, 0),
     JS_FN("intl_DefaultTimeZone", intrinsic_DefaultTimeZone, 0, 0),
@@ -1879,10 +1869,8 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_FindSegmentBoundaries", intl_FindSegmentBoundaries, 2, 0),
     JS_FN("intl_FormatDateTime", intl_FormatDateTime, 2, 0),
     JS_FN("intl_FormatDateTimeRange", intl_FormatDateTimeRange, 4, 0),
-    JS_FN("intl_FormatList", intl_FormatList, 3, 0),
     JS_FN("intl_FormatNumber", intl_FormatNumber, 3, 0),
     JS_FN("intl_FormatNumberRange", intl_FormatNumberRange, 4, 0),
-    JS_FN("intl_FormatRelativeTime", intl_FormatRelativeTime, 4, 0),
     JS_FN("intl_GetPluralCategories", intl_GetPluralCategories, 1, 0),
     JS_INLINABLE_FN("intl_GuardToCollator",
                     intrinsic_GuardToBuiltin<CollatorObject>, 1, 0,
@@ -1890,24 +1878,15 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_INLINABLE_FN("intl_GuardToDateTimeFormat",
                     intrinsic_GuardToBuiltin<DateTimeFormatObject>, 1, 0,
                     IntlGuardToDateTimeFormat),
-    JS_INLINABLE_FN("intl_GuardToDisplayNames",
-                    intrinsic_GuardToBuiltin<DisplayNamesObject>, 1, 0,
-                    IntlGuardToDisplayNames),
     JS_INLINABLE_FN("intl_GuardToDurationFormat",
                     intrinsic_GuardToBuiltin<DurationFormatObject>, 1, 0,
                     IntlGuardToDurationFormat),
-    JS_INLINABLE_FN("intl_GuardToListFormat",
-                    intrinsic_GuardToBuiltin<ListFormatObject>, 1, 0,
-                    IntlGuardToListFormat),
     JS_INLINABLE_FN("intl_GuardToNumberFormat",
                     intrinsic_GuardToBuiltin<NumberFormatObject>, 1, 0,
                     IntlGuardToNumberFormat),
     JS_INLINABLE_FN("intl_GuardToPluralRules",
                     intrinsic_GuardToBuiltin<PluralRulesObject>, 1, 0,
                     IntlGuardToPluralRules),
-    JS_INLINABLE_FN("intl_GuardToRelativeTimeFormat",
-                    intrinsic_GuardToBuiltin<RelativeTimeFormatObject>, 1, 0,
-                    IntlGuardToRelativeTimeFormat),
     JS_INLINABLE_FN("intl_GuardToSegmentIterator",
                     intrinsic_GuardToBuiltin<SegmentIteratorObject>, 1, 0,
                     IntlGuardToSegmentIterator),

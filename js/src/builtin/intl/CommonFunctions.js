@@ -260,13 +260,9 @@ function initializeIntlObject(obj, type, lazyData) {
   assert(
     (type === "Collator" && intl_GuardToCollator(obj) !== null) ||
       (type === "DateTimeFormat" && intl_GuardToDateTimeFormat(obj) !== null) ||
-      (type === "DisplayNames" && intl_GuardToDisplayNames(obj) !== null) ||
       (type === "DurationFormat" && intl_GuardToDurationFormat(obj) !== null) ||
-      (type === "ListFormat" && intl_GuardToListFormat(obj) !== null) ||
       (type === "NumberFormat" && intl_GuardToNumberFormat(obj) !== null) ||
       (type === "PluralRules" && intl_GuardToPluralRules(obj) !== null) ||
-      (type === "RelativeTimeFormat" &&
-        intl_GuardToRelativeTimeFormat(obj) !== null) ||
       (type === "Segmenter" && intl_GuardToSegmenter(obj) !== null),
     "type must match the object's class"
   );
@@ -278,12 +274,9 @@ function initializeIntlObject(obj, type, lazyData) {
   // must be one of:
   // - Collator
   // - DateTimeFormat
-  // - DisplayNames
   // - DurationFormat
-  // - ListFormat
   // - NumberFormat
   // - PluralRules
-  // - RelativeTimeFormat
   // - Segmenter
   //
   // The .lazyData property stores information needed to compute -- without
@@ -349,12 +342,9 @@ function getIntlObjectInternals(obj) {
   assert(
     intl_GuardToCollator(obj) !== null ||
       intl_GuardToDateTimeFormat(obj) !== null ||
-      intl_GuardToDisplayNames(obj) !== null ||
       intl_GuardToDurationFormat(obj) !== null ||
-      intl_GuardToListFormat(obj) !== null ||
       intl_GuardToNumberFormat(obj) !== null ||
       intl_GuardToPluralRules(obj) !== null ||
-      intl_GuardToRelativeTimeFormat(obj) !== null ||
       intl_GuardToSegmenter(obj) !== null,
     "getIntlObjectInternals called with non-Intl object"
   );
@@ -367,18 +357,12 @@ function getIntlObjectInternals(obj) {
     (internals.type === "Collator" && intl_GuardToCollator(obj) !== null) ||
       (internals.type === "DateTimeFormat" &&
         intl_GuardToDateTimeFormat(obj) !== null) ||
-      (internals.type === "DisplayNames" &&
-        intl_GuardToDisplayNames(obj) !== null) ||
       (internals.type === "DurationFormat" &&
         intl_GuardToDurationFormat(obj) !== null) ||
-      (internals.type === "ListFormat" &&
-        intl_GuardToListFormat(obj) !== null) ||
       (internals.type === "NumberFormat" &&
         intl_GuardToNumberFormat(obj) !== null) ||
       (internals.type === "PluralRules" &&
         intl_GuardToPluralRules(obj) !== null) ||
-      (internals.type === "RelativeTimeFormat" &&
-        intl_GuardToRelativeTimeFormat(obj) !== null) ||
       (internals.type === "Segmenter" &&
         intl_GuardToSegmenter(obj) !== null),
     "type must match the object's class"
@@ -408,18 +392,12 @@ function getInternals(obj) {
     internalProps = resolveCollatorInternals(internals.lazyData);
   } else if (type === "DateTimeFormat") {
     internalProps = resolveDateTimeFormatInternals(internals.lazyData);
-  } else if (type === "DisplayNames") {
-    internalProps = resolveDisplayNamesInternals(internals.lazyData);
   } else if (type === "DurationFormat") {
     internalProps = resolveDurationFormatInternals(internals.lazyData);
-  } else if (type === "ListFormat") {
-    internalProps = resolveListFormatInternals(internals.lazyData);
   } else if (type === "NumberFormat") {
     internalProps = resolveNumberFormatInternals(internals.lazyData);
   } else if (type === "PluralRules") {
     internalProps = resolvePluralRulesInternals(internals.lazyData);
-  } else if (type === "RelativeTimeFormat") {
-    internalProps = resolveRelativeTimeFormatInternals(internals.lazyData);
   } else {
     assert(type === "Segmenter", "unexpected Intl type");
     internalProps = resolveSegmenterInternals(internals.lazyData);

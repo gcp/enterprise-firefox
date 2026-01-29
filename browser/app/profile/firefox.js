@@ -3246,6 +3246,9 @@ pref("devtools.webconsole.input.editorOnboarding", true);
 // Enable grouping/repeating similar messages in the console, true by default
 pref("devtools.webconsole.groupSimilarMessages", true);
 
+// Enable codemirror 6 for the JSTerminal in the console
+pref("devtools.webconsole.codemirrorNext", false);
+
 // Enable network monitoring the browser toolbox console/browser console.
 pref("devtools.browserconsole.enableNetworkMonitoring", false);
 
@@ -3585,6 +3588,8 @@ pref("browser.ipProtection.guardian.endpoint", "https://vpn.mozilla.org/");
 pref("browser.ipProtection.added", false);
 // Pref that enables bandwidth usage feature
 pref("browser.ipProtection.bandwidth.enabled", false);
+// Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds
+pref("browser.ipProtection.bandwidthThreshold", 0);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);

@@ -174,6 +174,7 @@
   MACRO_(exponentSeparator, "exponentSeparator")                               \
   MACRO_(export_, "export")                                                    \
   MACRO_(extends, "extends")                                                   \
+  MACRO_(fallback, "fallback")                                                 \
   MACRO_(false_, "false")                                                      \
   MACRO_(few, "few")                                                           \
   IF_DECORATORS(MACRO_(field, "field"))                                        \
@@ -294,6 +295,7 @@
   IF_DECORATORS(MACRO_(kind, "kind"))                                          \
   MACRO_(label, "label")                                                       \
   MACRO_(language, "language")                                                 \
+  MACRO_(languageDisplay, "languageDisplay")                                   \
   MACRO_(largestUnit, "largestUnit")                                           \
   MACRO_(lastChunkHandling, "lastChunkHandling")                               \
   MACRO_(lastIndex, "lastIndex")                                               \
@@ -305,6 +307,7 @@
   MACRO_(loc, "loc")                                                           \
   MACRO_(locale, "locale")                                                     \
   MACRO_(localeMatcher, "localeMatcher")                                       \
+  MACRO_(lower, "lower")                                                       \
   MACRO_(many, "many")                                                         \
   MACRO_(MapConstructorInit, "MapConstructorInit")                             \
   MACRO_(MapIteratorNext, "MapIteratorNext")                                   \

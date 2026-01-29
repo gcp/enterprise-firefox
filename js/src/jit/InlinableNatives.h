@@ -97,12 +97,9 @@
                                                    \
   _(IntlGuardToCollator)                           \
   _(IntlGuardToDateTimeFormat)                     \
-  _(IntlGuardToDisplayNames)                       \
   _(IntlGuardToDurationFormat)                     \
-  _(IntlGuardToListFormat)                         \
   _(IntlGuardToNumberFormat)                       \
   _(IntlGuardToPluralRules)                        \
-  _(IntlGuardToRelativeTimeFormat)                 \
   _(IntlGuardToSegmenter)                          \
   _(IntlGuardToSegments)                           \
   _(IntlGuardToSegmentIterator)                    \
