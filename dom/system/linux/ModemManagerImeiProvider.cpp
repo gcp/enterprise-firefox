@@ -13,7 +13,6 @@
 #include "mozilla/dom/Promise.h"
 #include "mozilla/widget/AsyncDBus.h"
 #include "nsAppShell.h"
-#include "nsCOMPtr.h"
 #include "nsIGlobalObject.h"
 
 namespace mozilla::dom {
@@ -73,14 +72,13 @@ ModemManagerImeiProvider::GetImei(JSContext* aCx, Promise** aResult) {
   return NS_OK;
 }
 
-static void QueryModemImei(RefPtr<Promise> aPromise, const char* aModem) {
-  nsCString realModemPath = nsPrintfCString("%s/%s", kModemRootPath, aModem);
-  MMI_LOG(Debug, "%s query modem %s @ %s", __PRETTY_FUNCTION__, aModem,
-          realModemPath.get());
+void ModemManagerImeiProvider::QueryModemImei(RefPtr<Promise> aPromise) {
+  MMI_LOG(Debug, "%s query modem %s", __PRETTY_FUNCTION__,
+          mRealModemPath.get());
 
   widget::CreateDBusProxyForBus(
       G_BUS_TYPE_SYSTEM, GDBusProxyFlags(G_DBUS_PROXY_FLAGS_NONE), nullptr,
-      kModemManagerBusName, strdup(realModemPath.get()), kModemInterface)
+      kModemManagerBusName, mRealModemPath.get(), kModemInterface, mCancellable)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [aPromise](RefPtr<GDBusProxy>&& aProxy) {
@@ -113,8 +111,8 @@ static void QueryModemImei(RefPtr<Promise> aPromise, const char* aModem) {
           });
 }
 
-static void OnIntrospectFinish(RefPtr<Promise> aPromise,
-                               RefPtr<GVariant> aResult) {
+void ModemManagerImeiProvider::OnIntrospectFinish(RefPtr<Promise> aPromise,
+                                                  RefPtr<GVariant> aResult) {
   gchar* introspectXml;
   g_variant_get(aResult, "(&s)", &introspectXml);
 
@@ -129,8 +127,8 @@ static void OnIntrospectFinish(RefPtr<Promise> aPromise,
 
   if (!nodeInfos->nodes) {
     MMI_LOG(Error, "nodeInfos->nodes failed! %s", error->message);
-    g_dbus_node_info_unref(nodeInfos);
     aPromise->MaybeReject(NS_ERROR_FAILURE);
+    g_dbus_node_info_unref(nodeInfos);
     return;
   }
 
@@ -138,31 +136,34 @@ static void OnIntrospectFinish(RefPtr<Promise> aPromise,
        n++) {
     if (nodeInfos->nodes[n]) {
       MMI_LOG(Error, "Query IMEI@%d: %s", n, nodeInfos->nodes[n]->path);
-      QueryModemImei(aPromise, strdup(nodeInfos->nodes[n]->path));
+      mRealModemPath =
+          nsPrintfCString("%s/%s", kModemRootPath, nodeInfos->nodes[n]->path);
+      QueryModemImei(aPromise);
       g_dbus_node_info_unref(nodeInfos);
       return;
     }
   }
 
-  g_dbus_node_info_unref(nodeInfos);
   aPromise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
+  g_dbus_node_info_unref(nodeInfos);
   return;
 }
 
 void ModemManagerImeiProvider::CollectImei(RefPtr<Promise> aPromise) {
   widget::CreateDBusProxyForBus(
       G_BUS_TYPE_SYSTEM, GDBusProxyFlags(G_DBUS_PROXY_FLAGS_NONE), nullptr,
-      kModemManagerBusName, kModemRootPath, kDbusIntrospectable)
+      kModemManagerBusName, kModemRootPath, kDbusIntrospectable, mCancellable)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [aPromise](RefPtr<GDBusProxy>&& aProxy) {
+          [aPromise, self = RefPtr{this}](RefPtr<GDBusProxy>&& aProxy) {
             widget::DBusProxyCall(aProxy, "Introspect", nullptr,
-                                  G_DBUS_CALL_FLAGS_NONE)
+                                  G_DBUS_CALL_FLAGS_NONE, -1,
+                                  self->mCancellable)
                 ->Then(
                     GetCurrentSerialEventTarget(), __func__,
-                    [aPromise](RefPtr<GVariant>&& aResult) {
-                      OnIntrospectFinish(std::move(aPromise),
-                                         std::move(aResult));
+                    [aPromise, self](RefPtr<GVariant>&& aResult) {
+                      self->OnIntrospectFinish(std::move(aPromise),
+                                               std::move(aResult));
                     },
                     [aPromise](GUniquePtr<GError>&& aError) {
                       MMI_LOG(Error, "Failed to introspect modems: %s\n",

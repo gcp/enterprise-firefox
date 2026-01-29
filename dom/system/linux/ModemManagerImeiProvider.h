@@ -11,7 +11,9 @@
 #include <glib.h>
 
 #include "mozilla/RefPtr.h"
+#include "nsCOMPtr.h"
 #include "nsIImeiProvider.h"
+#include "nsString.h"
 
 namespace mozilla::dom {
 
@@ -20,15 +22,23 @@ class ModemManagerImeiProvider final : public nsIImeiProvider {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMEIPROVIDER
 
-  ModemManagerImeiProvider() = default;
+  ModemManagerImeiProvider() : mCancellable(dont_AddRef(g_cancellable_new())) {}
+
   static already_AddRefed<ModemManagerImeiProvider> GetInstance();
 
  private:
-  ~ModemManagerImeiProvider() = default;
+  ~ModemManagerImeiProvider() {
+    if (mCancellable) {
+      g_cancellable_cancel(mCancellable);
+    }
+  }
 
   RefPtr<GCancellable> mCancellable;
+  nsCString mRealModemPath{};
 
   void CollectImei(RefPtr<Promise>);
+  void OnIntrospectFinish(RefPtr<Promise>, RefPtr<GVariant>);
+  void QueryModemImei(RefPtr<Promise>);
 };
 
 }  // namespace mozilla::dom
