@@ -3,6 +3,17 @@
 
 "use strict";
 
+const TEST_CHAT_PROVIDER_URL = "http://mochi.test:8888/";
+
+function mockSidebarChatbotUrls(providerControl) {
+  let options = providerControl.inputEl.querySelectorAll("option");
+  for (let option of options) {
+    if (option.value.startsWith("https://")) {
+      option.value = TEST_CHAT_PROVIDER_URL;
+    }
+  }
+}
+
 describe("settings ai features", () => {
   let doc, win;
 
@@ -33,7 +44,10 @@ describe("settings ai features", () => {
 
   it("can change the chatbot provider value", async () => {
     await SpecialPowers.pushPrefEnv({
-      set: [["browser.ml.chat.provider", ""]],
+      set: [
+        ["browser.ml.chat.provider", ""],
+        ["browser.ai.control.sidebarChatbot", "available"],
+      ],
     });
 
     const categoryButton = doc.getElementById("category-ai-features");
@@ -46,6 +60,7 @@ describe("settings ai features", () => {
     await openAiFeaturePanel();
 
     const providerControl = doc.getElementById("aiControlSidebarChatbotSelect");
+    mockSidebarChatbotUrls(providerControl);
     Assert.ok(providerControl, "control exists");
     Assert.ok(
       BrowserTestUtils.isVisible(providerControl),
@@ -67,17 +82,115 @@ describe("settings ai features", () => {
     EventUtils.sendKey("space");
     await pickerOpened;
     EventUtils.sendKey("down");
+    EventUtils.sendKey("down");
     EventUtils.sendKey("return");
     await settingChanged;
 
-    Assert.notEqual(providerControl.value, "available", "Provider changed");
-    Assert.notEqual(
+    Assert.equal(
+      providerControl.value,
+      TEST_CHAT_PROVIDER_URL,
+      "Provider enabled"
+    );
+    Assert.equal(
       Services.prefs.getStringPref("browser.ml.chat.provider"),
-      "available",
-      "Pref is not empty"
+      TEST_CHAT_PROVIDER_URL,
+      "Chatbot provider is set"
     );
 
     await gBrowser.ownerGlobal.SidebarController.hide();
+  });
+
+  it("can change the chatbot provider from blocked", async () => {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        ["browser.ml.chat.provider", ""],
+        ["browser.ai.control.sidebarChatbot", "available"],
+      ],
+    });
+
+    const categoryButton = doc.getElementById("category-ai-features");
+    Assert.ok(categoryButton, "category exists");
+    Assert.ok(
+      BrowserTestUtils.isVisible(categoryButton),
+      "category is visible"
+    );
+
+    await openAiFeaturePanel();
+
+    let providerControl = doc.getElementById("aiControlSidebarChatbotSelect");
+    Assert.ok(providerControl, "control exists");
+    Assert.ok(
+      BrowserTestUtils.isVisible(providerControl),
+      "control is visible"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      "",
+      "Pref is empty"
+    );
+
+    Assert.equal(providerControl.value, "available", "No provider set");
+
+    // Set chatbot to Blocked
+    let settingChanged = waitForSettingChange(providerControl.setting);
+    providerControl.focus();
+    let pickerOpened = BrowserTestUtils.waitForSelectPopupShown(
+      win.docShell.chromeEventHandler.ownerGlobal
+    );
+    EventUtils.sendKey("space");
+    await pickerOpened;
+    EventUtils.sendKey("down");
+    EventUtils.sendKey("return");
+    await settingChanged;
+
+    Assert.equal(providerControl.value, "blocked", "Provider blocked");
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      "",
+      "Chatbot provider is empty"
+    );
+
+    // Refresh the page
+    await openPreferencesViaOpenPreferencesAPI("ai", { leaveOpen: true });
+
+    // Verify it's still blocked
+    providerControl = doc.getElementById("aiControlSidebarChatbotSelect");
+    mockSidebarChatbotUrls(providerControl);
+    Assert.equal(providerControl.value, "blocked", "Provider blocked");
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      "",
+      "Chatbot provider is empty"
+    );
+
+    // Change the selection to a chatbot
+    settingChanged = waitForSettingChange(providerControl.setting);
+    providerControl.focus();
+    pickerOpened = BrowserTestUtils.waitForSelectPopupShown(
+      win.docShell.chromeEventHandler.ownerGlobal
+    );
+    EventUtils.sendKey("space");
+    await pickerOpened;
+    EventUtils.sendKey("down");
+    EventUtils.sendKey("return");
+    await settingChanged;
+
+    Assert.equal(
+      providerControl.value,
+      TEST_CHAT_PROVIDER_URL,
+      "Provider enabled"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      TEST_CHAT_PROVIDER_URL,
+      "Chatbot provider is set"
+    );
+
+    // Calling openPreferencesViaOpenPreferencesAPI again opened a blank tab
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+
+    await gBrowser.ownerGlobal.SidebarController.hide();
+    await SpecialPowers.popPrefEnv();
   });
 
   it("hides Smart Window when preferences not enabled", async () => {
@@ -490,6 +603,81 @@ describe("settings ai features", () => {
       BrowserTestUtils.removeTab(generalTab);
     });
 
+    it("hides Translations setting when globally blocked via AI Controls toggle", async () => {
+      await SpecialPowers.pushPrefEnv({
+        set: [
+          ["browser.ai.control.default", "available"],
+          ["browser.ai.control.translations", "default"],
+          ["browser.translations.enable", true],
+          ["browser.settings-redesign.enable", false],
+        ],
+      });
+
+      let aiControlsTab = gBrowser.selectedTab;
+      await openAiFeaturePanel();
+
+      await new Promise(resolve => open_preferences(resolve));
+      let generalTab = gBrowser.selectedTab;
+      let generalDoc = gBrowser.selectedBrowser.contentDocument;
+      let generalWin = generalDoc.ownerGlobal;
+
+      let translationsSetting = generalWin.Preferences.getSetting(
+        "legacyTranslationsVisible"
+      );
+      let translationsGroup = generalDoc.getElementById("translationsGroup");
+      Assert.ok(
+        BrowserTestUtils.isVisible(translationsGroup),
+        "Translations group is visible"
+      );
+
+      gBrowser.selectedTab = aiControlsTab;
+      const toggle = doc.getElementById("aiControlDefaultToggle");
+      const dialogEl = doc.querySelector("block-ai-confirmation-dialog");
+      await dialogEl.updateComplete;
+      let dialogShown = BrowserTestUtils.waitForEvent(
+        dialogEl.dialog,
+        "toggle"
+      );
+      EventUtils.synthesizeMouseAtCenter(toggle.buttonEl, {}, win);
+      await dialogShown;
+      Assert.ok(dialogEl.dialog.open, "Dialog is open");
+      await waitForSettingChange(translationsSetting, () =>
+        EventUtils.synthesizeMouseAtCenter(dialogEl.confirmButton, {}, win)
+      );
+
+      gBrowser.selectedTab = generalTab;
+      Assert.ok(
+        !BrowserTestUtils.isVisible(translationsGroup),
+        "Translations group is hidden after blocking"
+      );
+
+      // Explicitly enable Translations while globally blocked
+      gBrowser.selectedTab = aiControlsTab;
+      const translationsSelect = doc.getElementById(
+        "aiControlTranslationsSelect"
+      );
+      translationsSelect.scrollIntoView();
+      await waitForAnimationFrame();
+      translationsSelect.focus();
+      let pickerOpened = BrowserTestUtils.waitForSelectPopupShown(
+        win.docShell.chromeEventHandler.ownerGlobal
+      );
+      EventUtils.sendKey("space");
+      await pickerOpened;
+      await waitForSettingChange(translationsSetting, () => {
+        EventUtils.sendKey("up");
+        EventUtils.sendKey("return");
+      });
+
+      gBrowser.selectedTab = generalTab;
+      Assert.ok(
+        BrowserTestUtils.isVisible(translationsGroup),
+        "Translations group is visible after explicitly enabling"
+      );
+
+      BrowserTestUtils.removeTab(generalTab);
+    });
+
     it("shows settings when unblocked via global toggle", async () => {
       await SpecialPowers.pushPrefEnv({
         set: [
@@ -533,210 +721,5 @@ describe("settings ai features", () => {
     });
   });
 
-  describe("Smart Window memories", () => {
-    async function openSmartWindowPanel() {
-      await openAiFeaturePanel();
-      const personalizeButton = doc.getElementById(
-        "personalizeSmartWindowButton"
-      );
-      personalizeButton.scrollIntoView();
-      const paneLoaded = waitForPaneChange("personalizeSmartWindow");
-      EventUtils.synthesizeMouseAtCenter(personalizeButton, {}, win);
-      await paneLoaded;
-    }
-
-    async function openManageMemoriesPanel() {
-      await openSmartWindowPanel();
-      const manageButton = doc.getElementById("manageMemoriesButton");
-      manageButton.scrollIntoView();
-      const paneLoaded = waitForPaneChange("manageMemories");
-      EventUtils.synthesizeMouseAtCenter(manageButton, {}, win);
-      await paneLoaded;
-    }
-
-    async function populateMemories() {
-      const { MemoryStore } = ChromeUtils.importESModule(
-        "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
-      );
-
-      let memoryOne = await MemoryStore.addMemory({
-        memory_summary: "Lorem ipsum dolor sit amet 1",
-        category: "interests",
-        intent: "general",
-        score: 5,
-      });
-      let memoryTwo = await MemoryStore.addMemory({
-        memory_summary: "Lorem ipsum dolor sit amet 2",
-        category: "habits",
-        intent: "general",
-        score: 4,
-      });
-
-      registerCleanupFunction(async () => {
-        for (const { id } of [memoryOne, memoryTwo]) {
-          try {
-            await MemoryStore.hardDeleteMemory(id);
-          } catch (err) {
-            console.error("Failed to delete memory:", id, err);
-          }
-        }
-      });
-
-      return { MemoryStore, memories: [memoryOne, memoryTwo] };
-    }
-
-    it("shows Personalize Smart Window button when AI Window is enabled", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-        ],
-      });
-
-      await openAiFeaturePanel();
-
-      const personalizeButton = doc.getElementById(
-        "personalizeSmartWindowButton"
-      );
-      Assert.ok(personalizeButton, "Personalize Smart Window button exists");
-      Assert.ok(
-        BrowserTestUtils.isVisible(personalizeButton),
-        "Personalize Smart Window button is visible"
-      );
-    });
-
-    it("toggles Learn from activity preference", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-          ["browser.aiwindow.memories", false],
-        ],
-      });
-
-      await openSmartWindowPanel();
-
-      const learnFromActivity = doc.getElementById("learnFromActivity");
-      Assert.ok(!learnFromActivity.checked, "Checkbox is unchecked initially");
-
-      learnFromActivity.scrollIntoView();
-      EventUtils.synthesizeMouseAtCenter(learnFromActivity.labelEl, {}, win);
-      await learnFromActivity.updateComplete;
-
-      Assert.ok(
-        Services.prefs.getBoolPref("browser.aiwindow.memories"),
-        "Preference is now true"
-      );
-      Assert.ok(learnFromActivity.checked, "Checkbox is now checked");
-    });
-
-    it("shows empty state when no memories exist", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-          ["browser.aiwindow.memories", true],
-        ],
-      });
-
-      await openManageMemoriesPanel();
-
-      const noMemoriesItem = doc.getElementById("no-memories-stored");
-      Assert.ok(noMemoriesItem, "No memories item exists");
-      Assert.ok(
-        BrowserTestUtils.isVisible(noMemoriesItem),
-        "No memories item is visible"
-      );
-    });
-
-    it("shows different empty state when learning is disabled", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-          ["browser.aiwindow.memories", false],
-        ],
-      });
-
-      await openManageMemoriesPanel();
-
-      // Force the async setting to refresh after pref change
-      const memoriesList = doc.getElementById("memoriesList");
-      if (memoriesList?.setting?.config?.asyncSetting) {
-        memoriesList.setting.config.asyncSetting.emitChange();
-        await new Promise(r => win.requestAnimationFrame(r));
-      }
-
-      const noMemoriesItem = doc.getElementById("no-memories-stored");
-      Assert.ok(noMemoriesItem, "No memories item exists");
-
-      Assert.equal(
-        noMemoriesItem.dataset.l10nId,
-        "ai-window-no-memories-learning-off",
-        "Shows learning-off empty state l10n ID"
-      );
-    });
-
-    it("renders memory items when data is present", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-          ["browser.aiwindow.memories", true],
-        ],
-      });
-
-      await populateMemories();
-      await openManageMemoriesPanel();
-
-      const memoriesList = doc.getElementById("memoriesList");
-      await memoriesList.updateComplete;
-
-      const memoryItems = memoriesList.querySelectorAll("[id^='memory-item']");
-      Assert.greaterOrEqual(
-        memoryItems.length,
-        2,
-        "At least two memory items are rendered"
-      );
-    });
-
-    it("can delete an individual memory", async () => {
-      await SpecialPowers.pushPrefEnv({
-        set: [
-          ["browser.aiwindow.preferences.enabled", true],
-          ["browser.aiwindow.enabled", true],
-          ["browser.aiwindow.memories", true],
-        ],
-      });
-
-      const { MemoryStore, memories } = await populateMemories();
-      const testMemory = memories[0];
-
-      await openManageMemoriesPanel();
-
-      const memoriesList = doc.getElementById("memoriesList");
-      await memoriesList.updateComplete;
-
-      const initialMemories = await MemoryStore.getMemories();
-      const initialCount = initialMemories.length;
-
-      const deleteButton = memoriesList.querySelector(
-        `[memoryId="${testMemory.id}"][action="delete"]`
-      );
-      Assert.ok(deleteButton, "Delete button exists for the memory");
-
-      EventUtils.synthesizeMouseAtCenter(deleteButton, {}, win);
-
-      await BrowserTestUtils.waitForCondition(async () => {
-        const currentMemories = await MemoryStore.getMemories();
-        return currentMemories.length < initialCount;
-      }, "Waiting for memory to be deleted");
-
-      const remainingMemories = await MemoryStore.getMemories();
-      Assert.ok(
-        !remainingMemories.find(m => m.id === testMemory.id),
-        "Memory was deleted"
-      );
-    });
-  });
+  // TODO: Add tests for aiFeaturesAIWindowGroup when Model option is added
 });

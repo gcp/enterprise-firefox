@@ -397,6 +397,9 @@ pref("browser.urlbar.focusContentDocumentOnEsc", true);
 // ConsoleInstance.webidl.
 pref("browser.urlbar.loglevel", "Error");
 
+// The maximum number of mentions to show.
+pref("browser.urlbar.mentions.maxResults", 5);
+
 // the maximum number of results to show in autocomplete when doing richResults
 pref("browser.urlbar.maxRichResults", 10);
 
@@ -2262,11 +2265,6 @@ pref("browser.ml.linkPreview.shiftAlt", false);
 pref("browser.ml.linkPreview.supportedLocales", "en");
 
 pref("browser.ml.pageAssist.enabled", false);
-pref("browser.ml.smartAssist.apiKey", "");
-pref("browser.ml.smartAssist.enabled", false);
-pref("browser.ml.smartAssist.endpoint", "");
-pref("browser.ml.smartAssist.model", "");
-pref("browser.ml.smartAssist.overrideNewTab", false);
 
 // AI Window Feature
 pref("browser.aiwindow.apiKey", '');
@@ -2704,6 +2702,8 @@ pref("browser.tabs.fadeOutUnloadedTabs", false);
 #else
   pref("browser.tabs.splitView.enabled", false);
 #endif
+
+pref("browser.tabs.splitview.hasUsed", false);
 
 // Whether SVG favicons should be safely re-encoded using the moz-remote-image:// protocol.
 pref("browser.tabs.remoteSVGIconDecoding", true);

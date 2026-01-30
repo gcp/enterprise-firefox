@@ -7,7 +7,6 @@ package org.mozilla.fenix.onboarding.redesign.view
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,10 +35,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.paint
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,7 +53,6 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
 import org.mozilla.fenix.components.components
-import org.mozilla.fenix.compose.LinkTextState
 import org.mozilla.fenix.compose.PagerIndicator
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.onboarding.WidgetPinnedReceiver.WidgetPinnedState
@@ -62,7 +61,6 @@ import org.mozilla.fenix.onboarding.redesign.view.defaultbrowser.SetToDefaultMai
 import org.mozilla.fenix.onboarding.redesign.view.sync.SyncMainImage
 import org.mozilla.fenix.onboarding.store.OnboardingAction.OnboardingToolbarAction
 import org.mozilla.fenix.onboarding.store.OnboardingStore
-import org.mozilla.fenix.onboarding.view.Caption
 import org.mozilla.fenix.onboarding.view.OnboardingPageState
 import org.mozilla.fenix.onboarding.view.OnboardingPageUiData
 import org.mozilla.fenix.onboarding.view.OnboardingTermsOfService
@@ -79,25 +77,6 @@ import org.mozilla.fenix.utils.isLargeScreenSize
  */
 private val SMALL_SCREEN_MAX_HEIGHT = 480.dp
 private val logger: Logger = Logger("OnboardingScreenRedesign")
-
-/**
- * The colors used for the gradient background.
- */
-private object GradientColors {
-    val nonDarkMode = listOf(
-        Color(0xFFF5C1BD), // light pink (top)
-        Color(0xFFED8043), // orange
-        Color(0xFFEB691D), // deeper orange-red
-        Color(0xFFE00B1D), // strong red (bottom)
-    )
-
-    val darkMode = listOf(
-        Color(0xFF9B7AE0), // soft violet (top)
-        Color(0xFF7B4FC9), // medium purple
-        Color(0xFF4A289A), // deep purple
-        Color(0xFF2E1468), // darkest purple (bottom)
-    )
-}
 
 /**
  * A screen for displaying onboarding.
@@ -374,10 +353,12 @@ private fun OnboardingContent(
 
                 PagerIndicator(
                     pagerState = pagerState,
-                    leaveTrail = true,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(bottom = 16.dp),
+                    activeColor = MaterialTheme.colorScheme.onPrimary,
+                    inactiveColor = MaterialTheme.colorScheme.surfaceVariant,
+                    leaveTrail = true,
                 )
             }
         }
@@ -387,11 +368,13 @@ private fun OnboardingContent(
 private fun OnboardingBackground(isVisible: Boolean, isSolidBackground: Boolean) {
     if (!isVisible) return
 
-    val colors = if (isSystemInDarkTheme()) GradientColors.darkMode else GradientColors.nonDarkMode
     val backgroundModifier = if (isSolidBackground) {
         Modifier.background(color = MaterialTheme.colorScheme.surface)
     } else {
-        Modifier.background(brush = Brush.verticalGradient(colors = colors))
+        Modifier.paint(
+            painter = painterResource(R.drawable.nova_onboarding_background),
+            contentScale = ContentScale.Crop,
+        )
     }
 
     Box(
@@ -650,24 +633,22 @@ private fun defaultPreviewPages() = listOf(
 @Composable
 private fun touPageUIData() = OnboardingPageUiData(
     type = OnboardingPageUiData.Type.TERMS_OF_SERVICE,
-    title = stringResource(id = R.string.onboarding_redesign_tou_title),
+    title = stringResource(id = R.string.nova_onboarding_tou_title),
     description = "",
     termsOfService = OnboardingTermsOfService(
-        subheaderOneText = stringResource(id = R.string.onboarding_redesign_tou_subheader_one),
-        subheaderTwoText = stringResource(id = R.string.onboarding_redesign_tou_subheader_two),
-        subheaderThreeText = stringResource(id = R.string.onboarding_redesign_tou_subheader_three),
-        lineOneText = stringResource(id = R.string.onboarding_redesign_tou_body_one),
-        lineOneLinkText = stringResource(id = R.string.onboarding_redesign_tou_body_one_link_text),
+        subheaderOneText = stringResource(id = R.string.nova_onboarding_tou_subtitle),
+        lineOneText = stringResource(id = R.string.nova_onboarding_tou_body_line_1),
+        lineOneLinkText = stringResource(id = R.string.nova_onboarding_tou_body_line_1_link_text),
         lineOneLinkUrl = "URL",
-        lineTwoText = stringResource(id = R.string.onboarding_redesign_tou_body_two),
-        lineTwoLinkText = stringResource(id = R.string.onboarding_redesign_tou_body_two_link_text),
+        lineTwoText = stringResource(id = R.string.nova_onboarding_tou_body_line_2),
+        lineTwoLinkText = stringResource(id = R.string.nova_onboarding_tou_body_line_2_link_text),
         lineTwoLinkUrl = "URL",
-        lineThreeText = stringResource(id = R.string.onboarding_redesign_tou_body_three),
-        lineThreeLinkText = stringResource(id = R.string.onboarding_redesign_tou_body_three_link_text),
+        lineThreeText = stringResource(id = R.string.nova_onboarding_tou_body_line_3),
+        lineThreeLinkText = stringResource(id = R.string.nova_onboarding_tou_body_line_3_link_text),
     ),
-    imageRes = R.drawable.ic_firefox,
+    imageRes = R.drawable.nova_onboarding_tou,
     primaryButtonLabel = stringResource(
-        id = R.string.onboarding_redesign_tou_agree_and_continue_button_label,
+        id = R.string.nova_onboarding_continue_button,
     ),
 )
 
@@ -675,47 +656,39 @@ private fun touPageUIData() = OnboardingPageUiData(
 private fun defaultBrowserPageUiData() = OnboardingPageUiData(
     type = OnboardingPageUiData.Type.DEFAULT_BROWSER,
     imageRes = R.drawable.ic_onboarding_welcome,
-    title = stringResource(R.string.onboarding_redesign_set_default_browser_title),
-    description = stringResource(R.string.onboarding_redesign_set_default_browser_body),
-    primaryButtonLabel = stringResource(R.string.juno_onboarding_default_browser_positive_button),
-    secondaryButtonLabel = stringResource(R.string.juno_onboarding_default_browser_negative_button),
+    title = stringResource(R.string.nova_onboarding_set_to_default_title_2),
+    description = stringResource(R.string.nova_onboarding_set_to_default_subtitle),
+    primaryButtonLabel = stringResource(R.string.nova_onboarding_set_to_default_button),
+    secondaryButtonLabel = stringResource(R.string.nova_onboarding_negative_button),
 )
 
 @Composable
 private fun syncPageUiData() = OnboardingPageUiData(
     type = OnboardingPageUiData.Type.SYNC_SIGN_IN,
     imageRes = R.drawable.ic_onboarding_sync,
-    title = stringResource(R.string.juno_onboarding_sign_in_title_2),
-    description = stringResource(R.string.juno_onboarding_sign_in_description_3),
-    primaryButtonLabel = stringResource(R.string.juno_onboarding_sign_in_positive_button),
-    secondaryButtonLabel = stringResource(R.string.juno_onboarding_sign_in_negative_button),
-    privacyCaption = Caption(
-        text = stringResource(R.string.juno_onboarding_privacy_notice_text),
-        linkTextState = LinkTextState(
-            text = stringResource(R.string.juno_onboarding_privacy_notice_text),
-            url = "",
-            onClick = {},
-        ),
-    ),
+    title = stringResource(R.string.nova_onboarding_sync_title),
+    description = stringResource(R.string.nova_onboarding_sync_subtitle),
+    primaryButtonLabel = stringResource(R.string.nova_onboarding_sync_button),
+    secondaryButtonLabel = stringResource(R.string.nova_onboarding_negative_button),
 )
 
 @Composable
 private fun toolbarPlacementPageUiData() = OnboardingPageUiData(
     type = OnboardingPageUiData.Type.TOOLBAR_PLACEMENT,
     imageRes = R.drawable.ic_onboarding_customize_toolbar,
-    title = stringResource(R.string.onboarding_customize_toolbar_title),
-    description = stringResource(R.string.onboarding_customize_toolbar_description),
-    primaryButtonLabel = stringResource(R.string.onboarding_save_and_start_button),
+    title = stringResource(R.string.nova_onboarding_toolbar_selection_title),
+    description = "", // Unused in redesign
+    primaryButtonLabel = stringResource(R.string.nova_onboarding_continue_button),
     toolbarOptions = listOf(
         ToolbarOption(
             toolbarType = ToolbarOptionType.TOOLBAR_TOP,
             imageRes = R.drawable.ic_onboarding_top_toolbar,
-            label = stringResource(R.string.onboarding_customize_toolbar_top_option),
+            label = stringResource(R.string.nova_onboarding_toolbar_selection_top_label),
         ),
         ToolbarOption(
             toolbarType = ToolbarOptionType.TOOLBAR_BOTTOM,
             imageRes = R.drawable.ic_onboarding_bottom_toolbar,
-            label = stringResource(R.string.onboarding_customize_toolbar_bottom_option),
+            label = stringResource(R.string.nova_onboarding_toolbar_selection_bottom_label),
         ),
     ),
 )

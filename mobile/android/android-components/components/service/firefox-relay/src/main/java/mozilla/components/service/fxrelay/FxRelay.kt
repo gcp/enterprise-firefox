@@ -18,13 +18,35 @@ private const val RELAY_SCOPE_URL = "https://identity.mozilla.com/apps/relay"
 private const val RELAY_BASE_URL = "https://relay.firefox.com"
 
 /**
+ * Public API for Firefox Relay.
+ */
+interface FxRelay {
+    /**
+     * Fetch all Relay addresses.
+     *
+     * @return [List<RelayAddress>] or `null` if the operation fails with a known Relay API error.
+     */
+    suspend fun fetchAllAddresses(): List<RelayAddress>
+
+    /**
+     * Retrieves the Relay account details or `null` if the operation failed.
+     *
+     * @return The user's [RelayAccountDetails].
+     */
+    suspend fun fetchAccountDetails(): RelayAccountDetails?
+}
+
+/**
+ * Create a default [FxRelay] for the given account.
+ */
+fun createFxRelay(account: OAuthAccount): FxRelay = FxRelayImpl(account)
+
+/**
  * Service wrapper for Firefox Relay APIs.
  *
  * @param account An [OAuthAccount] used to obtain and manage FxA access tokens scoped for Firefox Relay.
  */
-class FxRelay(
-    private val account: OAuthAccount,
-) {
+internal class FxRelayImpl(private val account: OAuthAccount) : FxRelay {
     private val logger = Logger("FxRelay")
 
     /**
@@ -38,8 +60,6 @@ class FxRelay(
      * Defines supported Relay operations for logging and error handling.
      */
     enum class RelayOperation {
-        CREATE_ADDRESS,
-        ACCEPT_TERMS,
         FETCH_ALL_ADDRESSES,
         FETCH_PROFILE,
     }
@@ -100,23 +120,7 @@ class FxRelay(
         }
     }
 
-    /**
-     * Accept the Relay terms of service.
-     */
-    suspend fun acceptTerms() = withContext(Dispatchers.IO) {
-        handleRelayExceptions(RelayOperation.ACCEPT_TERMS, { false }) {
-            val client = getOrCreateClient()
-            client.acceptTerms()
-            true
-        }
-    }
-
-    /**
-     * Fetch all Relay addresses.
-     *
-     * This returns `null` when the operation failed with a known Relay API error.
-     */
-    suspend fun fetchAllAddresses(): List<RelayAddress> = withContext(Dispatchers.IO) {
+    override suspend fun fetchAllAddresses(): List<RelayAddress> = withContext(Dispatchers.IO) {
         handleRelayExceptions(
             RelayOperation.FETCH_ALL_ADDRESSES,
             { emptyList() },
@@ -126,34 +130,18 @@ class FxRelay(
         }
     }
 
-    /**
-     * Retrieves the [RelayProfile] for the authenticated user.
-     *
-     * @return The user's [RelayProfile] or `null` if the operation failed.
-     */
-    suspend fun fetchProfile(): RelayProfile? = withContext(Dispatchers.IO) {
+    override suspend fun fetchAccountDetails(): RelayAccountDetails? = withContext(Dispatchers.IO) {
+        val profile = fetchProfile() ?: return@withContext null
+        mapProfileToDetails(profile)
+    }
+
+    private suspend fun fetchProfile(): RelayProfile? = withContext(Dispatchers.IO) {
         handleRelayExceptions(
             RelayOperation.FETCH_PROFILE,
             { null },
         ) {
             val client = getOrCreateClient()
             client.fetchProfile()
-        }
-    }
-
-    /**
-     * Retrieves the Relay account status for the authenticated user.
-     *
-     * @return The user's [RelayAccountDetails] or [RelayPlanTier.NONE] if the operation failed.
-     */
-    suspend fun fetchAccountDetails(): Result<RelayAccountDetails> = withContext(Dispatchers.IO) {
-        runCatching {
-            val profile = fetchProfile()
-                ?: return@runCatching RelayAccountDetails(RelayPlanTier.NONE, 0)
-
-            mapProfileToDetails(profile)
-        }.onFailure {
-            logger.warn("Failed to fetch Relay status", it)
         }
     }
 

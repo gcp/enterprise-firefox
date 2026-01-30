@@ -4,7 +4,11 @@
 
 import { createEditor } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/ai-website-chip.mjs";
+// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/input-cta.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/memories-icon-button.mjs";
 
@@ -142,6 +146,7 @@ export class SmartbarInput extends HTMLElement {
                       inputmode="mozAwesomebar"
                       data-l10n-id="smartbar-placeholder"/>
         </moz-input-box>
+        <html:suggestions-panel-list></html:suggestions-panel-list>
         <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
         <image class="urlbar-icon urlbar-go-button"
                role="button"
@@ -2161,6 +2166,11 @@ export class SmartbarInput extends HTMLElement {
       return;
     }
 
+    // Don’t autofill if mentions panel is open.
+    if (this.inputField.isHandlingMentions) {
+      return;
+    }
+
     let isPlaceholderSelected =
       this._autofillPlaceholder &&
       this.selectionEnd == this._autofillPlaceholder.value.length &&
@@ -2276,10 +2286,19 @@ export class SmartbarInput extends HTMLElement {
     resetSearchState = true,
     event,
   } = {}) {
+    // When mentions panel is open, skip queries triggered by input events
+    // since the mentions plugin will handle querying providers directly.
+    const isHandlingMentions = this.inputField.isHandlingMentions;
+    if (isHandlingMentions && event) {
+      return;
+    }
+
+    // When mentions panel is open, skip the validation since the value
+    // includes "@" but searchString doesn’t.
     if (!searchString) {
       searchString =
         this.getAttribute("pageproxystate") == "valid" ? "" : this.value;
-    } else if (!this.value.startsWith(searchString)) {
+    } else if (!isHandlingMentions && !this.value.startsWith(searchString)) {
       throw new Error("The current value doesn't start with the search string");
     }
 
@@ -3425,10 +3444,12 @@ export class SmartbarInput extends HTMLElement {
    */
   _maybeAutofillPlaceholder(value) {
     // We allow autofill in local but not remote search modes.
+    // Also disable autofill when mentions panel is open.
     let allowAutofill =
       this.selectionEnd == value.length &&
       !this.searchMode?.engineName &&
-      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.SEARCH;
+      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.SEARCH &&
+      !this.inputField.isHandlingMentions;
 
     if (!allowAutofill) {
       this.#clearAutofill();
@@ -5580,6 +5601,17 @@ export class SmartbarInput extends HTMLElement {
       // bar but we should not untrim in that case.
       this._untrimOnFocusAfterKeydown = !this.focused;
       return;
+    }
+
+    // When mentions panel is open don’t let key navigation select urlbar results.
+    if (this.inputField.isHandlingMentions) {
+      if (
+        event.keyCode === KeyEvent.DOM_VK_TAB ||
+        event.keyCode === KeyEvent.DOM_VK_DOWN ||
+        event.keyCode === KeyEvent.DOM_VK_UP
+      ) {
+        return;
+      }
     }
 
     if (

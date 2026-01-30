@@ -52,11 +52,11 @@ work = "2.11.0"
 accompanist = "0.37.3"
 firebase-messaging = "25.0.1"
 installreferrer = "2.2"
-ksp = "2.3.4"
+ksp = "2.3.5"
 material = "1.13.0"
 osslicenses-plugin = "0.10.10"
 play-review = "2.0.2"
-play-services-ads-id = "18.2.0"
+play-services-ads-id = "18.3.0"
 play-services-base = "18.10.0"
 play-services-fido = "21.2.0"
 protobuf = "4.33.2" # Keep Protobuf in sync with the version used by AppServices.
@@ -78,7 +78,7 @@ ktlint = "1.8.0"
 spotless = "8.2.0"
 
 # Mozilla
-glean = "66.3.0"
+glean = "67.0.0"
 
 # Testing libraries
 androidx-test = "1.7.0"

@@ -563,7 +563,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_internal_macros]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105
+user-id = 111105 # Mark Hammond (mhammond)
 start = "2025-03-18"
 end = "2026-03-25"
 
@@ -6976,6 +6976,11 @@ delta = "0.4.0 -> 0.4.1"
 who = "Ed Guloien <edgul@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.4.1 -> 0.4.2"
+
+[[audits.urlpattern]]
+who = "Ed Guloien <edgul@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.2 -> 0.5.2"
 
 [[audits.utf16_iter]]
 who = "Henri Sivonen <hsivonen@hsivonen.fi>"
