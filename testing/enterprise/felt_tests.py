@@ -366,6 +366,9 @@ class FeltTestsBase(EnterpriseTestsBase):
             "enterprise.is_testing": True,
         }  # + test_prefs
 
+        if hasattr(self, "EXTRA_PREFS"):
+            self._extra_prefs.update(self.EXTRA_PREFS)
+
         manager = Manager()
         self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
         self.policy_refresh_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
@@ -614,3 +617,6 @@ class FeltTests(FeltTestsBase):
         self.get_elem("#password").send_keys("86c53cba7ccd")
         self.get_elem("#submit").click()
         self._logger.info("Performed SSO auth")
+
+    def await_felt_auth_window(self):
+        self._wait.until(lambda mn: len(self._driver.chrome_window_handles) == 1)

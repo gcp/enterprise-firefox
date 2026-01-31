@@ -41,11 +41,6 @@ class BrowserSignout(FeltTests):
         self._child_driver.set_context("content")
         return rv
 
-    def await_felt_auth_window(self):
-        self._wait.until(
-            lambda mn: len(self._driver.chrome_window_handles) == 1
-        )
-
     def force_window(self):
         self._driver.set_context("chrome")
         assert len(self._driver.chrome_window_handles) == 1, "One window exists"
