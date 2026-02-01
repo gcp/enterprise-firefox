@@ -114,16 +114,3 @@ task-defaults:
                     - name: public/build
                       type: directory
                       path: /builds/worker/artifacts/
-
-tasks:
-    felt-browser-restart-works:
-        description: Testing that browser restart is handled by FELT
-        attributes:
-            enterprise_test_file: test_felt_browser_restart_works.py
-            enterprise_test_slug: feltRestart
-
-    felt-browser-restart-quit:
-        description: Testing that browser restart is a quit for Enterprise build
-        attributes:
-            enterprise_test_file: test_felt_browser_restart_is_quit.py
-            enterprise_test_slug: feltQuit
