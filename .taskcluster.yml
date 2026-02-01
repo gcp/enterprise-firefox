@@ -589,7 +589,8 @@ tasks:
                                                --base-rev='${baseRev}' \
                                                --head-repository='${repoUrl}' \
                                                --head-ref='${ref}' \
-                                               --head-rev='${headRev}'
+                                               --head-rev='${headRev}' \
+                                               ${extraArgs}
 
                                   artifacts:
                                       'public':
