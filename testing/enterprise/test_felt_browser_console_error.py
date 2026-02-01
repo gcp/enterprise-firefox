@@ -12,11 +12,6 @@ from felt_tests import FeltTestsBase
 
 
 class FeltConsoleError(FeltTestsBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class FeltConsoleError(FeltTests):
     def teardown(self):
         if not hasattr(self, "_child_driver"):
             self._manually_closed_child = True

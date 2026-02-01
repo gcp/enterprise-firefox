@@ -194,8 +194,6 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
-        'Tent': 'Enterprise specific selenium tests'
-        'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
