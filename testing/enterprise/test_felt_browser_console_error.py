@@ -3,15 +3,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 
-from felt_tests_sel import FeltTestsBase
+sys.path.append(os.path.dirname(__file__))
+
+from felt_tests import FeltTestsBase
 
 
 class FeltConsoleError(FeltTestsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
+class FeltConsoleError(FeltTests):
     def teardown(self):
         if not hasattr(self, "_child_driver"):
             self._manually_closed_child = True
@@ -32,7 +37,6 @@ class FeltConsoleError(FeltTestsBase):
         assert details_text == error_msg, f"Correct error message: '{details_text}'"
 
         self._driver.set_context("content")
-        return True
 
     def test_felt_00_connection_error_fluent(self, exp):
         return self.connection_error_test("http://127.0.0.1:1", "Unknown network error")
@@ -42,13 +46,3 @@ class FeltConsoleError(FeltTestsBase):
             "http://nonexistent.localdomain:80",
             "We can’t connect to the server at nonexistent.localdomain.",
         )
-
-
-if __name__ == "__main__":
-    FeltConsoleError(
-        "felt_browser_console_error.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        cli_args=["-feltUI"],
-    )
