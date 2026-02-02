@@ -223,6 +223,60 @@ function setupMarionetteEnvironment() {
   Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
 }
 
+function setupContextMenu() {
+  const contextMenu = document.getElementById("textbox-contextmenu");
+  if (!contextMenu) {
+    return;
+  }
+
+  // Focus the target on contextmenu so command queries find the right editor.
+  window.addEventListener(
+    "contextmenu",
+    e => {
+      let target = e.composedTarget;
+      if (target && document.commandDispatcher.focusedElement != target) {
+        target.focus();
+      }
+    },
+    true
+  );
+
+  function updateMenuItemStates() {
+    for (let item of contextMenu.childNodes) {
+      let command = item.getAttribute("command");
+      if (command) {
+        try {
+          let controller =
+            document.commandDispatcher.getControllerForCommand(command);
+          if (controller) {
+            let enabled = controller.isCommandEnabled(command);
+            if (enabled) {
+              item.removeAttribute("disabled");
+            } else {
+              item.setAttribute("disabled", "true");
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  contextMenu.addEventListener("popupshowing", () => {
+    goUpdateGlobalEditMenuItems(true);
+    updateMenuItemStates();
+
+    // Command state updates arrive asynchronously for remote content.
+    // Listen for updates while the menu is open.
+    let updateHandler = () => updateMenuItemStates();
+    window.addEventListener("commandupdate", updateHandler);
+    contextMenu.addEventListener(
+      "popuphidden",
+      () => window.removeEventListener("commandupdate", updateHandler),
+      { once: true }
+    );
+  });
+}
+
 function setupPopupNotifications() {
   ChromeUtils.defineLazyGetter(window, "PopupNotifications", () => {
     const panel = document.getElementById("notification-popup");
@@ -251,6 +305,7 @@ window.addEventListener(
     ErrorReport.init();
     setupMarionetteEnvironment();
     setupPopupNotifications();
+    setupContextMenu();
     listenFormEmailSubmission();
     informAboutPotentialStartupFailure();
   },
