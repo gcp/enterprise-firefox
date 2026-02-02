@@ -7,8 +7,7 @@
 <%namespace name="helpers" file="/helpers.mako.rs" />
 
 use servo_arc::{Arc, UniqueArc};
-use std::{ops, ptr};
-use std::{fmt, mem};
+use std::{ops, ptr, fmt, mem};
 
 #[cfg(feature = "servo")] use euclid::SideOffsets2D;
 #[cfg(feature = "gecko")] use crate::gecko_bindings::structs::{self, NonCustomCSSPropertyId};
@@ -65,26 +64,39 @@ impl<T> MaybeBoxed<Box<T>> for T {
     fn maybe_boxed(self) -> Box<T> { Box::new(self) }
 }
 
-macro_rules! expanded {
-    ( $( $name: ident: $value: expr ),+ ) => {
-        expanded!( $( $name: $value, )+ )
-    };
-    ( $( $name: ident: $value: expr, )+ ) => {
-        Longhands {
-            $(
-                $name: MaybeBoxed::maybe_boxed($value),
-            )+
-        }
-    }
-}
-
 /// A module with all the code for longhand properties.
 #[allow(missing_docs)]
 pub mod longhands {
-    % for style_struct in data.style_structs:
-    <% data.current_style_struct = style_struct %>
-    <%include file="/longhands/${style_struct.name_lower}.mako.rs" />
-    % endfor
+<%
+    import toml
+    import os
+
+    longhands_toml = toml.loads(open(os.path.join(os.path.dirname(self.filename), "longhands.toml")).read())
+    for name, args in longhands_toml.items():
+        style_struct = data.style_struct_by_name_lower(args["struct"])
+        del args['struct']
+
+        # Handle keyword properties
+        if 'keyword' in args:
+            keyword_dict = args.pop('keyword')
+            if 'values' not in keyword_dict:
+                raise TypeError(f"{name}: keyword should have 'values'")
+            values = keyword_dict.pop('values')
+            keyword = Keyword(name, values, **keyword_dict)
+            data.declare_longhand(style_struct, name, keyword=keyword, **args)
+        else:
+            # Handle predefined_type properties
+            if 'type' not in args:
+                raise TypeError(f"{name} should have a type")
+            args['predefined_type'] = args.pop('type')
+            if 'initial' not in args and not args.get('vector'):
+                raise TypeError(f"{name} should have an initial value (only vector properties should lack one)")
+            args['initial_value'] = args.pop('initial', None)
+            data.declare_longhand(style_struct, name, **args)
+
+    for longhand in data.longhands:
+        helpers.longhand(longhand)
+%>
 }
 
 
@@ -96,61 +108,55 @@ pub mod gecko {
 % endif
 
 
-macro_rules! unwrap_or_initial {
-    ($prop: ident) => (unwrap_or_initial!($prop, $prop));
-    ($prop: ident, $expr: expr) =>
-        ($expr.unwrap_or_else(|| $prop::get_initial_specified_value()));
-}
-
 /// A module with code for all the shorthand css properties, and a few
 /// serialization helpers.
 #[allow(missing_docs)]
-pub mod shorthands {
-    use cssparser::Parser;
-    use crate::parser::{Parse, ParserContext};
-    use style_traits::{ParseError, StyleParseErrorKind};
-    use crate::values::specified;
+pub mod shorthands_generated {
+<%
+    import toml
+    import os
 
-    % for style_struct in data.style_structs:
-    <%include file="/shorthands/${style_struct.name_lower}.mako.rs" />
-    % endfor
+    shorthands_toml = toml.loads(open(os.path.join(os.path.dirname(self.filename), "shorthands.toml")).read())
+    for name, args in shorthands_toml.items():
+        data.declare_shorthand(name, **args)
 
-    // We didn't define the 'all' shorthand using the regular helpers:shorthand
-    // mechanism, since it causes some very large types to be generated.
-    //
-    // Also, make sure logical properties appear before its physical
-    // counter-parts, in order to prevent bugs like:
-    //
-    //   https://bugzilla.mozilla.org/show_bug.cgi?id=1410028
-    //
-    // FIXME(emilio): Adopt the resolution from:
-    //
-    //   https://github.com/w3c/csswg-drafts/issues/1898
-    //
-    // when there is one, whatever that is.
-    <%
-        logical_longhands = []
-        other_longhands = []
+    for shorthand in data.shorthands:
+        helpers.shorthand(shorthand)
 
-        for p in data.longhands:
-            if p.name in ['direction', 'unicode-bidi']:
-                continue;
-            if not p.enabled_in_content() and not p.experimental(engine):
-                continue;
-            if "Style" not in p.rule_types_allowed_names():
-                continue;
-            if p.logical:
-                logical_longhands.append(p.name)
-            else:
-                other_longhands.append(p.name)
+    # We didn't define the 'all' shorthand using the regular helpers:shorthand
+    # mechanism, since it causes some very large types to be generated.
+    #
+    # Also, make sure logical properties appear before its physical
+    # counter-parts, in order to prevent bugs like:
+    #
+    #   https://bugzilla.mozilla.org/show_bug.cgi?id=1410028
+    #
+    # FIXME(emilio): Adopt the resolution from:
+    #
+    #   https://github.com/w3c/csswg-drafts/issues/1898
+    #
+    # when there is one, whatever that is.
+    logical_longhands = []
+    other_longhands = []
 
-        data.declare_shorthand(
-            "all",
-            logical_longhands + other_longhands,
-            engines="gecko servo",
-            spec="https://drafts.csswg.org/css-cascade-3/#all-shorthand"
-        )
-        ALL_SHORTHAND_LEN = len(logical_longhands) + len(other_longhands);
+    for p in data.longhands:
+        if p.name in ['direction', 'unicode-bidi']:
+            continue;
+        if not p.enabled_in_content() and not p.experimental(engine):
+            continue;
+        if "style" not in p.rule_types_allowed_names():
+            continue;
+        if p.logical:
+            logical_longhands.append(p.name)
+        else:
+            other_longhands.append(p.name)
+
+    data.declare_shorthand(
+        "all",
+        logical_longhands + other_longhands,
+        spec="https://drafts.csswg.org/css-cascade-3/#all-shorthand"
+    )
+    ALL_SHORTHAND_LEN = len(logical_longhands) + len(other_longhands);
     %>
 }
 
@@ -570,7 +576,7 @@ impl NonCustomPropertyId {
             % for property in data.longhands + data.shorthands + data.all_aliases():
             % for name in RULE_VALUES:
             % if property.rule_types_allowed & RULE_VALUES[name] != 0:
-            CssRuleType::${name}.bit() |
+            CssRuleType::${to_camel_case(name)}.bit() |
             % endif
             % endfor
             0,
@@ -638,7 +644,7 @@ impl NonCustomPropertyId {
             % if prop.name == "all":
                 0, // 'all' accepts no value other than CSS-wide keywords
             % else:
-                <shorthands::${prop.ident}::Longhands as SpecifiedValueInfo>::SUPPORTED_TYPES,
+                <shorthands_generated::${prop.ident}::Longhands as SpecifiedValueInfo>::SUPPORTED_TYPES,
             % endif
             % endfor
         ];
@@ -657,7 +663,7 @@ impl NonCustomPropertyId {
             % if prop.name == "all":
                 do_nothing, // 'all' accepts no value other than CSS-wide keywords
             % else:
-                <shorthands::${prop.ident}::Longhands as SpecifiedValueInfo>::
+                <shorthands_generated::${prop.ident}::Longhands as SpecifiedValueInfo>::
                     collect_completion_keywords,
             % endif
             % endfor
@@ -1146,7 +1152,7 @@ impl ShorthandId {
             % if shorthand.ident == "all":
                 all_to_css,
             % else:
-                shorthands::${shorthand.ident}::to_css,
+                shorthands_generated::${shorthand.ident}::to_css,
             % endif
             % endfor
         ];
@@ -1213,7 +1219,7 @@ impl ShorthandId {
             % if shorthand.ident == "all":
             parse_all,
             % else:
-            shorthands::${shorthand.ident}::parse_into,
+            shorthands_generated::${shorthand.ident}::parse_into,
             % endif
             % endfor
         ];
@@ -1528,7 +1534,7 @@ pub mod style_structs {
                         self.${longhand.ident}.clone()
                     }
                 % endif
-                % if longhand.need_index:
+                % if longhand.vector and longhand.vector.need_index:
                     /// If this longhand is indexed, get the number of elements.
                     #[allow(non_snake_case)]
                     pub fn ${longhand.ident}_count(&self) -> usize {
@@ -1598,7 +1604,7 @@ pub mod style_structs {
 % for style_struct in data.active_style_structs():
     impl style_structs::${style_struct.name} {
         % for longhand in style_struct.longhands:
-            % if longhand.need_index:
+            % if longhand.vector and longhand.vector.need_index:
                 /// Iterate over the values of ${longhand.name}.
                 #[allow(non_snake_case)]
                 #[inline]
@@ -1695,7 +1701,7 @@ pub mod style_structs {
     }
 
     % for longhand in style_struct.longhands:
-        % if longhand.need_index:
+        % if longhand.vector and longhand.vector.need_index:
             /// An iterator over the values of the ${longhand.name} properties.
             pub struct ${longhand.camel_case}Iter<'a> {
                 style_struct: &'a style_structs::${style_struct.name},
@@ -1731,6 +1737,9 @@ pub struct ComputedValuesInner {
         ${style_struct.ident}: Arc<style_structs::${style_struct.name}>,
     % endfor
     custom_properties: crate::custom_properties::ComputedCustomProperties,
+
+    /// The set of attributes used as values in `attr()`
+    pub attribute_references: AttributeReferences,
 
     /// The effective zoom value.
     pub effective_zoom: computed::Zoom,
@@ -1979,6 +1988,7 @@ impl ComputedValues {
     pub fn new(
         pseudo: Option<&PseudoElement>,
         custom_properties: crate::custom_properties::ComputedCustomProperties,
+        attribute_references: crate::dom::AttributeReferences,
         writing_mode: WritingMode,
         effective_zoom: computed::Zoom,
         flags: ComputedValueFlags,
@@ -1991,6 +2001,7 @@ impl ComputedValues {
         Arc::new(Self {
             inner: ComputedValuesInner {
                 custom_properties,
+                attribute_references,
                 writing_mode,
                 rules,
                 visited_style,
@@ -2393,6 +2404,9 @@ pub struct StyleBuilder<'a> {
     /// The computed custom properties.
     pub custom_properties: crate::custom_properties::ComputedCustomProperties,
 
+    /// The set of attributes used as values in `attr()`
+    pub attribute_references: crate::dom::AttributeReferences,
+
     /// Non-custom properties that are considered invalid at compute time
     /// due to cyclic dependencies with custom properties.
     /// e.g. `--foo: 1em; font-size: var(--foo)` where `--foo` is registered.
@@ -2460,6 +2474,7 @@ impl<'a> StyleBuilder<'a> {
             modified_reset: false,
             is_root_element,
             custom_properties: crate::custom_properties::ComputedCustomProperties::default(),
+            attribute_references: crate::dom::AttributeReferences::default(),
             invalid_non_custom_properties: LonghandIdSet::default(),
             writing_mode: inherited_style.writing_mode,
             effective_zoom: inherited_style.effective_zoom,
@@ -2500,6 +2515,7 @@ impl<'a> StyleBuilder<'a> {
             modified_reset: false,
             is_root_element: false,
             rules: None,
+            attribute_references: crate::dom::AttributeReferences::default(),
             custom_properties: style_to_derive_from.custom_properties().clone(),
             invalid_non_custom_properties: LonghandIdSet::default(),
             writing_mode: style_to_derive_from.writing_mode,
@@ -2569,7 +2585,7 @@ impl<'a> StyleBuilder<'a> {
     }
     % endif
 
-    % if not property.is_vector or property.simple_vector_bindings or engine == "servo":
+    % if not property.vector or property.vector.simple_bindings or engine == "servo":
     /// Set the `${property.ident}` to the computed value `value`.
     #[allow(non_snake_case)]
     pub fn set_${property.ident}(
@@ -2748,6 +2764,7 @@ impl<'a> StyleBuilder<'a> {
         ComputedValues::new(
             self.pseudo,
             self.custom_properties,
+            self.attribute_references,
             self.writing_mode,
             self.effective_zoom,
             self.flags.get(),
@@ -2957,7 +2974,7 @@ macro_rules! longhand_properties_idents {
 
 // Large pages generate tens of thousands of ComputedValues.
 #[cfg(feature = "gecko")]
-size_of_test!(ComputedValues, 248);
+size_of_test!(ComputedValues, 256);
 #[cfg(feature = "servo")]
 size_of_test!(ComputedValues, 216);
 

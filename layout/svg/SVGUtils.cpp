@@ -224,8 +224,8 @@ Size SVGUtils::GetContextSize(const nsIFrame* aFrame) {
 
   SVGViewportElement* ctx = element->GetCtx();
   if (ctx) {
-    size.width = ctx->GetLength(SVGContentUtils::X);
-    size.height = ctx->GetLength(SVGContentUtils::Y);
+    size.width = ctx->GetLength(SVGLength::Axis::X);
+    size.height = ctx->GetLength(SVGLength::Axis::Y);
   }
   return size;
 }
@@ -233,24 +233,9 @@ Size SVGUtils::GetContextSize(const nsIFrame* aFrame) {
 float SVGUtils::ObjectSpace(const gfxRect& aRect,
                             const dom::UserSpaceMetrics& aMetrics,
                             const SVGAnimatedLength* aLength) {
-  float axis;
+  float axis =
+      float(SVGContentUtils::AxisLength(aRect.Size(), aLength->Axis()));
 
-  switch (aLength->GetCtxType()) {
-    case SVGContentUtils::X:
-      axis = aRect.Width();
-      break;
-    case SVGContentUtils::Y:
-      axis = aRect.Height();
-      break;
-    case SVGContentUtils::XY:
-      axis = float(SVGContentUtils::ComputeNormalizedHypotenuse(
-          aRect.Width(), aRect.Height()));
-      break;
-    default:
-      MOZ_ASSERT_UNREACHABLE("unexpected ctx type");
-      axis = 0.0f;
-      break;
-  }
   if (aLength->IsPercentage()) {
     // Multiply first to avoid precision errors:
     return axis * aLength->GetAnimValInSpecifiedUnits() / 100;

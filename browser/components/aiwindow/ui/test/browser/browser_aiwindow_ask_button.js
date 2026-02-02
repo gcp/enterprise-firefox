@@ -8,7 +8,7 @@
  */
 add_task(async function test_ask_button() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.firstrun.hasCompleted", true]],
+    set: [["browser.smartwindow.firstrun.hasCompleted", true]],
   });
 
   const win = await openAIWindow();
@@ -25,9 +25,21 @@ add_task(async function test_ask_button() {
     "Example url tab should be open"
   );
 
-  const askButton = win.document.getElementById("aiwindow-ask-button");
+  const askButton = win.document.getElementById("smartwindow-ask-button");
   Assert.ok(askButton, "Ask button exists in the toolbar");
   Assert.ok(!askButton.hidden, "Ask button is initially visible for AI Window");
+
+  /* the window switcher feature callout gets in front of the ask button
+  if it exists, we must close before clicking on the ask button */
+  const switcherFeatureCallout = win.document.querySelector(
+    "#feature-callout .SMARTWINDOW_SWITCHER_BUTTON_CALLOUT"
+  );
+
+  if (switcherFeatureCallout) {
+    const closeBtn = switcherFeatureCallout.querySelector(".dismiss-button");
+    EventUtils.synthesizeMouseAtCenter(closeBtn, {}, win);
+  }
+
   EventUtils.synthesizeMouseAtCenter(askButton, {}, win);
 
   await BrowserTestUtils.waitForMutationCondition(
@@ -97,7 +109,7 @@ add_task(async function test_classic_window() {
   }
 
   try {
-    const askButton = win.document.getElementById("aiwindow-ask-button");
+    const askButton = win.document.getElementById("smartwindow-ask-button");
     Assert.ok(
       askButton.hidden,
       "Ask button is not visible in the toolbar for classic window"

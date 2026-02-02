@@ -7,19 +7,21 @@
 const { LINKS } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
 );
-const lazy = {};
+const { IPPExceptionsManager } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/ipprotection/IPPExceptionsManager.sys.mjs"
+);
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  IPProtectionWidget:
-    "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
-  IPProtectionPanel:
-    "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs",
-});
+const mockLocation = {
+  name: "United States",
+  code: "us",
+};
 
-/**
- * Tests UI updates to the status card in the panel after enable/disables.
- */
-add_task(async function test_status_card_in_panel() {
+const mockBandwidthUsage = {
+  currentBandwidthUsage: 50,
+  maxBandwidth: 150,
+};
+
+async function setupStatusCardTest() {
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
@@ -32,20 +34,64 @@ add_task(async function test_status_card_in_panel() {
   });
   await IPPEnrollAndEntitleManager.refetchEntitlement();
 
-  const l10nIdOn = "ipprotection-connection-status-on";
-  const l10nIdOff = "ipprotection-connection-status-off";
-  const mockLocation = {
-    name: "United States",
-    code: "us",
-  };
-
   await SpecialPowers.pushPrefEnv({
     set: [["browser.ipProtection.bandwidth.enabled", true]],
   });
+}
+
+async function cleanupStatusCardTest() {
+  cleanupService();
+  await SpecialPowers.popPrefEnv();
+}
+
+function checkLocationAndBandwidth(statusBoxEl, location, bandwidth) {
+  const locationEl = statusBoxEl.shadowRoot
+    .querySelector(`slot[name="location"]`)
+    .assignedElements()[0];
+  Assert.ok(
+    BrowserTestUtils.isVisible(locationEl),
+    "Location element should be present and visible"
+  );
+  Assert.equal(
+    locationEl.textContent.trim(),
+    location.name,
+    "Location element should be showing correct location"
+  );
+
+  const bandwidthEl = statusBoxEl.shadowRoot
+    .querySelector(`slot[name="bandwidth"]`)
+    .assignedElements()[0];
+  Assert.ok(
+    BrowserTestUtils.isVisible(bandwidthEl),
+    "bandwidth-usage should be present and visible"
+  );
+  Assert.equal(
+    bandwidthEl.value,
+    bandwidth.currentBandwidthUsage,
+    `Bandwidth should have ${bandwidth.currentBandwidthUsage} GB used`
+  );
+  Assert.equal(
+    bandwidthEl.bandwidthLeft,
+    bandwidth.maxBandwidth - bandwidth.currentBandwidthUsage,
+    `Bandwidth should have ${bandwidth.maxBandwidth - bandwidth.currentBandwidthUsage} GB left`
+  );
+  Assert.equal(
+    bandwidthEl.max,
+    bandwidth.maxBandwidth,
+    `Bandwidth should have a max value of ${bandwidth.maxBandwidth}`
+  );
+}
+
+/**
+ * Tests the disconnected state UI.
+ */
+add_task(async function test_status_card_disconnected() {
+  await setupStatusCardTest();
 
   let content = await openPanel({
     location: mockLocation,
-    bandwidthUsage: { currentBandwidthUsage: 50, maxBandwidth: 150 },
+    isProtectionEnabled: false,
+    bandwidthUsage: mockBandwidthUsage,
   });
 
   Assert.ok(
@@ -56,65 +102,53 @@ add_task(async function test_status_card_in_panel() {
   let statusCard = content.statusCardEl;
   Assert.ok(content.statusCardEl, "ipprotection-status-card should be present");
 
-  Assert.equal(
-    statusCard?.statusGroupEl.getAttribute("data-l10n-id"),
-    l10nIdOff,
-    "Status card connection toggle data-l10n-id should be correct by default"
-  );
+  let statusBoxEl = statusCard.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
 
-  const locationEl =
-    statusCard.statusGroupEl.shadowRoot.querySelector("#location-label");
+  checkLocationAndBandwidth(statusBoxEl, mockLocation, mockBandwidthUsage);
 
-  Assert.ok(
-    BrowserTestUtils.isVisible(locationEl),
-    "Location element should be present and visible"
-  );
-  Assert.equal(
-    locationEl.textContent.trim(),
-    mockLocation.name,
-    "Location element should be showing correct location"
-  );
-
-  // Set state as if protection is enabled
-  await setPanelState({
-    location: mockLocation,
-    isProtectionEnabled: true,
-  });
-
-  content.requestUpdate();
-
-  await content.updateComplete;
-
-  Assert.equal(
-    statusCard?.statusGroupEl.getAttribute("data-l10n-id"),
-    l10nIdOn,
-    "Status card connection toggle data-l10n-id should be correct when protection is enabled"
-  );
-
-  const bandwidthEl =
-    statusCard.statusGroupEl.shadowRoot.querySelector("bandwidth-usage");
-  Assert.ok(
-    BrowserTestUtils.isVisible(bandwidthEl),
-    "bandwidth-usage should be present and visible"
-  );
-  Assert.equal(bandwidthEl.value, 50, "Bandwidth should have 50 GB used");
-  Assert.equal(
-    bandwidthEl.bandwidthLeft,
-    100,
-    "Bandwidth should have 100 GB left"
-  );
-  Assert.equal(
-    bandwidthEl.max,
-    150,
-    "Bandwidth should have a max value of 150"
-  );
+  const turnOnButtonEl = statusCard.actionButtonEl;
+  Assert.ok(turnOnButtonEl, "Button to turn on VPN should be present");
 
   await closePanel();
-  cleanupService();
+  await cleanupStatusCardTest();
 });
 
 /**
- * Tests that the correct IPProtection events are dispatched on toggle.
+ * Tests the connected state UI.
+ */
+add_task(async function test_status_card_connected() {
+  await setupStatusCardTest();
+
+  let content = await openPanel({
+    location: mockLocation,
+    isProtectionEnabled: true,
+    bandwidthUsage: mockBandwidthUsage,
+  });
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(content),
+    "ipprotection content component should be present"
+  );
+
+  let statusCard = content.statusCardEl;
+  Assert.ok(content.statusCardEl, "ipprotection-status-card should be present");
+
+  let statusBoxEl = statusCard.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
+
+  checkLocationAndBandwidth(statusBoxEl, mockLocation, mockBandwidthUsage);
+
+  const turnOffVPNButtonEl = statusCard.actionButtonEl;
+  Assert.ok(turnOffVPNButtonEl, "Button to turn off VPN should be present");
+
+  await closePanel();
+  await cleanupStatusCardTest();
+});
+
+/**
+ * Tests that the correct IPProtection events are dispatched when
+ * we enable or disable VPN protection.
  */
 add_task(async function test_ipprotection_events_on_toggle() {
   // These events are different from the ones sent by
@@ -129,30 +163,13 @@ add_task(async function test_ipprotection_events_on_toggle() {
   cleanupService();
   IPProtectionService.updateState();
 
-  setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
+  await setupStatusCardTest();
+
+  let content = await openPanel({
+    location: mockLocation,
+    isProtectionEnabled: false,
+    bandwidthUsage: mockBandwidthUsage,
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
-
-  let button = document.getElementById(lazy.IPProtectionWidget.WIDGET_ID);
-  let panelView = PanelMultiView.getViewNode(
-    document,
-    lazy.IPProtectionWidget.PANEL_ID
-  );
-
-  let panelShownPromise = waitForPanelEvent(document, "popupshown");
-  // Open the panel
-  button.click();
-  await panelShownPromise;
-
-  let content = panelView.querySelector(lazy.IPProtectionPanel.CONTENT_TAGNAME);
 
   Assert.ok(
     BrowserTestUtils.isVisible(content),
@@ -160,11 +177,14 @@ add_task(async function test_ipprotection_events_on_toggle() {
   );
 
   let statusCard = content.statusCardEl;
+  Assert.ok(content.statusCardEl, "ipprotection-status-card should be present");
 
-  Assert.ok(statusCard, "Status card should be present");
+  let statusBoxEl = statusCard.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
 
-  let toggle = statusCard?.connectionToggleEl;
-  Assert.ok(toggle, "Status card connection toggle should be present");
+  // Now click "Turn on"
+  let turnOnVPNButtonEl = statusCard.actionButtonEl;
+  Assert.ok(turnOnVPNButtonEl, "Button to turn on VPN should be present");
 
   let startedProxyPromise = BrowserTestUtils.waitForEvent(
     IPPProxyManager,
@@ -177,10 +197,10 @@ add_task(async function test_ipprotection_events_on_toggle() {
     userEnableEventName
   );
 
-  toggle.click();
-  info("Clicked toggle to turn VPN on");
+  turnOnVPNButtonEl.click();
 
   await Promise.all([startedProxyPromise, enableEventPromise]);
+
   Assert.ok(
     true,
     "Enable event and proxy started event were found after clicking the toggle"
@@ -191,6 +211,10 @@ add_task(async function test_ipprotection_events_on_toggle() {
     false
   );
   Assert.equal(userEnabledPref, true, "userEnabled pref should be set to true");
+
+  // Now click "Turn off"
+  let turnOffVPNButtonEl = statusCard.actionButtonEl;
+  Assert.ok(turnOffVPNButtonEl, "Button to turn off VPN should be present");
 
   let stoppedProxyPromise = BrowserTestUtils.waitForEvent(
     IPPProxyManager,
@@ -203,9 +227,7 @@ add_task(async function test_ipprotection_events_on_toggle() {
     userDisableEventName
   );
 
-  toggle = statusCard?.connectionToggleEl;
-  toggle.click();
-  info("Clicked toggle to turn VPN off");
+  turnOffVPNButtonEl.click();
 
   await Promise.all([stoppedProxyPromise, disableEventPromise]);
   Assert.ok(
@@ -223,53 +245,24 @@ add_task(async function test_ipprotection_events_on_toggle() {
     "userEnabled pref should be set to false"
   );
 
-  // Close the panel
-  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
-  EventUtils.synthesizeKey("KEY_Escape");
-  await panelHiddenPromise;
-  cleanupService();
+  await closePanel();
+  await cleanupStatusCardTest();
 });
 
 /**
- * Tests that the correct IPProtection events are dispatched on button click.
+ * Tests the excluded site state UI.
  */
-add_task(async function test_ipprotection_events_on_button_click() {
-  // These events are different from the ones sent by
-  // ipprotection-status-card. The prefixed "IPProtection:" events
-  // actually change the connection state in the service when dispatched.
-  // If the IPProtection events are sent, then we know that the status-card
-  // events worked.
-  const userEnableEventName = "IPProtection:UserEnable";
-  const userDisableEventName = "IPProtection:UserDisable";
+add_task(async function test_status_card_excluded() {
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(IPPExceptionsManager, "hasExclusion").returns(true);
 
-  // Reset service state.
-  cleanupService();
-  IPProtectionService.updateState();
+  await setupStatusCardTest();
 
-  setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
+  let content = await openPanel({
+    location: mockLocation,
+    isProtectionEnabled: true,
+    bandwidthUsage: { currentBandwidthUsage: 50, maxBandwidth: 150 },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
-
-  let button = document.getElementById(lazy.IPProtectionWidget.WIDGET_ID);
-  let panelView = PanelMultiView.getViewNode(
-    document,
-    lazy.IPProtectionWidget.PANEL_ID
-  );
-
-  let panelShownPromise = waitForPanelEvent(document, "popupshown");
-  // Open the panel
-  button.click();
-  await panelShownPromise;
-
-  let content = panelView.querySelector(lazy.IPProtectionPanel.CONTENT_TAGNAME);
 
   Assert.ok(
     BrowserTestUtils.isVisible(content),
@@ -277,84 +270,26 @@ add_task(async function test_ipprotection_events_on_button_click() {
   );
 
   let statusCard = content.statusCardEl;
+  Assert.ok(content.statusCardEl, "ipprotection-status-card should be present");
 
-  await BrowserTestUtils.waitForMutationCondition(
-    content.shadowRoot,
-    { childList: true, subtree: true },
-    () => content.statusCardEl
-  );
+  let statusBoxEl = statusCard.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
 
-  Assert.ok(statusCard, "Status card should be present");
-
-  let connectionButton = statusCard?.connectionButtonEl;
-  connectionButton.hidden = false;
-  Assert.ok(
-    connectionButton,
-    "Status card connection button should be present"
-  );
-
-  let startedProxyPromise = BrowserTestUtils.waitForEvent(
-    IPPProxyManager,
-    "IPPProxyManager:StateChanged",
-    false,
-    () => !!IPPProxyManager.activatedAt
-  );
-  let enableEventPromise = BrowserTestUtils.waitForEvent(
-    window,
-    userEnableEventName
-  );
-
-  connectionButton.click();
-  info("Clicked toggle to turn VPN on");
-
-  await Promise.all([startedProxyPromise, enableEventPromise]);
-  Assert.ok(
-    true,
-    "Enable event and proxy started event were found after clicking the toggle"
-  );
-
-  let userEnabledPref = Services.prefs.getBoolPref(
-    "browser.ipProtection.userEnabled",
-    false
-  );
-  Assert.equal(userEnabledPref, true, "userEnabled pref should be set to true");
-
-  let stoppedProxyPromise = BrowserTestUtils.waitForEvent(
-    IPPProxyManager,
-    "IPPProxyManager:StateChanged",
-    false,
-    () => !IPPProxyManager.activatedAt
-  );
-  let disableEventPromise = BrowserTestUtils.waitForEvent(
-    window,
-    userDisableEventName
-  );
-
-  connectionButton = statusCard?.connectionButtonEl;
-  connectionButton.click();
-  info("Clicked toggle to turn VPN off");
-
-  await Promise.all([stoppedProxyPromise, disableEventPromise]);
-  Assert.ok(
-    true,
-    "Disable event and stopped proxy event were found after clicking the toggle"
-  );
-
-  userEnabledPref = Services.prefs.getBoolPref(
-    "browser.ipProtection.userEnabled",
-    true
-  );
   Assert.equal(
-    userEnabledPref,
-    false,
-    "userEnabled pref should be set to false"
+    statusBoxEl.type,
+    "excluded",
+    "Status box should have excluded type"
   );
 
-  connectionButton.hidden = true;
+  checkLocationAndBandwidth(statusBoxEl, mockLocation, {
+    currentBandwidthUsage: 50,
+    maxBandwidth: 150,
+  });
 
-  // Close the panel
-  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
-  EventUtils.synthesizeKey("KEY_Escape");
-  await panelHiddenPromise;
-  cleanupService();
+  const turnOffVPNButtonEl = statusCard.actionButtonEl;
+  Assert.ok(turnOffVPNButtonEl, "Button to turn off VPN should be present");
+
+  await closePanel();
+  await cleanupStatusCardTest();
+  sandbox.restore();
 });

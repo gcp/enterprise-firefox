@@ -140,12 +140,6 @@ for (const type of [
   "DISCOVERY_STREAM_LAYOUT_UPDATE",
   "DISCOVERY_STREAM_LINK_BLOCKED",
   "DISCOVERY_STREAM_LOADED_CONTENT",
-  "DISCOVERY_STREAM_PERSONALIZATION_INIT",
-  "DISCOVERY_STREAM_PERSONALIZATION_LAST_UPDATED",
-  "DISCOVERY_STREAM_PERSONALIZATION_OVERRIDE",
-  "DISCOVERY_STREAM_PERSONALIZATION_RESET",
-  "DISCOVERY_STREAM_PERSONALIZATION_TOGGLE",
-  "DISCOVERY_STREAM_PERSONALIZATION_UPDATED",
   "DISCOVERY_STREAM_PREFS_SETUP",
   "DISCOVERY_STREAM_RETRY_FEED",
   "DISCOVERY_STREAM_SPOCS_CAPS",
@@ -679,34 +673,6 @@ class TogglePrefCheckbox extends (external_React_default()).PureComponent {
     }), " ", this.props.pref, " ");
   }
 }
-class Personalization extends (external_React_default()).PureComponent {
-  constructor(props) {
-    super(props);
-    this.togglePersonalization = this.togglePersonalization.bind(this);
-  }
-  togglePersonalization() {
-    this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.DISCOVERY_STREAM_PERSONALIZATION_TOGGLE
-    }));
-  }
-  render() {
-    const {
-      lastUpdated,
-      initialized
-    } = this.props.state.Personalization;
-    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      colSpan: "2"
-    }, /*#__PURE__*/external_React_default().createElement(TogglePrefCheckbox, {
-      checked: this.props.personalized,
-      pref: "personalized",
-      onChange: this.togglePersonalization
-    }))), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      className: "min"
-    }, "Personalization Last Updated"), /*#__PURE__*/external_React_default().createElement("td", null, relativeTime(lastUpdated) || "(no data)")), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      className: "min"
-    }, "Personalization Initialized"), /*#__PURE__*/external_React_default().createElement("td", null, initialized ? "true" : "false")))));
-  }
-}
 class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -1106,7 +1072,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
       config,
       layout
     } = this.props.state.DiscoveryStream;
-    const personalized = this.props.otherPrefs["discoverystream.personalization.enabled"];
     const sectionsEnabled = this.props.otherPrefs[PREF_SECTIONS_ENABLED];
 
     // Prefs for IAB Banners
@@ -1188,13 +1153,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, row.components.map((component, componentIndex) => /*#__PURE__*/external_React_default().createElement("div", {
       key: `component-${componentIndex}`,
       className: "ds-component"
-    }, this.renderComponent(row.width, component))))), /*#__PURE__*/external_React_default().createElement("h3", null, "Personalization"), /*#__PURE__*/external_React_default().createElement(Personalization, {
-      personalized: personalized,
-      dispatch: this.props.dispatch,
-      state: {
-        Personalization: this.props.state.Personalization
-      }
-    }), /*#__PURE__*/external_React_default().createElement("h3", null, "Spocs"), this.renderSpocs(), /*#__PURE__*/external_React_default().createElement("h3", null, "Feeds Data"), /*#__PURE__*/external_React_default().createElement("div", {
+    }, this.renderComponent(row.width, component))))), /*#__PURE__*/external_React_default().createElement("h3", null, "Spocs"), this.renderSpocs(), /*#__PURE__*/external_React_default().createElement("h3", null, "Feeds Data"), /*#__PURE__*/external_React_default().createElement("div", {
       className: "large-data-container"
     }, this.renderFeedsData()), /*#__PURE__*/external_React_default().createElement("h3", null, "Impressions Data"), /*#__PURE__*/external_React_default().createElement("div", {
       className: "large-data-container"
@@ -1223,7 +1182,6 @@ class DiscoveryStreamAdminInner extends (external_React_default()).PureComponent
     }, "Click here"))), /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamAdminUI, {
       state: {
         DiscoveryStream: this.props.DiscoveryStream,
-        Personalization: this.props.Personalization,
         Weather: this.props.Weather,
         InferredPersonalization: this.props.InferredPersonalization
       },
@@ -1265,7 +1223,6 @@ const _DiscoveryStreamAdmin = props => /*#__PURE__*/external_React_default().cre
 const DiscoveryStreamAdmin = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   Sections: state.Sections,
   DiscoveryStream: state.DiscoveryStream,
-  Personalization: state.Personalization,
   InferredPersonalization: state.InferredPersonalization,
   Prefs: state.Prefs,
   Weather: state.Weather
@@ -3457,7 +3414,6 @@ const READING_WPM = 220;
 const PREF_OHTTP_MERINO = "discoverystream.merino-provider.ohttp.enabled";
 const PREF_OHTTP_UNIFIED_ADS = "unifiedAds.ohttp.enabled";
 const DSCard_PREF_SECTIONS_ENABLED = "discoverystream.sections.enabled";
-const PREF_FAVICONS_ENABLED = "discoverystream.publisherFavicon.enabled";
 
 /**
  * READ TIME FROM WORD COUNT
@@ -3478,11 +3434,9 @@ const DSSource = ({
   context,
   sponsor,
   sponsored_by_override,
-  icon_src,
-  refinedCardsLayout
+  icon_src
 }) => {
-  // refinedCard styles will have a larger favicon size
-  const faviconSize = refinedCardsLayout ? 20 : 16;
+  const faviconSize = 20;
 
   // First try to display sponsored label or time to read here.
   if (newSponsoredLabel) {
@@ -3538,18 +3492,22 @@ const DefaultMeta = ({
   dispatch,
   mayHaveSectionsCards,
   format,
-  topic,
-  isSectionsCard,
-  showTopics,
-  icon_src,
-  refinedCardsLayout
+  icon_src
 }) => {
-  const shouldHaveFooterSection = isSectionsCard && showTopics;
+  const shouldShowFooter = format !== "rectangle" && format !== "spoc";
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "meta"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "info-wrap"
-  }, ctaButtonVariant !== "variant-b" && format !== "rectangle" && !refinedCardsLayout && /*#__PURE__*/external_React_default().createElement(DSSource, {
+  }, /*#__PURE__*/external_React_default().createElement("h3", {
+    className: "title clamp"
+  }, format === "rectangle" ? "Sponsored" : title), format === "rectangle" ? /*#__PURE__*/external_React_default().createElement("p", {
+    className: "excerpt clamp"
+  }, "Sponsored content supports our mission to build a better web.") : excerpt && /*#__PURE__*/external_React_default().createElement("p", {
+    className: "excerpt clamp"
+  }, excerpt)), shouldShowFooter && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sections-card-footer"
+  }, format !== "rectangle" && format !== "spoc" && /*#__PURE__*/external_React_default().createElement(DSSource, {
     source: source,
     timeToRead: timeToRead,
     newSponsoredLabel: newSponsoredLabel,
@@ -3557,26 +3515,6 @@ const DefaultMeta = ({
     sponsor: sponsor,
     sponsored_by_override: sponsored_by_override,
     icon_src: icon_src
-  }), /*#__PURE__*/external_React_default().createElement("h3", {
-    className: "title clamp"
-  }, format === "rectangle" ? "Sponsored" : title), format === "rectangle" ? /*#__PURE__*/external_React_default().createElement("p", {
-    className: "excerpt clamp"
-  }, "Sponsored content supports our mission to build a better web.") : excerpt && /*#__PURE__*/external_React_default().createElement("p", {
-    className: "excerpt clamp"
-  }, excerpt)), (shouldHaveFooterSection || refinedCardsLayout) && /*#__PURE__*/external_React_default().createElement("div", {
-    className: "sections-card-footer"
-  }, refinedCardsLayout && format !== "rectangle" && format !== "spoc" && /*#__PURE__*/external_React_default().createElement(DSSource, {
-    source: source,
-    timeToRead: timeToRead,
-    newSponsoredLabel: newSponsoredLabel,
-    context: context,
-    sponsor: sponsor,
-    sponsored_by_override: sponsored_by_override,
-    icon_src: icon_src,
-    refinedCardsLayout: refinedCardsLayout
-  }), showTopics && /*#__PURE__*/external_React_default().createElement("span", {
-    className: "ds-card-topic",
-    "data-l10n-id": `newtab-topic-label-${topic}`
   })), !newSponsoredLabel && /*#__PURE__*/external_React_default().createElement(DSContextFooter, {
     context_type: context_type,
     context: context,
@@ -3598,7 +3536,6 @@ class _DSCard extends (external_React_default()).PureComponent {
     this.doesLinkTopicMatchSelectedTopic = this.doesLinkTopicMatchSelectedTopic.bind(this);
     this.onMenuUpdate = this.onMenuUpdate.bind(this);
     this.onMenuShow = this.onMenuShow.bind(this);
-    const refinedCardsLayout = this.props.Prefs.values["discoverystream.refinedCardsLayout.enabled"];
     this.setContextMenuButtonHostRef = element => {
       this.contextMenuButtonHostElement = element;
     };
@@ -3626,7 +3563,7 @@ class _DSCard extends (external_React_default()).PureComponent {
     this.standardCardImageSizes = [{
       mediaMatcher: "default",
       width: 296,
-      height: refinedCardsLayout ? 160 : 148
+      height: 160
     }];
     this.listCardImageSizes = [{
       mediaMatcher: "(min-width: 1122px)",
@@ -3644,7 +3581,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       },
       medium: {
         width: 300,
-        height: refinedCardsLayout ? 160 : 150
+        height: 160
       },
       large: {
         width: 190,
@@ -3834,9 +3771,8 @@ class _DSCard extends (external_React_default()).PureComponent {
   }
   getFaviconSrc() {
     let faviconSrc = "";
-    const faviconEnabled = this.props.Prefs.values[PREF_FAVICONS_ENABLED];
     // There is no point in fetching favicons for startup cache.
-    if (!this.props.App.isForStartupCache.App && faviconEnabled && this.props.icon_src) {
+    if (!this.props.App.isForStartupCache.App && this.props.icon_src) {
       faviconSrc = this.props.icon_src;
       if (this.secureImage) {
         faviconSrc = this.secureImageURL(this.props.icon_src);
@@ -3909,8 +3845,6 @@ class _DSCard extends (external_React_default()).PureComponent {
       mayHaveSectionsCards,
       format
     } = this.props;
-    const refinedCardsLayout = Prefs.values["discoverystream.refinedCardsLayout.enabled"];
-    const refinedCardsClassName = refinedCardsLayout ? `refined-cards` : ``;
     if (this.props.placeholder || !this.state.isSeen) {
       // placeholder-seen is used to ensure the loading animation is only used if the card is visible.
       const placeholderClassName = this.state.isSeen ? `placeholder-seen` : ``;
@@ -3923,17 +3857,15 @@ class _DSCard extends (external_React_default()).PureComponent {
       }), /*#__PURE__*/external_React_default().createElement("div", {
         className: "placeholder-description placeholder-fill"
       }));
-      if (refinedCardsLayout) {
-        placeholderElements = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-image placeholder-fill"
-        }), /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-description placeholder-fill"
-        }), /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-header placeholder-fill"
-        }));
-      }
+      placeholderElements = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-image placeholder-fill"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-description placeholder-fill"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-header placeholder-fill"
+      }));
       return /*#__PURE__*/external_React_default().createElement("div", {
-        className: `ds-card placeholder ${placeholderClassName} ${refinedCardsClassName}`,
+        className: `ds-card placeholder ${placeholderClassName}`,
         ref: this.setPlaceholderRef
       }, placeholderElements);
     }
@@ -3953,9 +3885,8 @@ class _DSCard extends (external_React_default()).PureComponent {
       readTime: displayReadTime
     } = DiscoveryStream;
     const sectionsEnabled = Prefs.values[DSCard_PREF_SECTIONS_ENABLED];
-    // Refined cards have their own excerpt hiding logic.
-    // We can ignore hideDescriptions if we are in sections and refined cards.
-    const excerpt = !hideDescriptions || sectionsEnabled && refinedCardsLayout ? this.props.excerpt : "";
+    // We can ignore hideDescriptions if we are in sections.
+    const excerpt = !hideDescriptions || sectionsEnabled ? this.props.excerpt : "";
     let timeToRead;
     if (displayReadTime) {
       timeToRead = this.props.time_to_read || readTimeFromWordCount(this.props.word_count);
@@ -3984,7 +3915,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       images = this.renderSectionCardImages();
     }
     return /*#__PURE__*/external_React_default().createElement("article", {
-      className: `ds-card ${sectionsCardsClassName} ${compactImagesClassName} ${imageGradientClassName} ${titleLinesName} ${descLinesClassName} ${spocFormatClassName} ${ctaButtonClassName} ${ctaButtonVariantClassName} ${refinedCardsClassName}`,
+      className: `ds-card ${sectionsCardsClassName} ${compactImagesClassName} ${imageGradientClassName} ${titleLinesName} ${descLinesClassName} ${spocFormatClassName} ${ctaButtonClassName} ${ctaButtonVariantClassName}`,
       ref: this.setContextMenuButtonHostRef,
       "data-position-one": this.props["data-position-one"],
       "data-position-two": this.props["data-position-one"],
@@ -3999,10 +3930,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       isSponsored: !!this.props.flightId,
       tabIndex: this.props.tabIndex,
       onFocus: this.props.onFocus
-    }, this.props.showTopics && !this.props.mayHaveSectionsCards && this.props.topic && !refinedCardsLayout && /*#__PURE__*/external_React_default().createElement("span", {
-      className: "ds-card-topic",
-      "data-l10n-id": `newtab-topic-label-${this.props.topic}`
-    }), /*#__PURE__*/external_React_default().createElement("div", {
+    }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "img-wrapper"
     }, images, this.props.isDailyBriefV2 && this.props.topic && /*#__PURE__*/external_React_default().createElement("span", {
       className: "ds-card-daily-brief-topic",
@@ -4059,12 +3987,8 @@ class _DSCard extends (external_React_default()).PureComponent {
       dispatch: this.props.dispatch,
       mayHaveSectionsCards: this.props.mayHaveSectionsCards,
       state: this.state,
-      showTopics: !refinedCardsLayout && this.props.showTopics,
-      isSectionsCard: this.props.mayHaveSectionsCards && this.props.topic,
       format: format,
-      topic: this.props.topic,
       icon_src: faviconSrc,
-      refinedCardsLayout: refinedCardsLayout,
       tabIndex: this.props.tabIndex
     })), /*#__PURE__*/external_React_default().createElement("div", {
       className: "card-stp-button-hover-background"
@@ -6553,10 +6477,6 @@ const INITIAL_STATE = {
     // For can be a queue in the future, but for now is one item
     toastQueue: [],
   },
-  Personalization: {
-    lastUpdated: null,
-    initialized: false,
-  },
   InferredPersonalization: {
     initialized: false,
     lastUpdated: null,
@@ -7043,25 +6963,6 @@ function Pocket(prevState = INITIAL_STATE.Pocket, action) {
           useCta: action.data.use_cta,
         },
       };
-    default:
-      return prevState;
-  }
-}
-
-function Reducers_sys_Personalization(prevState = INITIAL_STATE.Personalization, action) {
-  switch (action.type) {
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_LAST_UPDATED:
-      return {
-        ...prevState,
-        lastUpdated: action.data.lastUpdated,
-      };
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_INIT:
-      return {
-        ...prevState,
-        initialized: true,
-      };
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_RESET:
-      return { ...INITIAL_STATE.Personalization };
     default:
       return prevState;
   }
@@ -7627,7 +7528,6 @@ const reducers = {
   Messages,
   Notifications,
   Pocket,
-  Personalization: Reducers_sys_Personalization,
   InferredPersonalization,
   DiscoveryStream,
   Search,
@@ -11339,7 +11239,6 @@ const CardSections_PREF_BILLBOARD_ENABLED = "newtabAdSize.billboard";
 const CardSections_PREF_BILLBOARD_POSITION = "newtabAdSize.billboard.position";
 const CardSections_PREF_LEADERBOARD_ENABLED = "newtabAdSize.leaderboard";
 const CardSections_PREF_LEADERBOARD_POSITION = "newtabAdSize.leaderboard.position";
-const PREF_REFINED_CARDS_ENABLED = "discoverystream.refinedCardsLayout.enabled";
 const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personalization.inferred.user.enabled";
 const CardSections_PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
 const PREF_DAILY_BRIEF_V2_ENABLED = "discoverystream.dailyBrief.v2.enabled";
@@ -11347,7 +11246,7 @@ const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.star
 
 // Feed URL
 const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/api/v1/curated-recommendations";
-function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
+function getLayoutData(responsiveLayouts, index) {
   let layoutData = {
     classNames: [],
     imageSizes: {},
@@ -11366,7 +11265,7 @@ function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
         // The API tells us whether the tile should show the excerpt or not.
         // Apply extra styles accordingly.
         if (tile.hasExcerpt) {
-          if (tile.size === "medium" && refinedCardsLayout) {
+          if (tile.size === "medium") {
             layoutData.classNames.push(`col-${layout.columnCount}-hide-excerpt`);
           } else {
             layoutData.classNames.push(`col-${layout.columnCount}-show-excerpt`);
@@ -11482,7 +11381,6 @@ function CardSection({
   const mayHaveSectionsCards = prefs[CardSections_PREF_SECTIONS_CARDS_ENABLED];
   const selectedTopics = prefs[CardSections_PREF_TOPICS_SELECTED];
   const availableTopics = prefs[CardSections_PREF_TOPICS_AVAILABLE];
-  const refinedCardsLayout = prefs[PREF_REFINED_CARDS_ENABLED];
   const spocsStartupCacheEnabled = prefs[CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED];
   const dailyBriefV2Enabled = prefs.trainhopConfig?.dailyBriefing?.v2Enabled || prefs[PREF_DAILY_BRIEF_V2_ENABLED];
   const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
@@ -11596,7 +11494,7 @@ function CardSection({
     const cards = [];
     let dataIndex = 0;
     for (let position = 0; position < maxTile; position++) {
-      const layoutData = getLayoutData(responsiveLayouts, position, refinedCardsLayout);
+      const layoutData = getLayoutData(responsiveLayouts, position);
       const {
         classNames,
         imageSizes

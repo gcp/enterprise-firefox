@@ -40,9 +40,9 @@ git = "https://github.com/gfx-rs/rspirv"
 rev = "89ce4d0e64c91b0635f617409dc57cb031749a39"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=eaffaf2024611c4156c1d532e387c29320b9118f"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=b285d3f9bb128a4c9c00951aa8e54303f6ac0b78"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "eaffaf2024611c4156c1d532e387c29320b9118f"
+rev = "b285d3f9bb128a4c9c00951aa8e54303f6ac0b78"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -80,19 +80,19 @@ git = "https://github.com/mozilla/application-services"
 rev = "900d0b03aeb82245c28a11a9adc1cbbead31ce56"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/audioipc?rev=82fe7fa7e3aaa35468137239a0e4c2f867457214"]
+[source."git+https://github.com/mozilla/audioipc?rev=c8d3f03cb5f889e4cab18cc1360ad0daa074f17a"]
 git = "https://github.com/mozilla/audioipc"
-rev = "82fe7fa7e3aaa35468137239a0e4c2f867457214"
+rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=7b996ab09d0a57a2345cd1c4509f0a8491cd3d66"]
+[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=ee717924ccfefc3b0b58e52968a9036b73f56f9e"]
 git = "https://github.com/mozilla/cubeb-coreaudio-rs"
-rev = "7b996ab09d0a57a2345cd1c4509f0a8491cd3d66"
+rev = "ee717924ccfefc3b0b58e52968a9036b73f56f9e"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=4e3ea4bbc582705a4e7d9220679525283c035a7e"]
+[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=9cebfcceb073e9dd10cfb275a7590bca58d4c251"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
-rev = "4e3ea4bbc582705a4e7d9220679525283c035a7e"
+rev = "9cebfcceb073e9dd10cfb275a7590bca58d4c251"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]

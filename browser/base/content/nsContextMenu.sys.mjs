@@ -2708,9 +2708,7 @@ export class nsContextMenu {
     const translateSelectionItem = this.document.getElementById(
       "context-translate-selection"
     );
-    const translationsEnabled = Services.prefs.getBoolPref(
-      "browser.translations.enable"
-    );
+    const translationsEnabled = lazy.TranslationsParent.AIFeature.isEnabled;
     const selectTranslationsEnabled = Services.prefs.getBoolPref(
       "browser.translations.select.enable"
     );
@@ -2867,7 +2865,7 @@ export class nsContextMenu {
           )));
 
     if (!menuitem.hidden) {
-      let url = engine.wrappedJSObject.getURLOfType(searchUrlType);
+      let url = engine.getURLOfType(searchUrlType);
       if (
         url?.acceptedContentTypes &&
         (!this.contentData?.contentType ||
@@ -2920,7 +2918,7 @@ export class nsContextMenu {
         return;
       }
 
-      let visualSearchUrl = menuitem.engine.wrappedJSObject.getURLOfType(
+      let visualSearchUrl = menuitem.engine.getURLOfType(
         lazy.SearchUtils.URL_TYPE.VISUAL_SEARCH
       );
       this.window.document.l10n.setAttributes(

@@ -96,6 +96,11 @@ hr {
   display: flex;
   justify-content: space-between;
   margin-inline: var(--space-xlarge);
+  padding-block: var(--space-large);
+
+  &:has(+ .vpn-bottom-content) {
+    border-bottom: var(--border-width) solid var(--border-color-card);
+  }
 }
 
 #site-exclusion-icon {

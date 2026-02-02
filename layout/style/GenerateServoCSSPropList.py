@@ -30,7 +30,7 @@ def generate_data(output, template):
     )
 
     # Add all relevant files into the dependencies of the generated file.
-    DEP_EXTS = [".py", ".rs"]
+    DEP_EXTS = [".py", ".rs", ".toml"]
     deps = set()
     for path, dirs, files in os.walk(SERVO_PROP_BASE):
         for file in files:
@@ -103,7 +103,7 @@ def generate_header(output, data):
         excludes = []
         if is_internal:
             excludes.append("CSS_PROP_LIST_EXCLUDE_INTERNAL")
-        if "Style" not in prop.rules:
+        if "style" not in prop.rules:
             excludes.append("CSS_PROP_LIST_EXCLUDE_NOT_IN_STYLE")
 
         if excludes:

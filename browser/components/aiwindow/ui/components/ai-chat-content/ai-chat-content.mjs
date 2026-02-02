@@ -43,6 +43,24 @@ export class AIChatContent extends MozLitElement {
 
   messageEvent(event) {
     const message = event.detail;
+    this.#checkConversationState(message);
+
+    switch (message.role) {
+      case "assistant":
+        this.handleAIResponseEvent(event);
+        break;
+      case "user":
+        this.handleUserPromptEvent(event);
+        break;
+    }
+  }
+
+  /**
+   * Check if conversationState needs to be cleared
+   *
+   * @param {ChatMessage} message
+   */
+  #checkConversationState(message) {
     const lastMessage = this.conversationState.at(-1);
     const firstMessage = this.conversationState.at(0);
     const isReloadingSameConvo =
@@ -51,15 +69,10 @@ export class AIChatContent extends MozLitElement {
       firstMessage.ordinal === message.ordinal;
     const convIdChanged = message.convId !== lastMessage?.convId;
 
+    // If the conversation ID has changed, reset the conversation state
     if (convIdChanged || isReloadingSameConvo) {
       this.conversationState = [];
     }
-
-    if (message.role === "assistant") {
-      this.handleAIResponseEvent(event);
-      return;
-    }
-    this.handleUserPromptEvent(event);
   }
 
   /**
