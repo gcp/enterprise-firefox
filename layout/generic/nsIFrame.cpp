@@ -6700,7 +6700,7 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   const auto anchorResolutionParams = AnchorPosResolutionParams::From(this);
   auto aspectRatioUsage = AspectRatioUsage::None;
 
-  const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::Border
+  const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::BorderBox
                                    ? aBorderPadding
                                    : LogicalSize(aWM);
   nscoord boxSizingToMarginEdgeISize = aMargin.ISize(aWM) +
@@ -7179,8 +7179,8 @@ LogicalSize nsIFrame::ComputeAutoSize(
             ? AnchorResolvedSizeHelper::Overridden(*aSizeOverrides.mStyleBSize)
             : stylePos->BSize(aWM, anchorResolutionParams);
     const LogicalSize contentEdgeToBoxSizing =
-        stylePos->mBoxSizing == StyleBoxSizing::Border ? aBorderPadding
-                                                       : LogicalSize(aWM);
+        stylePos->mBoxSizing == StyleBoxSizing::BorderBox ? aBorderPadding
+                                                          : LogicalSize(aWM);
     const nscoord bSize = ComputeBSizeValueAsPercentageBasis(
         *styleBSize, *stylePos->MinBSize(aWM, anchorResolutionParams),
         *stylePos->MaxBSize(aWM, anchorResolutionParams), aCBSize.BSize(aWM),
@@ -7250,7 +7250,7 @@ LogicalSize nsIFrame::ComputeAbsolutePosAutoSize(
           ->GetAnchorResolvedInset(LogicalSide::BEnd, aWM,
                                    anchorResolutionParams)
           ->IsAuto();
-  const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::Border
+  const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::BorderBox
                                    ? aBorderPadding
                                    : LogicalSize(aWM);
   auto shouldStretch = [](StyleAlignFlags aAlignment, const nsIFrame* aFrame,
@@ -11647,18 +11647,6 @@ StyleAlignmentBaseline nsIFrame::AlignmentBaseline() const {
   }
 
   return StyleDisplay()->mAlignmentBaseline;
-}
-
-const StyleBaselineShift& nsIFrame::BaselineShift() const {
-  if (IsInSVGTextSubtree()) {
-    // TODO Bug 2010713 - Implement baseline-shift directly for SVG
-    // text elements instead of always using a zero shift.
-    static StyleBaselineShift BASELINE_SHIFT_ZERO =
-        StyleBaselineShift::Length(LengthPercentage::Zero());
-    return BASELINE_SHIFT_ZERO;
-  }
-
-  return StyleDisplay()->mBaselineShift;
 }
 
 void nsIFrame::UpdateStyleOfChildAnonBox(nsIFrame* aChildFrame,

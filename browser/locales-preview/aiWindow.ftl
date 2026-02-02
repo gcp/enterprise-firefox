@@ -96,7 +96,7 @@ aiwindow-copy-message =
 
 ## Ask Toolbar Button
 
-aiwindow-ask-button =
+smartwindow-ask-button =
     .label = Ask
 
 ## Memories toggle button
@@ -107,3 +107,9 @@ aiwindow-memories-on =
 aiwindow-memories-off =
     .tooltiptext = Memories off
     .aria-label = Memories off
+
+## New Chat Button
+
+aiwindow-new-chat =
+    .tooltiptext = Start new chat
+    .aria-label = Start new chat

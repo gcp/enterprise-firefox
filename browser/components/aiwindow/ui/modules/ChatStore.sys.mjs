@@ -12,7 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
   return console.createInstance({
     prefix: "ChatStore",
-    maxLogLevelPref: "browser.aiwindow.chatStore.loglevel",
+    maxLogLevelPref: "browser.smartwindow.chatStore.loglevel",
   });
 });
 
@@ -427,12 +427,13 @@ class ChatStore {
    * in the message.content.body field
    *
    * @param {string} searchString - The string to search with for conversations
+   * @param {boolean} [includeMessages=true] - Whether to fetch messages for each conversation
    *
-   * @returns {Array<ChatConversation>} - An array of conversations with messages
+   * @returns {Array<ChatConversation>} - An array of conversations with or without messages
    * that contain a message that matches the search string in the conversation
    * titles
    */
-  async search(searchString) {
+  async search(searchString, includeMessages = true) {
     await this.#ensureDatabase().catch(e => {
       lazy.log.error(
         "Could not ensure a database connection.",
@@ -455,6 +456,10 @@ class ChatStore {
     }
 
     const conversations = rows.map(parseConversationRow);
+
+    if (!includeMessages) {
+      return conversations;
+    }
 
     return await this.#getMessagesForConversations(conversations);
   }
@@ -908,11 +913,6 @@ class ChatStore {
       return [];
     });
 
-    // @todo Bug 2005414
-    // Check summary first, find the one with the largest end_ordinal.
-    // If not found retrieve all messages.
-    // If found compare end_ordinal of the summary with active branch ordinal
-    // to determine if extra messages must be retrieved.
     let rows = await this.#conn.executeCached(sql, queryParams);
 
     const conversations = rows.map(parseConversationRow);

@@ -581,7 +581,9 @@ class _QuickSuggestTestUtils {
       source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
       heuristic: false,
       payload: {
-        title: fullKeyword ? `${fullKeyword} — ${title}` : title,
+        title: fullKeyword,
+        subtitle: title,
+        bottomTextL10n: { id: "urlbar-result-suggestion-recommended" },
         url,
         icon,
         iconBlob,
@@ -935,7 +937,7 @@ class _QuickSuggestTestUtils {
         icon,
         isSponsored: false,
         bottomTextL10n: {
-          id: "firefox-suggest-addons-recommended",
+          id: "urlbar-result-suggestion-recommended",
         },
         telemetryType: "amo",
       },
@@ -983,14 +985,14 @@ class _QuickSuggestTestUtils {
       payload: {
         telemetryType: "mdn",
         title,
+        subtitleL10n: { id: "urlbar-result-mdn-subtitle" },
         url: finalUrl.href,
         originalUrl: url,
         isSponsored: false,
         description,
         icon: "chrome://global/skin/icons/mdn.svg",
-        shouldShowUrl: true,
         bottomTextL10n: {
-          id: "firefox-suggest-mdn-bottom-text",
+          id: "urlbar-result-suggestion-recommended",
         },
         source: "rust",
         provider: "Mdn",
@@ -1053,7 +1055,7 @@ class _QuickSuggestTestUtils {
         provider,
         telemetryType: "yelp",
         bottomTextL10n: {
-          id: "firefox-suggest-yelp-bottom-text",
+          id: "urlbar-result-action-sponsored",
         },
         url,
         originalUrl,
@@ -1061,6 +1063,7 @@ class _QuickSuggestTestUtils {
         titleL10n,
         icon: null,
         isSponsored: true,
+        subtitleL10n: { id: "urlbar-result-yelp-subtitle" },
       },
     };
 
@@ -1238,19 +1241,14 @@ class _QuickSuggestTestUtils {
     let { row } = details.element;
 
     let bottomLabel = row._elements.get("bottomLabel");
-    if (isSponsored) {
-      this.Assert.ok(bottomLabel, "Result bottom label should exist");
-      this.Assert.deepEqual(
-        window.document.l10n.getAttributes(bottomLabel),
-        { id: "urlbar-result-action-sponsored", args: null },
-        "Result bottom label should have correct l10n"
-      );
-    } else {
-      this.Assert.ok(
-        !bottomLabel || !window.document.l10n.getAttributes(bottomLabel),
-        "Result bottom label should not exist or if it does it should not have l10n attributes"
-      );
-    }
+    this.Assert.ok(bottomLabel, "Result bottom label should exist");
+    this.Assert.deepEqual(
+      window.document.l10n.getAttributes(bottomLabel),
+      isSponsored
+        ? { id: "urlbar-result-action-sponsored", args: null }
+        : { id: "urlbar-result-suggestion-recommended", args: null },
+      "Result bottom label should have correct l10n"
+    );
 
     this.Assert.ok(
       row._buttons.get("result-menu"),

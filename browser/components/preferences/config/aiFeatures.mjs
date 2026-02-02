@@ -29,9 +29,9 @@ const lazy = XPCOMUtils.declareLazy({
 Preferences.addAll([
   // browser.ai.control.* prefs defined in main.js
   { id: "browser.ml.chat.provider", type: "string" },
-  { id: "browser.aiwindow.preferences.enabled", type: "bool" },
-  { id: "browser.aiwindow.enabled", type: "bool" },
-  { id: "browser.aiwindow.memories", type: "bool" },
+  { id: "browser.smartwindow.preferences.enabled", type: "bool" },
+  { id: "browser.smartwindow.enabled", type: "bool" },
+  { id: "browser.smartwindow.memories", type: "bool" },
 ]);
 
 Preferences.addSetting({ id: "aiControlsDescription" });
@@ -146,7 +146,7 @@ class BlockAiConfirmationDialog extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/preferences/config/block-ai-confirmation-dialog.css"
       />
-      <dialog>
+      <dialog aria-labelledby="heading" aria-describedby="content">
         <div class="dialog-header">
           <img
             class="dialog-header-icon"
@@ -154,11 +154,12 @@ class BlockAiConfirmationDialog extends MozLitElement {
             alt=""
           />
           <h2
+            id="heading"
             class="text-box-trim-start"
             data-l10n-id="preferences-ai-controls-block-confirmation-heading"
           ></h2>
         </div>
-        <div class="dialog-body">
+        <div id="content" class="dialog-body">
           <p
             data-l10n-id="preferences-ai-controls-block-confirmation-description"
           ></p>
@@ -394,10 +395,7 @@ Preferences.addSetting(
       ) {
         return AiControlStates.blocked;
       }
-      if (prefVal == AiControlStates.enabled) {
-        return deps.chatbotProvider.value || AiControlStates.available;
-      }
-      return AiControlStates.available;
+      return deps.chatbotProvider.value || AiControlStates.available;
     },
     set(inputVal, deps) {
       if (inputVal == AiControlStates.blocked) {
@@ -451,12 +449,12 @@ Preferences.addSetting(
 
 Preferences.addSetting({
   id: "AIWindowPreferencesEnabled",
-  pref: "browser.aiwindow.preferences.enabled",
+  pref: "browser.smartwindow.preferences.enabled",
 });
 
 Preferences.addSetting({
   id: "AIWindowEnabled",
-  pref: "browser.aiwindow.enabled",
+  pref: "browser.smartwindow.enabled",
 });
 
 // Only show the feature settings if the prefs are allowed to show and the
@@ -494,7 +492,7 @@ Preferences.addSetting({
 Preferences.addSetting({ id: "learnFromActivityWrapper" });
 Preferences.addSetting({
   id: "learnFromActivity",
-  pref: "browser.aiwindow.memories",
+  pref: "browser.smartwindow.memories",
 });
 
 Preferences.addSetting({
@@ -577,11 +575,14 @@ Preferences.addSetting(
 
     setup() {
       Services.obs.addObserver(this.emitChange, "memory-store-changed");
-      Services.prefs.addObserver("browser.aiwindow.memories", this.emitChange);
+      Services.prefs.addObserver(
+        "browser.smartwindow.memories",
+        this.emitChange
+      );
       return () => {
         Services.obs.removeObserver(this.emitChange, "memory-store-changed");
         Services.prefs.removeObserver(
-          "browser.aiwindow.memories",
+          "browser.smartwindow.memories",
           this.emitChange
         );
       };
@@ -594,7 +595,7 @@ Preferences.addSetting(
     async getControlConfig() {
       const memories = await this.getMemories();
       const isLearningEnabled = Services.prefs.getBoolPref(
-        "browser.aiwindow.memories",
+        "browser.smartwindow.memories",
         false
       );
 

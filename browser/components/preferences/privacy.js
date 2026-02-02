@@ -5288,10 +5288,10 @@ var gPrivacyPane = {
       return;
     }
 
-    var secmodDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
-      Ci.nsIPKCS11ModuleDB
+    const fipsUtils = Cc["@mozilla.org/security/fipsutils;1"].getService(
+      Ci.nsIFIPSUtils
     );
-    if (secmodDB.isFIPSEnabled) {
+    if (fipsUtils.isFIPSEnabled) {
       let title = document.getElementById("fips-title").textContent;
       let desc = document.getElementById("fips-desc").textContent;
       Services.prompt.alert(window, title, desc);

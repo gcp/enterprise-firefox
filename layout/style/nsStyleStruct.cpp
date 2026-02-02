@@ -1107,7 +1107,7 @@ nsStylePosition::nsStylePosition()
       mFlexDirection(StyleFlexDirection::Row),
       mFlexWrap(StyleFlexWrap::Nowrap),
       mObjectFit(StyleObjectFit::Fill),
-      mBoxSizing(StyleBoxSizing::Content),
+      mBoxSizing(StyleBoxSizing::ContentBox),
       mOrder(0),
       mFlexGrow(0.0f),
       mFlexShrink(1.0f),
@@ -2786,7 +2786,7 @@ nsStyleVisibility::nsStyleVisibility(const Document& aDocument)
       mImageRendering(StyleImageRendering::Auto),
       mWritingMode(StyleWritingModeProperty::HorizontalTb),
       mTextOrientation(StyleTextOrientation::Mixed),
-      mMozBoxCollapse(StyleMozBoxCollapse::Flex),
+      mMozBoxCollapse(StyleBoxCollapse::Flex),
       mPrintColorAdjust(StylePrintColorAdjust::Economy),
       mImageOrientation(StyleImageOrientation::FromImage) {
   MOZ_COUNT_CTOR(nsStyleVisibility);

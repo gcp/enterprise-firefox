@@ -41,9 +41,6 @@ export default class IPProtectionContentElement extends MozLitElement {
     state: { type: Object, attribute: false },
     _showMessageBar: { type: Boolean, state: true },
     _messageDismissed: { type: Boolean, state: true },
-    // Track toggle state separately so that we can tell when the toggle
-    // is enabled because of the existing protection state or because of user action.
-    _toggleEnabled: { type: Boolean, state: true },
   };
 
   constructor() {
@@ -96,6 +93,10 @@ export default class IPProtectionContentElement extends MozLitElement {
 
   get canEnableConnection() {
     return this.state && this.state.isProtectionEnabled && !this.state.error;
+  }
+
+  get hasSiteExclusion() {
+    return this.state?.siteData?.isExclusion ?? false;
   }
 
   get #hasErrors() {
@@ -259,11 +260,14 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   statusCardTemplate() {
+    let hasExclusion = this.hasSiteExclusion;
+
     return html`
       <ipprotection-status-card
         .protectionEnabled=${this.canEnableConnection}
         .location=${this.state.location}
         .bandwidthUsage=${ifDefined(this.state.bandwidthUsage)}
+        .hasExclusion=${hasExclusion}
       ></ipprotection-status-card>
     `;
   }
@@ -317,8 +321,8 @@ export default class IPProtectionContentElement extends MozLitElement {
       return null;
     }
 
-    const isExclusion = this.state.siteData.isExclusion;
-    const siteExclusionToggleStateL10nId = isExclusion
+    const hasExclusion = this.hasSiteExclusion;
+    const siteExclusionToggleStateL10nId = hasExclusion
       ? "site-exclusion-toggle-disabled"
       : "site-exclusion-toggle-enabled";
     return html` <div id="site-exclusion-control">
@@ -337,7 +341,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         data-l10n-id=${siteExclusionToggleStateL10nId}
         data-l10n-attrs="label"
         id="site-exclusion-toggle"
-        ?pressed=${!isExclusion}
+        ?pressed=${!hasExclusion}
         @toggle=${this.handleToggleUseVPN}
       >
       </moz-toggle>

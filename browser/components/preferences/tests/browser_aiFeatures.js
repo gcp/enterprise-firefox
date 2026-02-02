@@ -45,6 +45,7 @@ describe("settings ai features", () => {
   it("can change the chatbot provider value", async () => {
     await SpecialPowers.pushPrefEnv({
       set: [
+        ["browser.ml.chat.page", false],
         ["browser.ml.chat.provider", ""],
         ["browser.ai.control.sidebarChatbot", "available"],
       ],
@@ -73,6 +74,11 @@ describe("settings ai features", () => {
     );
 
     Assert.equal(providerControl.value, "available", "No provider set");
+    Assert.equal(
+      Services.prefs.getBoolPref("browser.ml.chat.page"),
+      false,
+      "Chatbot page is disabled"
+    );
 
     const settingChanged = waitForSettingChange(providerControl.setting);
     providerControl.focus();
@@ -96,6 +102,11 @@ describe("settings ai features", () => {
       TEST_CHAT_PROVIDER_URL,
       "Chatbot provider is set"
     );
+    Assert.equal(
+      Services.prefs.getBoolPref("browser.ml.chat.page"),
+      true,
+      "Chatbot page is enabled"
+    );
 
     await gBrowser.ownerGlobal.SidebarController.hide();
   });
@@ -103,6 +114,7 @@ describe("settings ai features", () => {
   it("can change the chatbot provider from blocked", async () => {
     await SpecialPowers.pushPrefEnv({
       set: [
+        ["browser.ml.chat.page", false],
         ["browser.ml.chat.provider", ""],
         ["browser.ai.control.sidebarChatbot", "available"],
       ],
@@ -149,6 +161,11 @@ describe("settings ai features", () => {
       "",
       "Chatbot provider is empty"
     );
+    Assert.equal(
+      Services.prefs.getBoolPref("browser.ml.chat.page"),
+      false,
+      "Chatbot page stays disabled when blocked"
+    );
 
     // Refresh the page
     await openPreferencesViaOpenPreferencesAPI("ai", { leaveOpen: true });
@@ -161,6 +178,11 @@ describe("settings ai features", () => {
       Services.prefs.getStringPref("browser.ml.chat.provider"),
       "",
       "Chatbot provider is empty"
+    );
+    Assert.equal(
+      Services.prefs.getBoolPref("browser.ml.chat.page"),
+      false,
+      "Chatbot page stays disabled when blocked"
     );
 
     // Change the selection to a chatbot
@@ -185,6 +207,11 @@ describe("settings ai features", () => {
       TEST_CHAT_PROVIDER_URL,
       "Chatbot provider is set"
     );
+    Assert.equal(
+      Services.prefs.getBoolPref("browser.ml.chat.page"),
+      true,
+      "Chatbot page is enabled"
+    );
 
     // Calling openPreferencesViaOpenPreferencesAPI again opened a blank tab
     BrowserTestUtils.removeTab(gBrowser.selectedTab);
@@ -193,9 +220,77 @@ describe("settings ai features", () => {
     await SpecialPowers.popPrefEnv();
   });
 
+  it("changes chatbot provider when the underlying pref changes", async () => {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        ["browser.ml.chat.provider", ""],
+        ["browser.ai.control.sidebarChatbot", "available"],
+      ],
+    });
+
+    const categoryButton = doc.getElementById("category-ai-features");
+    Assert.ok(categoryButton, "category exists");
+    Assert.ok(
+      BrowserTestUtils.isVisible(categoryButton),
+      "category is visible"
+    );
+
+    await openAiFeaturePanel();
+
+    const providerControl = doc.getElementById("aiControlSidebarChatbotSelect");
+    mockSidebarChatbotUrls(providerControl);
+    Assert.ok(providerControl, "control exists");
+    Assert.ok(
+      BrowserTestUtils.isVisible(providerControl),
+      "control is visible"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      "",
+      "Pref is empty"
+    );
+    Assert.equal(providerControl.value, "available", "No provider set");
+
+    let settingChanged = waitForSettingChange(providerControl.setting);
+    Services.prefs.setStringPref(
+      "browser.ml.chat.provider",
+      TEST_CHAT_PROVIDER_URL
+    );
+    await settingChanged;
+
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      TEST_CHAT_PROVIDER_URL,
+      "Pref is set to provider URL"
+    );
+    Assert.equal(
+      providerControl.value,
+      TEST_CHAT_PROVIDER_URL,
+      "Select is set to provider URL"
+    );
+
+    settingChanged = waitForSettingChange(providerControl.setting);
+    Services.prefs.setStringPref("browser.ml.chat.provider", "");
+    await settingChanged;
+
+    Assert.equal(
+      Services.prefs.getStringPref("browser.ml.chat.provider"),
+      "",
+      "Pref is cleared"
+    );
+    Assert.equal(
+      providerControl.value,
+      "available",
+      "Select is back to available"
+    );
+
+    await gBrowser.ownerGlobal.SidebarController.hide();
+    await SpecialPowers.popPrefEnv();
+  });
+
   it("hides Smart Window when preferences not enabled", async () => {
     await SpecialPowers.pushPrefEnv({
-      set: [["browser.aiwindow.preferences.enabled", false]],
+      set: [["browser.smartwindow.preferences.enabled", false]],
     });
 
     await openAiFeaturePanel();
@@ -210,8 +305,8 @@ describe("settings ai features", () => {
   it("shows Smart Window activate when preferences enabled and feature not enabled", async () => {
     await SpecialPowers.pushPrefEnv({
       set: [
-        ["browser.aiwindow.preferences.enabled", true],
-        ["browser.aiwindow.enabled", false],
+        ["browser.smartwindow.preferences.enabled", true],
+        ["browser.smartwindow.enabled", false],
       ],
     });
 
@@ -229,8 +324,8 @@ describe("settings ai features", () => {
   it("hides Smart Window activate and show personalize button when feature enabled", async () => {
     await SpecialPowers.pushPrefEnv({
       set: [
-        ["browser.aiwindow.preferences.enabled", true],
-        ["browser.aiwindow.enabled", true],
+        ["browser.smartwindow.preferences.enabled", true],
+        ["browser.smartwindow.enabled", true],
       ],
     });
 

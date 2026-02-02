@@ -49,25 +49,15 @@ ipprotection-settings-link =
 
 ## Status card
 
-ipprotection-connection-status-on =
-  .label = VPN is on
-ipprotection-connection-status-off =
-  .label = VPN is off
-
-# The panel status card has a header, as well as VPN server location name displayed under it when the VPN is on.
-# Location refers to the VPN server geographical position.
-ipprotection-location-title =
-  .title = Location selected based on fastest server
-
-# When VPN is toggled on
-ipprotection-toggle-active =
-  .aria-label = Turn VPN off
-# When VPN is toggled off
-ipprotection-toggle-inactive =
-  .aria-label = Turn VPN on
+ipprotection-connection-status-connected = VPN is on
+ipprotection-connection-status-disconnected = VPN is off
+ipprotection-connection-status-excluded = VPN is off for this site
 
 # Button to turn off the VPN
 ipprotection-button-turn-vpn-off = Turn off VPN
+# Button to turn off the VPN when the VPN panel is open while viewing
+# a page from an excluded site.
+ipprotection-button-turn-vpn-off-excluded-site = Turn off VPN everywhere
 # Button to turn on the VPN
 ipprotection-button-turn-vpn-on = Turn on VPN
 
@@ -138,9 +128,6 @@ ip-protection-vpn-upgrade-link =
 ip-protection-exceptions-dialog-window =
   .title = Where to use VPN
 ip-protection-exclusions-desc = Use VPN for all websites except ones on this list. Add websites to this list by turning VPN on or off for any site in the VPN panel.
-
-ipprotection-site-settings-title =
-  .title = VPN site settings
 
 ## IP Proctection Bandwidth
 

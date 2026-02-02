@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowAccountAuth.sys.mjs",
   AIWindowMenu:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   ChatStore:
@@ -32,7 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "hasFirstrunCompleted",
-  "browser.aiwindow.firstrun.hasCompleted"
+  "browser.smartwindow.firstrun.hasCompleted"
 );
 
 /**
@@ -142,7 +143,7 @@ export const AIWindow = {
    * Initializes the toolbox button that opens the assistant sidebar.
    */
   _initializeAskButtonOnToolbox(win) {
-    const askButton = win.document.getElementById("aiwindow-ask-button");
+    const askButton = win.document.getElementById("smartwindow-ask-button");
     if (!askButton) {
       return;
     }
@@ -393,25 +394,43 @@ export const AIWindow = {
     }
   },
 
-  async launchWindow(browser) {
-    if (!this.isAIWindowEnabled()) {
-      Services.prefs.setBoolPref("browser.aiwindow.enabled", true);
-    }
+  async _authorizeAndToggleWindow(win) {
+    const authorized = await lazy.AIWindowAccountAuth.ensureAIWindowAccess(
+      win.gBrowser.selectedBrowser
+    );
 
-    if (!(await lazy.AIWindowAccountAuth.ensureAIWindowAccess(browser))) {
+    if (!authorized) {
       return false;
     }
 
-    this.toggleAIWindow(browser.ownerGlobal, true);
+    this.toggleAIWindow(win, true);
 
     if (!lazy.hasFirstrunCompleted) {
-      browser.ownerGlobal.gBrowser.loadURI(Services.io.newURI(FIRSTRUN_URL), {
+      win.gBrowser.loadURI(FIRSTRUN_URI, {
         triggeringPrincipal:
           Services.scriptSecurityManager.getSystemPrincipal(),
       });
     }
 
     return true;
+  },
+
+  async launchWindow(browser, openNewWindow = false) {
+    if (!this.isAIWindowEnabled()) {
+      Services.prefs.setBoolPref("browser.smartwindow.enabled", true);
+    }
+
+    if (!openNewWindow) {
+      return this._authorizeAndToggleWindow(browser.ownerGlobal);
+    }
+
+    const isAuthorized = await lazy.AIWindowAccountAuth.canAccessAIWindow();
+    const windowPromise = lazy.BrowserWindowTracker.promiseOpenWindow({
+      aiWindow: isAuthorized,
+      openerWindow: browser.ownerGlobal,
+    });
+
+    return this._authorizeAndToggleWindow(await windowPromise);
   },
 
   /**
@@ -451,7 +470,7 @@ export const AIWindow = {
 XPCOMUtils.defineLazyPreferenceGetter(
   AIWindow,
   "AIWindowEnabled",
-  "browser.aiwindow.enabled",
+  "browser.smartwindow.enabled",
   false,
   AIWindow._onAIWindowEnabledPrefChange.bind(AIWindow)
 );
