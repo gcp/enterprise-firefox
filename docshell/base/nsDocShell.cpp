@@ -295,6 +295,9 @@ extern mozilla::LazyLogModule gSHIPBFCacheLog;
 const char kAppstringsBundleURL[] =
     "chrome://global/locale/appstrings.properties";
 
+const char kEnterpriseBundleURL[] =
+    "chrome://global/locale/enterprise.properties";
+
 static bool IsTopLevelDoc(BrowsingContext* aBrowsingContext,
                           nsILoadInfo* aLoadInfo) {
   MOZ_ASSERT(aBrowsingContext);
@@ -3412,8 +3415,10 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   // Get prompt and string bundle services
   nsCOMPtr<nsIPrompt> prompter;
   nsCOMPtr<nsIStringBundle> stringBundle;
+  nsCOMPtr<nsIStringBundle> enterpriseStringBundle;
   GetPromptAndStringBundle(getter_AddRefs(prompter),
-                           getter_AddRefs(stringBundle));
+                           getter_AddRefs(stringBundle),
+                           getter_AddRefs(enterpriseStringBundle));
 
   NS_ENSURE_TRUE(stringBundle, NS_ERROR_FAILURE);
   NS_ENSURE_TRUE(prompter, NS_ERROR_FAILURE);
@@ -3422,6 +3427,8 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   // The key used to select the appropriate error message from the properties
   // file.
   const char* errorDescriptionID = nullptr;
+  // For enterprise.properties
+  const char* enterpriseErrorDescriptionID = nullptr;
   AutoTArray<nsString, 3> formatStrs;
   bool addHostPort = false;
   bool isBadStsCertError = false;
@@ -3737,7 +3744,7 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
       case NS_ERROR_BLOCKED_BY_POLICY:
         // Page blocked by policy
         error = "blockedByPolicy";
-        errorDescriptionID = "blockedByPolicy2";
+        enterpriseErrorDescriptionID = "blockedByPolicyEnterprise";
         break;
       case NS_ERROR_DOM_COOP_FAILED:
         error = "blockedByCOOP";
@@ -3796,7 +3803,7 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
     return NS_OK;
   }
 
-  if (!errorDescriptionID) {
+  if (!errorDescriptionID && !enterpriseErrorDescriptionID) {
     errorDescriptionID = error;
   }
 
@@ -3846,8 +3853,14 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
     rv = NS_OK;
 
     nsAutoString str;
-    rv =
-        stringBundle->FormatStringFromName(errorDescriptionID, formatStrs, str);
+    if (enterpriseErrorDescriptionID) {
+      rv = enterpriseStringBundle->FormatStringFromName(
+          enterpriseErrorDescriptionID, formatStrs, str);
+    } else {
+      rv = stringBundle->FormatStringFromName(errorDescriptionID, formatStrs,
+                                              str);
+    }
+
     NS_ENSURE_SUCCESS(rv, rv);
     messageStr.Assign(str);
   }
@@ -13474,8 +13487,9 @@ nsresult nsDocShell::ConfirmRepost(bool* aRepost) {
   return prompter->ConfirmRepost(mBrowsingContext, aRepost);
 }
 
-nsresult nsDocShell::GetPromptAndStringBundle(nsIPrompt** aPrompt,
-                                              nsIStringBundle** aStringBundle) {
+nsresult nsDocShell::GetPromptAndStringBundle(
+    nsIPrompt** aPrompt, nsIStringBundle** aStringBundle,
+    nsIStringBundle** aEnterpriseStringBundle) {
   NS_ENSURE_SUCCESS(GetInterface(NS_GET_IID(nsIPrompt), (void**)aPrompt),
                     NS_ERROR_FAILURE);
 
@@ -13486,6 +13500,10 @@ nsresult nsDocShell::GetPromptAndStringBundle(nsIPrompt** aPrompt,
   NS_ENSURE_SUCCESS(
       stringBundleService->CreateBundle(kAppstringsBundleURL, aStringBundle),
       NS_ERROR_FAILURE);
+
+  NS_ENSURE_SUCCESS(stringBundleService->CreateBundle(kEnterpriseBundleURL,
+                                                      aEnterpriseStringBundle),
+                    NS_ERROR_FAILURE);
 
   return NS_OK;
 }
