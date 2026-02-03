@@ -27,6 +27,17 @@ def toolchain_task_definitions():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         output_file = f.name
 
+    enterprise_params = {
+        "level": os.environ.get("MOZ_SCM_LEVEL", "1"),
+        "files_changed": [],
+        "head_repository": "https://github.com/mozilla/enterprise-firefox",
+        "repository_type": "git",
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        params_file = f.name
+        f.write(json.dumps(enterprise_params))
+
     try:
         result = subprocess.run(
             [
@@ -38,6 +49,8 @@ def toolchain_task_definitions():
                 "fetch",
                 "-k",
                 "toolchain",
+                "--parameters",
+                params_file,
                 "-J",
                 "--output-file",
                 output_file,
@@ -58,6 +71,7 @@ def toolchain_task_definitions():
             tasks_data = json.load(f)
     finally:
         os.unlink(output_file)
+        os.unlink(params_file)
     for label, data in tasks_data.items():
         data["label"] = label
         data["kind"] = data["attributes"]["kind"]
