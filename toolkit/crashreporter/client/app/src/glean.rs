@@ -4,7 +4,9 @@
 
 //! Glean telemetry integration.
 
-use crate::config::{buildid, Config};
+use crate::config::{buildid, installation_resource_path, Config};
+use ini::Ini;
+use url::Url;
 
 const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -27,17 +29,20 @@ impl InitOptions {
     /// Initialize glean.
     ///
     /// When mocking, this should be called on a thread where the mock data is present.
-    pub fn init(self) -> std::io::Result<crashping::GleanHandle> {
-        self.init_glean().initialize()
+    pub fn init(self) -> anyhow::Result<crashping::GleanHandle> {
+        let glean_handle = self.init_glean()?.initialize()?;
+        Ok(glean_handle)
     }
 
     /// Initialize glean for tests.
     #[cfg(test)]
     fn test_init(self) {
-        self.init_glean().test_reset_glean(true)
+        self.init_glean()
+            .expect("Mock initialization should succeed")
+            .test_reset_glean(true)
     }
 
-    fn init_glean(self) -> crashping::InitGlean {
+    fn init_glean(self) -> anyhow::Result<crashping::InitGlean> {
         let mut data_dir = if cfg!(mock) {
             // Use a (non-mocked) temp directory since glean won't access our mocked API.
             ::std::env::temp_dir().join("crashreporter-mock")
@@ -67,9 +72,28 @@ impl InitOptions {
         if cfg!(mock) {
             init_glean.configuration.server_endpoint =
                 Some("https://incoming.glean.example.com".to_owned());
+        } else if cfg!(feature = "enterprise") {
+            let console_url = Self::construct_enterprise_console_endpoint()?;
+            init_glean.configuration.server_endpoint = Some(console_url);
         }
 
-        init_glean
+        Ok(init_glean)
+    }
+
+    fn construct_enterprise_console_endpoint() -> anyhow::Result<String> {
+        let inipath = installation_resource_path()
+            .join("distribution")
+            .join("distribution.ini");
+        let conf = Ini::load_from_file(inipath)?;
+        let console_url = conf
+            .get_from(Some("Preferences"), "enterprise.console.address")
+            .ok_or(anyhow::anyhow!("Failed to find console address preference"))?;
+        let mut parsed_console_url = Url::parse(console_url)?;
+        parsed_console_url.set_path(&format!(
+            "{}/api/browser/telemetry",
+            parsed_console_url.path().trim_end_matches('/')
+        ));
+        Ok(parsed_console_url.to_string())
     }
 }
 
