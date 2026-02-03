@@ -231,11 +231,6 @@ function GetNumberOption(options, property, minimum, maximum, fallback) {
   return DefaultNumberOption(options[property], minimum, maximum, fallback);
 }
 
-// Symbols in the self-hosting compartment can't be cloned, use a separate
-// object to hold the actual symbol value.
-// TODO: Can we add support to clone symbols?
-var intlFallbackSymbolHolder = { value: undefined };
-
 /**
  * The [[FallbackSymbol]] symbol of the %Intl% intrinsic object.
  *
@@ -243,13 +238,7 @@ var intlFallbackSymbolHolder = { value: undefined };
  * Intl.DateTimeFormat and Intl.NumberFormat.
  */
 function intlFallbackSymbol() {
-  var fallbackSymbol = intlFallbackSymbolHolder.value;
-  if (!fallbackSymbol) {
-    var Symbol = GetBuiltinConstructor("Symbol");
-    fallbackSymbol = Symbol("IntlLegacyConstructedSymbol");
-    intlFallbackSymbolHolder.value = fallbackSymbol;
-  }
-  return fallbackSymbol;
+  return intl_FallbackSymbol();
 }
 
 /**
@@ -258,12 +247,8 @@ function intlFallbackSymbol() {
 function initializeIntlObject(obj, type, lazyData) {
   assert(IsObject(obj), "Non-object passed to initializeIntlObject");
   assert(
-    (type === "Collator" && intl_GuardToCollator(obj) !== null) ||
-      (type === "DateTimeFormat" && intl_GuardToDateTimeFormat(obj) !== null) ||
-      (type === "DurationFormat" && intl_GuardToDurationFormat(obj) !== null) ||
-      (type === "NumberFormat" && intl_GuardToNumberFormat(obj) !== null) ||
-      (type === "PluralRules" && intl_GuardToPluralRules(obj) !== null) ||
-      (type === "Segmenter" && intl_GuardToSegmenter(obj) !== null),
+    (type === "NumberFormat" && intl_GuardToNumberFormat(obj) !== null) ||
+      (type === "PluralRules" && intl_GuardToPluralRules(obj) !== null),
     "type must match the object's class"
   );
   assert(IsObject(lazyData), "non-object lazy data");
@@ -272,12 +257,8 @@ function initializeIntlObject(obj, type, lazyData) {
   //
   // The .type property indicates the type of Intl object that |obj| is. It
   // must be one of:
-  // - Collator
-  // - DateTimeFormat
-  // - DurationFormat
   // - NumberFormat
   // - PluralRules
-  // - Segmenter
   //
   // The .lazyData property stores information needed to compute -- without
   // observable side effects -- the actual internal Intl properties of
@@ -340,12 +321,8 @@ function maybeInternalProperties(internals) {
 function getIntlObjectInternals(obj) {
   assert(IsObject(obj), "getIntlObjectInternals called with non-Object");
   assert(
-    intl_GuardToCollator(obj) !== null ||
-      intl_GuardToDateTimeFormat(obj) !== null ||
-      intl_GuardToDurationFormat(obj) !== null ||
-      intl_GuardToNumberFormat(obj) !== null ||
-      intl_GuardToPluralRules(obj) !== null ||
-      intl_GuardToSegmenter(obj) !== null,
+    intl_GuardToNumberFormat(obj) !== null ||
+      intl_GuardToPluralRules(obj) !== null,
     "getIntlObjectInternals called with non-Intl object"
   );
 
@@ -354,17 +331,10 @@ function getIntlObjectInternals(obj) {
   assert(IsObject(internals), "internals not an object");
   assert(hasOwn("type", internals), "missing type");
   assert(
-    (internals.type === "Collator" && intl_GuardToCollator(obj) !== null) ||
-      (internals.type === "DateTimeFormat" &&
-        intl_GuardToDateTimeFormat(obj) !== null) ||
-      (internals.type === "DurationFormat" &&
-        intl_GuardToDurationFormat(obj) !== null) ||
-      (internals.type === "NumberFormat" &&
+    (internals.type === "NumberFormat" &&
         intl_GuardToNumberFormat(obj) !== null) ||
       (internals.type === "PluralRules" &&
-        intl_GuardToPluralRules(obj) !== null) ||
-      (internals.type === "Segmenter" &&
-        intl_GuardToSegmenter(obj) !== null),
+        intl_GuardToPluralRules(obj) !== null),
     "type must match the object's class"
   );
   assert(hasOwn("lazyData", internals), "missing lazyData");
@@ -388,19 +358,12 @@ function getInternals(obj) {
 
   // Otherwise it's time to fully create them.
   var type = internals.type;
-  if (type === "Collator") {
-    internalProps = resolveCollatorInternals(internals.lazyData);
-  } else if (type === "DateTimeFormat") {
-    internalProps = resolveDateTimeFormatInternals(internals.lazyData);
-  } else if (type === "DurationFormat") {
-    internalProps = resolveDurationFormatInternals(internals.lazyData);
-  } else if (type === "NumberFormat") {
+  if (type === "NumberFormat") {
     internalProps = resolveNumberFormatInternals(internals.lazyData);
   } else if (type === "PluralRules") {
     internalProps = resolvePluralRulesInternals(internals.lazyData);
   } else {
-    assert(type === "Segmenter", "unexpected Intl type");
-    internalProps = resolveSegmenterInternals(internals.lazyData);
+    assert(false, "unexpected Intl constructor");
   }
   setInternalProperties(internals, internalProps);
   return internalProps;
