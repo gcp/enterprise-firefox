@@ -1191,11 +1191,8 @@ def target_tasks_searchfox(full_task_graph, parameters, graph_config):
         "searchfox-macosx64-aarch64-searchfox/debug",
         "searchfox-win64-searchfox/opt",
         "searchfox-win64-searchfox/debug",
-        "searchfox-android-aarch64-searchfox/debug",
-        "searchfox-ios-searchfox/debug",
         "source-test-file-metadata-bugzilla-components",
         "source-test-file-metadata-test-info-all",
-        "source-test-wpt-metadata-summary",
     ]
 
 
