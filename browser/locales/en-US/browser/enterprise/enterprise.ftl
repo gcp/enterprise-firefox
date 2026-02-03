@@ -26,3 +26,9 @@ restart-forced-intro = Company policy requires that { -brand-short-name } be res
 window-restoration-info = Your windows and tabs will be quickly restored, except private ones.
 
 restart-button-label = Restart { -brand-short-name }
+
+extension-firefox-enterprise-light-name = Firefox Enterprise Light
+extension-firefox-enterprise-light-description = A soft pastel theme with a touch of morning sunlight in the corner.
+
+extension-firefox-enterprise-dark-name = Firefox Enterprise Dark
+extension-firefox-enterprise-dark-description = A deep midnight theme with dark petrol blues and subtle, lighter blue gradients.

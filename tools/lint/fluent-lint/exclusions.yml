@@ -139,6 +139,7 @@ CO01:
         - addon-install-error-hard-blocked
         # browser/appExtensionFields.ftl
         - extension-firefox-alpenglow-name
+        # browser/enterprise/enterprise.ftl
         - extension-firefox-enterprise-light-name
         - extension-firefox-enterprise-dark-name
         # browser/browser.ftl
