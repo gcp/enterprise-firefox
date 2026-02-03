@@ -11,11 +11,17 @@
 #include <stdint.h>
 
 #include "js/GCVector.h"
+#include "js/ProtoKey.h"
 #include "js/RootingAPI.h"
+#include "js/TypeDecls.h"
 #include "js/Utility.h"
 
 namespace mozilla::intl {
 enum class ICUError : uint8_t;
+}
+
+namespace JS {
+class CallArgs;
 }
 
 namespace js {
@@ -25,27 +31,28 @@ class PropertyName;
 namespace intl {
 
 /**
+ * ChainDateTimeFormat ( dateTimeFormat, newTarget, this )
+ * ChainNumberFormat ( numberFormat, newTarget, this )
+ */
+extern bool ChainLegacyIntlFormat(JSContext* cx, JSProtoKey protoKey,
+                                  const JS::CallArgs& args,
+                                  JS::Handle<JSObject*> format);
+
+/**
+ * UnwrapDateTimeFormat ( dtf )
+ * UnwrapNumberFormat ( nf )
+ */
+extern bool UnwrapLegacyIntlFormat(JSContext* cx, JSProtoKey protoKey,
+                                   JS::Handle<JSObject*> format,
+                                   JS::MutableHandle<JS::Value> result);
+
+/**
  * Initialize a new Intl.* object using the named self-hosted function.
  */
 extern bool InitializeObject(JSContext* cx, JS::Handle<JSObject*> obj,
                              JS::Handle<PropertyName*> initializer,
                              JS::Handle<JS::Value> locales,
                              JS::Handle<JS::Value> options);
-
-enum class DateTimeFormatOptions {
-  Standard,
-  EnableMozExtensions,
-};
-
-/**
- * Initialize an existing object as an Intl.DateTimeFormat object.
- */
-extern bool InitializeDateTimeFormatObject(
-    JSContext* cx, JS::Handle<JSObject*> obj, JS::Handle<JS::Value> thisValue,
-    JS::Handle<JS::Value> locales, JS::Handle<JS::Value> options,
-    JS::Handle<JSString*> required, JS::Handle<JSString*> defaults,
-    JS::Handle<JS::Value> toLocaleStringTimeZone,
-    DateTimeFormatOptions dtfOptions, JS::MutableHandle<JS::Value> result);
 
 /**
  * Initialize an existing object as an Intl.NumberFormat object.

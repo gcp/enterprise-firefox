@@ -95,12 +95,8 @@
                                                    \
   _(FunctionBind)                                  \
                                                    \
-  _(IntlGuardToCollator)                           \
-  _(IntlGuardToDateTimeFormat)                     \
-  _(IntlGuardToDurationFormat)                     \
   _(IntlGuardToNumberFormat)                       \
   _(IntlGuardToPluralRules)                        \
-  _(IntlGuardToSegmenter)                          \
   _(IntlGuardToSegments)                           \
   _(IntlGuardToSegmentIterator)                    \
                                                    \
