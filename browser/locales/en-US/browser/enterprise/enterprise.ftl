@@ -19,3 +19,10 @@ enterprise-signout-prompt-title = Sign out of { -brand-short-name }?
 enterprise-signout-prompt-message = You’re signing out of your { -brand-short-name } browser. To use it again, you’ll need to re-authenticate through your company’s SSO provider.
 enterprise-signout-prompt-checkbox-label = Show this message when signing out.
 enterprise-signout-prompt-primary-btn-label = Sign out
+
+restart-forced-title = Restart { -brand-short-name }
+restart-forced-heading = Restart to continue using { -brand-short-name }.
+restart-forced-intro = Company policy requires that { -brand-short-name } be restarted.
+window-restoration-info = Your windows and tabs will be quickly restored, except private ones.
+
+restart-button-label = Restart { -brand-short-name }
