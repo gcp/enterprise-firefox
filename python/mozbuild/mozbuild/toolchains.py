@@ -62,20 +62,6 @@ def toolchain_task_definitions():
         data["label"] = label
         data["kind"] = data["attributes"]["kind"]
 
-    # triggers override of the `graph_config_schema` noqa
-    import gecko_taskgraph  # noqa
-    from taskgraph.generator import load_tasks_for_kinds
-
-    # Don't import globally to allow this module being imported without
-    # the taskgraph module being available (e.g. standalone js)
-    params = {
-        "level": os.environ.get("MOZ_SCM_LEVEL", "1"),
-        "files_changed": [],
-        "head_repository": "https://github.com/mozilla/enterprise-firefox",
-        "repository_type": "git",
-    }
-    root_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "taskcluster")
-    toolchains = load_tasks_for_kinds(params, ["fetch", "toolchain"], root_dir=root_dir)
     aliased = {}
     for label, t in tasks_data.items():
         aliases = t["attributes"].get(f"{t['kind']}-alias")
