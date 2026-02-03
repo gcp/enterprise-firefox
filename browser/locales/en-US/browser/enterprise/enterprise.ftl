@@ -32,3 +32,7 @@ extension-firefox-enterprise-light-description = A soft pastel theme with a touc
 
 extension-firefox-enterprise-dark-name = Firefox Enterprise Dark
 extension-firefox-enterprise-dark-description = A deep midnight theme with dark petrol blues and subtle, lighter blue gradients.
+
+blocked-by-policy-title-enterprise = Access to this site is restricted
+neterror-blocked-by-policy-page-title-enterprise = Access to this site is restricted
+neterror-blocked-by-policy-contact-admin = If you believe this is an error or need access for work purposes, please contact your IT administrator.
