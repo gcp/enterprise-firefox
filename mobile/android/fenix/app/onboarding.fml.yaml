@@ -278,17 +278,14 @@ features:
               card-type: toolbar-placement
               enabled: false
               title: nova_onboarding_toolbar_selection_title
-              body: onboarding_customize_toolbar_description
               ordering: 35
               primary-button-label: nova_onboarding_continue_button
               extra-data:
                 customization-toolbar-data:
                   - toolbar-type: toolbar-top
                     label: nova_onboarding_toolbar_selection_top_label
-                    image-res: ic_onboarding_top_toolbar # Unused in redesign
                   - toolbar-type: toolbar-bottom
                     label: nova_onboarding_toolbar_selection_bottom_label
-                    image-res: ic_onboarding_bottom_toolbar # Unused in redesign
 
             marketing-data:
               card-type: marketing-data
@@ -337,38 +334,40 @@ features:
             default-browser:
               title: nova_onboarding_set_to_default_title_2
               body: nova_onboarding_set_to_default_subtitle
+              image-res: nova_onboarding_set_to_default
               primary-button-label: nova_onboarding_set_to_default_button
               secondary-button-label: nova_onboarding_negative_button
 
             add-search-widget:
               title: nova_onboarding_add_search_widget_title
               body: nova_onboarding_add_search_widget_subtitle
+              image-res: nova_onboarding_widget
               primary-button-label: nova_onboarding_add_search_widget_button
               secondary-button-label: nova_onboarding_negative_button
 
             sync-sign-in:
               title: nova_onboarding_sync_title
               body: nova_onboarding_sync_subtitle
+              image-res: nova_onboarding_sync
               primary-button-label: nova_onboarding_sync_button
               secondary-button-label: nova_onboarding_negative_button
 
             notification-permission:
               title: nova_onboarding_notifications_title
               body: nova_onboarding_notifications_subtitle
+              image-res: nova_onboarding_notifications
               primary-button-label: nova_onboarding_notifications_button
               secondary-button-label: nova_onboarding_negative_button
 
             toolbar-placement:
               title: nova_onboarding_toolbar_selection_title
-              primary-button-label: onboarding_redesign_continue_button
+              primary-button-label: nova_onboarding_continue_button
               extra-data:
                 customization-toolbar-data:
                   - toolbar-type: toolbar-top
                     label: nova_onboarding_toolbar_selection_top_label
-                    image-res: ic_onboarding_top_toolbar # Unused in redesign
                   - toolbar-type: toolbar-bottom
                     label: nova_onboarding_toolbar_selection_bottom_label
-                    image-res: ic_onboarding_bottom_toolbar # Unused in redesign
 
             marketing:
               title: nova_onboarding_marketing_title
@@ -379,7 +378,7 @@ features:
                   body-line-one-text: nova_onboarding_marketing_body
                   body-line-one-link-text: nova_onboarding_marketing_body_link_text
 
-            # Disable the defaults that are not included in the redesign.
+            # Disable the defaults that are not included in the Nova redesign.
             theme-selection:
               enabled: false
 
@@ -404,38 +403,40 @@ features:
             default-browser:
               title: nova_onboarding_set_to_default_title_2
               body: nova_onboarding_set_to_default_subtitle
+              image-res: nova_onboarding_set_to_default
               primary-button-label: nova_onboarding_set_to_default_button
               secondary-button-label: nova_onboarding_negative_button
 
             add-search-widget:
               title: nova_onboarding_add_search_widget_title
               body: nova_onboarding_add_search_widget_subtitle
+              image-res: nova_onboarding_widget
               primary-button-label: nova_onboarding_add_search_widget_button
               secondary-button-label: nova_onboarding_negative_button
 
             sync-sign-in:
               title: nova_onboarding_sync_title
               body: nova_onboarding_sync_subtitle
+              image-res: nova_onboarding_sync
               primary-button-label: nova_onboarding_sync_button
               secondary-button-label: nova_onboarding_negative_button
 
             notification-permission:
               title: nova_onboarding_notifications_title
               body: nova_onboarding_notifications_subtitle
+              image-res: nova_onboarding_notifications
               primary-button-label: nova_onboarding_notifications_button
               secondary-button-label: nova_onboarding_negative_button
 
             toolbar-placement:
               title: nova_onboarding_toolbar_selection_title
-              primary-button-label: onboarding_redesign_continue_button
+              primary-button-label: nova_onboarding_continue_button
               extra-data:
                 customization-toolbar-data:
                   - toolbar-type: toolbar-top
                     label: nova_onboarding_toolbar_selection_top_label
-                    image-res: ic_onboarding_top_toolbar # Unused in redesign
                   - toolbar-type: toolbar-bottom
                     label: nova_onboarding_toolbar_selection_bottom_label
-                    image-res: ic_onboarding_bottom_toolbar # Unused in redesign
 
             marketing:
               title: nova_onboarding_marketing_title
@@ -446,7 +447,7 @@ features:
                   body-line-one-text: nova_onboarding_marketing_body
                   body-line-one-link-text: nova_onboarding_marketing_body_link_text
 
-            # Disable the defaults that are not included in the redesign.
+            # Disable the defaults that are not included in the Nova redesign.
             theme-selection:
               enabled: false
 
@@ -472,7 +473,6 @@ objects:
       body:
         type: Text
         description: The message text displayed to the user. May contain linkable text.
-        # This should never be defaulted.
         default: ""
       image-res:
         type: Image
@@ -552,7 +552,7 @@ objects:
       image-res:
         type: Image
         description: The resource id of toolbar placement image.
-        # This should never be defaulted.
+        # Nova redesign does not use this field as the image is defined in the Composable.
         default: ic_onboarding_customize_toolbar
 
   CustomizationThemeData:

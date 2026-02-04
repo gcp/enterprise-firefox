@@ -53,8 +53,7 @@ class nsMathMLFrame : public nsIMathMLFrame {
 
   NS_IMETHOD
   Stretch(mozilla::gfx::DrawTarget* aDrawTarget,
-          nsStretchDirection aStretchDirection,
-          nsBoundingMetrics& aContainerSize,
+          StretchDirection aStretchDirection, nsBoundingMetrics& aContainerSize,
           mozilla::ReflowOutput& aDesiredStretchSize) override {
     return NS_OK;
   }
@@ -275,7 +274,7 @@ class nsMathMLFrame : public nsIMathMLFrame {
    */
   void DisplayBar(mozilla::nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
                   const nsRect& aRect, const mozilla::nsDisplayListSet& aLists,
-                  uint32_t aIndex = 0);
+                  uint16_t aIndex = 0);
 
   // information about the presentation policy of the frame
   nsPresentationData mPresentationData;
