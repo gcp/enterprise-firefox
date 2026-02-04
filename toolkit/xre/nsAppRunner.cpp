@@ -4283,6 +4283,12 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
     }
   }
 
+#if defined(MOZ_ENTERPRISE)
+  XRE_ParseEnterpriseServerURL(*mAppData);
+  // Ignoring nsresult. If console url is not found in a release build, the
+  // default server url is empty and crash reports will fail to submit.
+#endif
+
   // Check sanity and correctness of app data.
 
   if (!mAppData->name) {
