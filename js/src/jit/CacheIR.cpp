@@ -13180,8 +13180,6 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
       return tryAttachFunctionBind();
 
     // Intl natives.
-    case InlinableNative::IntlGuardToNumberFormat:
-    case InlinableNative::IntlGuardToPluralRules:
     case InlinableNative::IntlGuardToSegments:
     case InlinableNative::IntlGuardToSegmentIterator:
       return tryAttachGuardToClass(native);
@@ -13610,7 +13608,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
 // constructor, for later use during Ion compilation.
 ScriptedThisResult CallIRGenerator::getThisShapeForScripted(
     HandleFunction calleeFunc, Handle<JSObject*> newTarget,
-    MutableHandle<Shape*> result) {
+    MutableHandle<SharedShape*> result) {
   // Some constructors allocate their own |this| object.
   if (calleeFunc->constructorNeedsUninitializedThis()) {
     return ScriptedThisResult::UninitializedThis;
@@ -13624,7 +13622,7 @@ ScriptedThisResult CallIRGenerator::getThisShapeForScripted(
   }
 
   AutoRealm ar(cx_, calleeFunc);
-  Shape* thisShape = ThisShapeForFunction(cx_, calleeFunc, newTarget);
+  SharedShape* thisShape = ThisShapeForFunction(cx_, calleeFunc, newTarget);
   if (!thisShape) {
     cx_->clearPendingException();
     return ScriptedThisResult::NoAction;
@@ -13653,11 +13651,10 @@ static bool CanOptimizeScriptedCall(JSFunction* callee, bool isConstructing) {
   return true;
 }
 
-void CallIRGenerator::emitCallScriptedGuards(ObjOperandId calleeObjId,
-                                             JSFunction* calleeFunc,
-                                             Int32OperandId argcId,
-                                             CallFlags flags, Shape* thisShape,
-                                             bool isBoundFunction) {
+void CallIRGenerator::emitCallScriptedGuards(
+    ObjOperandId calleeObjId, JSFunction* calleeFunc, Int32OperandId argcId,
+    CallFlags flags, SharedShape* thisShape, gc::AllocSite* maybeAllocSite,
+    bool isBoundFunction) {
   bool isConstructing = flags.isConstructing();
 
   if (mode_ == ICState::Mode::Specialized) {
@@ -13702,9 +13699,14 @@ void CallIRGenerator::emitCallScriptedGuards(ObjOperandId calleeObjId,
                                            slot - newTarget->numFixedSlots());
       }
 
-      // Call metaScriptedThisShape before emitting the call, so that Warp can
-      // use the shape to create the |this| object before transpiling the call.
-      writer.metaScriptedThisShape(thisShape);
+      // Call metaCreateThis before emitting the call, so that Warp can use the
+      // shape/site to create the |this| object before transpiling the call.
+      MOZ_ASSERT(maybeAllocSite);
+      uint32_t numFixedSlots = thisShape->numFixedSlots();
+      uint32_t numDynamicSlots = NativeObject::calculateDynamicSlots(thisShape);
+      gc::AllocKind allocKind = gc::GetGCObjectKind(numFixedSlots);
+      writer.metaCreateThis(numFixedSlots, numDynamicSlots, allocKind,
+                            thisShape, maybeAllocSite);
     }
   } else {
     // Guard that object is a scripted function
@@ -13745,11 +13747,16 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
     return AttachDecision::NoAction;
   }
 
-  Rooted<Shape*> thisShape(cx_);
+  Rooted<SharedShape*> thisShape(cx_);
+  gc::AllocSite* maybeAllocSite = nullptr;
   if (isConstructing && isSpecialized) {
     Rooted<JSObject*> newTarget(cx_, &newTarget_.toObject());
     switch (getThisShapeForScripted(calleeFunc, newTarget, &thisShape)) {
       case ScriptedThisResult::PlainObjectShape:
+        maybeAllocSite = maybeCreateAllocSite();
+        if (!maybeAllocSite) {
+          return AttachDecision::NoAction;
+        }
         break;
       case ScriptedThisResult::UninitializedThis:
         flags.setNeedsUninitializedThis();
@@ -13768,7 +13775,7 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
   ObjOperandId calleeObjId = writer.guardToObject(calleeValId);
 
   emitCallScriptedGuards(calleeObjId, calleeFunc, argcId, flags, thisShape,
-                         /* isBoundFunction = */ false);
+                         maybeAllocSite, /* isBoundFunction = */ false);
 
   writer.callScriptedFunction(calleeObjId, argcId, flags,
                               ClampFixedArgc(argc_));
@@ -13977,7 +13984,8 @@ AttachDecision CallIRGenerator::tryAttachBoundFunction(
     }
   }
 
-  Rooted<Shape*> thisShape(cx_);
+  Rooted<SharedShape*> thisShape(cx_);
+  gc::AllocSite* maybeAllocSite = nullptr;
   if (isConstructing) {
     // Only optimize if newTarget == callee. This is the common case and ensures
     // we can always pass the bound function's target as newTarget.
@@ -13989,6 +13997,10 @@ AttachDecision CallIRGenerator::tryAttachBoundFunction(
       Handle<JSFunction*> newTarget = target;
       switch (getThisShapeForScripted(target, newTarget, &thisShape)) {
         case ScriptedThisResult::PlainObjectShape:
+          maybeAllocSite = maybeCreateAllocSite();
+          if (!maybeAllocSite) {
+            return AttachDecision::NoAction;
+          }
           break;
         case ScriptedThisResult::UninitializedThis:
           flags.setNeedsUninitializedThis();
@@ -14024,7 +14036,7 @@ AttachDecision CallIRGenerator::tryAttachBoundFunction(
   ObjOperandId targetId = writer.loadBoundFunctionTarget(calleeObjId);
 
   emitCallScriptedGuards(targetId, target, argcId, flags, thisShape,
-                         /* isBoundFunction = */ true);
+                         maybeAllocSite, /* isBoundFunction = */ true);
 
   writer.callBoundScriptedFunction(calleeObjId, targetId, argcId, flags,
                                    numBoundArgs);

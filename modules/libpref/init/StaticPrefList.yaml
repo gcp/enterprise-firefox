@@ -7875,7 +7875,7 @@
 - name: gfx.webrender.dcomp-texture-overlay-win
   type: bool
 #if defined(XP_WIN)
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
 #else
   value: false
 #endif
@@ -10688,6 +10688,13 @@
   value: true
   mirror: always
 
+# Is support for CSS text-box property enabled?
+# https://drafts.csswg.org/css-inline-3/#text-box-shorthand
+- name: layout.css.text-box.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Maximum number of lines to try balancing.
 - name: layout.css.text-wrap-balance.limit
   type: int32_t
@@ -11776,6 +11783,15 @@
   value: false
 #endif
   mirror: always
+
+# Provide minimal HW support for codecs that are otherwise unavailable on
+# Android, e.g. H264 and HEVC.
+#if defined(ANDROID)
+- name: media.ffvpx-hw.minimal
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+#endif
 
 # The codecs in the vendored ffmpeg copy are usually prefered to the other
 # codecs. This allows changing this policy for testing purposes.

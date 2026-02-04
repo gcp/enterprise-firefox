@@ -24,10 +24,6 @@
 #include "builtin/Array.h"
 #include "builtin/BigInt.h"
 #ifdef JS_HAS_INTL_API
-#  include "builtin/intl/IntlObject.h"
-#  include "builtin/intl/Locale.h"
-#  include "builtin/intl/NumberFormat.h"
-#  include "builtin/intl/PluralRules.h"
 #  include "builtin/intl/Segmenter.h"
 #endif
 #include "builtin/MapObject.h"
@@ -39,10 +35,6 @@
 #include "builtin/RegExp.h"
 #include "builtin/SelfHostingDefines.h"
 #include "builtin/String.h"
-#ifdef JS_HAS_INTL_API
-#  include "builtin/temporal/Duration.h"
-#  include "builtin/temporal/TimeZone.h"
-#endif
 #include "builtin/WeakMapObject.h"
 #include "frontend/BytecodeCompiler.h"    // CompileGlobalScriptToStencil
 #include "frontend/CompilationStencil.h"  // js::frontend::CompilationStencil
@@ -91,7 +83,6 @@
 #include "vm/ToSource.h"  // js::ValueToSource
 #include "vm/TypedArrayObject.h"
 #include "vm/Uint8Clamped.h"
-#include "vm/Warnings.h"
 #include "vm/WrapperObject.h"
 
 #include "gc/WeakMap-inl.h"
@@ -403,27 +394,6 @@ static bool intrinsic_CreateSuppressedError(JSContext* cx, unsigned argc,
   return true;
 }
 #endif
-
-static bool intrinsic_ReportWarning(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() >= 1);
-
-  MOZ_RELEASE_ASSERT(args[0].isInt32());
-  uint32_t errorNumber = args[0].toInt32();
-
-  UniqueChars errorArgs[3];
-  if (!PrepareErrorArguments(cx, JSEXN_WARN, args, errorArgs)) {
-    return false;
-  }
-
-  if (!WarnNumberUTF8(cx, errorNumber, errorArgs[0].get(), errorArgs[1].get(),
-                      errorArgs[2].get())) {
-    return false;
-  }
-
-  args.rval().setUndefined();
-  return true;
-}
 
 /**
  * Handles an assertion failure in self-hosted code just like an assertion
@@ -1288,21 +1258,6 @@ bool js::ReportIncompatibleSelfHostedMethod(
   return false;
 }
 
-#ifdef JS_HAS_INTL_API
-static bool intrinsic_FallbackSymbol(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 0);
-
-  auto* fallbackSymbol = cx->global()->globalIntlData().fallbackSymbol(cx);
-  if (!fallbackSymbol) {
-    return false;
-  }
-
-  args.rval().setSymbol(fallbackSymbol);
-  return true;
-}
-#endif  // JS_HAS_INTL_API
-
 static bool intrinsic_ConstructFunction(JSContext* cx, unsigned argc,
                                         Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -1785,7 +1740,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_INLINABLE_FN("RegExpSearcher", RegExpSearcher, 3, 0, RegExpSearcher),
     JS_INLINABLE_FN("RegExpSearcherLastLimit", RegExpSearcherLastLimit, 0, 0,
                     RegExpSearcherLastLimit),
-    JS_FN("ReportWarning", intrinsic_ReportWarning, 4, 0),
     JS_INLINABLE_FN("SameValue", js::obj_is, 2, 0, ObjectIs),
     JS_FN("SetCopy", SetObject::copy, 1, 0),
     JS_FN("StringReplaceAllString", intrinsic_StringReplaceAllString, 3, 0),
@@ -1825,56 +1779,25 @@ static const JSFunctionSpec intrinsic_functions[] = {
 
 // Intrinsics and standard functions used by Intl API implementation.
 #ifdef JS_HAS_INTL_API
-    JS_FN("intl_BestAvailableLocale", intl_BestAvailableLocale, 3, 0),
-    JS_FN("intl_CallNumberFormatMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<NumberFormatObject>>, 2, 0),
-    JS_FN("intl_CallPluralRulesMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<PluralRulesObject>>, 2, 0),
     JS_FN("intl_CallSegmentIteratorMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<SegmentIteratorObject>>, 2, 0),
     JS_FN("intl_CallSegmentsMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<SegmentsObject>>, 2, 0),
     JS_FN("intl_CreateSegmentIterator", intl_CreateSegmentIterator, 1, 0),
-    JS_FN("intl_FallbackSymbol", intrinsic_FallbackSymbol, 0, 0),
     JS_FN("intl_FindNextSegmentBoundaries", intl_FindNextSegmentBoundaries, 1,
           0),
     JS_FN("intl_FindSegmentBoundaries", intl_FindSegmentBoundaries, 2, 0),
-    JS_FN("intl_FormatNumber", intl_FormatNumber, 3, 0),
-    JS_FN("intl_FormatNumberRange", intl_FormatNumberRange, 4, 0),
-    JS_FN("intl_GetPluralCategories", intl_GetPluralCategories, 1, 0),
-    JS_INLINABLE_FN("intl_GuardToNumberFormat",
-                    intrinsic_GuardToBuiltin<NumberFormatObject>, 1, 0,
-                    IntlGuardToNumberFormat),
-    JS_INLINABLE_FN("intl_GuardToPluralRules",
-                    intrinsic_GuardToBuiltin<PluralRulesObject>, 1, 0,
-                    IntlGuardToPluralRules),
     JS_INLINABLE_FN("intl_GuardToSegmentIterator",
                     intrinsic_GuardToBuiltin<SegmentIteratorObject>, 1, 0,
                     IntlGuardToSegmentIterator),
     JS_INLINABLE_FN("intl_GuardToSegments",
                     intrinsic_GuardToBuiltin<SegmentsObject>, 1, 0,
                     IntlGuardToSegments),
-    JS_FN("intl_IsWrappedNumberFormat",
-          intrinsic_IsWrappedInstanceOfBuiltin<NumberFormatObject>, 1, 0),
-    JS_FN("intl_ResolveLocale", intl_ResolveLocale, 3, 0),
-    JS_FN("intl_SelectPluralRule", intl_SelectPluralRule, 2, 0),
-    JS_FN("intl_SelectPluralRuleRange", intl_SelectPluralRuleRange, 3, 0),
-    JS_FN("intl_ValidateAndCanonicalizeLanguageTag",
-          intl_ValidateAndCanonicalizeLanguageTag, 2, 0),
-    JS_FN("intl_ValidateAndCanonicalizeUnicodeExtensionType",
-          intl_ValidateAndCanonicalizeUnicodeExtensionType, 3, 0),
-#  if DEBUG || MOZ_SYSTEM_ICU
-    JS_FN("intl_availableMeasurementUnits", intl_availableMeasurementUnits, 0,
-          0),
-#  endif
 #endif  // JS_HAS_INTL_API
 
     // Standard builtins used by self-hosting.
     JS_FN("new_List", intrinsic_newList, 0, 0),
     JS_INLINABLE_FN("std_Array", array_construct, 1, 0, Array),
-    JS_FN("std_Array_includes", array_includes, 1, 0),
-    JS_FN("std_Array_indexOf", array_indexOf, 1, 0),
-    JS_FN("std_Array_lastIndexOf", array_lastIndexOf, 1, 0),
     JS_INLINABLE_FN("std_Array_pop", array_pop, 0, 0, ArrayPop),
     JS_TRAMPOLINE_FN("std_Array_sort", array_sort, 1, 0, ArraySort),
     JS_FN("std_Function_apply", fun_apply, 2, 0),
@@ -1882,8 +1805,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_INLINABLE_FN("std_Map_get", MapObject::get, 1, 0, MapGet),
     JS_INLINABLE_FN("std_Map_has", MapObject::has, 1, 0, MapHas),
     JS_INLINABLE_FN("std_Map_set", MapObject::set, 2, 0, MapSet),
-    JS_INLINABLE_FN("std_Math_abs", math_abs, 1, 0, MathAbs),
-    JS_INLINABLE_FN("std_Math_floor", math_floor, 1, 0, MathFloor),
     JS_INLINABLE_FN("std_Math_max", math_max, 2, 0, MathMax),
     JS_INLINABLE_FN("std_Math_min", math_min, 2, 0, MathMin),
     JS_INLINABLE_FN("std_Math_trunc", math_trunc, 1, 0, MathTrunc),
@@ -1902,12 +1823,8 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_INLINABLE_FN("std_Set_has", SetObject::has, 1, 0, SetHas),
     JS_INLINABLE_FN("std_Set_size", SetObject::size, 1, 0, SetSize),
     JS_FN("std_Set_values", SetObject::values, 0, 0),
-    JS_INLINABLE_FN("std_String_charCodeAt", str_charCodeAt, 1, 0,
-                    StringCharCodeAt),
     JS_INLINABLE_FN("std_String_codePointAt", str_codePointAt, 1, 0,
                     StringCodePointAt),
-    JS_INLINABLE_FN("std_String_fromCharCode", str_fromCharCode, 1, 0,
-                    StringFromCharCode),
     JS_INLINABLE_FN("std_String_fromCodePoint", str_fromCodePoint, 1, 0,
                     StringFromCodePoint),
     JS_INLINABLE_FN("std_String_includes", str_includes, 1, 0, StringIncludes),

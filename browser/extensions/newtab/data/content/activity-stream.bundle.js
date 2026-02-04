@@ -2942,7 +2942,7 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
       }
     }
     if (this._needsImpressionStats(cards)) {
-      props.dispatch(actionCreators.DiscoveryStreamImpressionStats({
+      const impressionData = {
         source: props.source.toUpperCase(),
         window_inner_width: window.innerWidth,
         window_inner_height: window.innerHeight,
@@ -2975,7 +2975,8 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
           } : {})
         })),
         firstVisibleTimestamp: props.firstVisibleTimestamp
-      }));
+      };
+      props.dispatch(actionCreators.DiscoveryStreamImpressionStats(impressionData));
       this.impressionCardGuids = cards.map(link => link.id);
     }
   }
@@ -8076,10 +8077,10 @@ class TopSiteLink extends (external_React_default()).PureComponent {
   /*
    * Helper to determine whether the drop zone should allow a drop. We only allow
    * dropping top sites for now. We don't allow dropping on sponsored top sites
-   * as their position is fixed.
+   * or the add shortcut button as their position is fixed.
    */
   _allowDrop(e) {
-    return (this.dragged || !isSponsored(this.props.link)) && e.dataTransfer.types.includes("text/topsite-index");
+    return (this.dragged || !isSponsored(this.props.link) && !this.props.isAddButton) && e.dataTransfer.types.includes("text/topsite-index");
   }
   onDragEvent(event) {
     switch (event.type) {
@@ -8785,16 +8786,29 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     topSites.length = this.props.TopSitesRows * TOP_SITES_MAX_SITES_PER_ROW;
     // if topSites do not fill an entire row add 'Add shortcut' button to array of topSites
     // (there should only be one of these)
-    let firstPlaceholder = topSites.findIndex(Object.is.bind(null, undefined));
-    // make sure placeholder exists and there already isnt a add button
-    if (firstPlaceholder && !topSites.includes(site => site.isAddButton)) {
-      topSites[firstPlaceholder] = {
-        isAddButton: true
-      };
-    } else if (topSites.includes(site => site.isAddButton)) {
-      topSites.push(topSites.splice(topSites.indexOf({
-        isAddButton: true
-      }), 1)[0]);
+    const addButtonIndex = topSites.findIndex(site => site?.isAddButton);
+
+    // Find the position right after the last regular shortcut
+    let targetPosition = topSites.length - 1;
+    for (let i = topSites.length - 1; i >= 0; i--) {
+      if (topSites[i] && !topSites[i].isAddButton) {
+        targetPosition = i + 1;
+        break;
+      }
+    }
+    if (addButtonIndex === -1) {
+      // No add button exists yet, insert it at target position if it's within bounds
+      if (targetPosition < topSites.length) {
+        topSites[targetPosition] = {
+          isAddButton: true
+        };
+      }
+    } else if (addButtonIndex !== targetPosition) {
+      // Add button exists but not at the end, move it
+      const [button] = topSites.splice(addButtonIndex, 1);
+      // Adjust target if we removed something before it
+      const adjustedTarget = addButtonIndex < targetPosition ? targetPosition - 1 : targetPosition;
+      topSites[adjustedTarget] = button;
     }
     return topSites;
   }
@@ -8806,8 +8820,8 @@ class _TopSiteList extends (external_React_default()).PureComponent {
   _makeTopSitesPreview(index) {
     const topSites = this._getTopSites();
     topSites[this.state.draggedIndex] = null;
-    const preview = topSites.map(site => site && (site.isPinned || isSponsored(site)) ? site : null);
-    const unpinned = topSites.filter(site => site && !site.isPinned && !isSponsored(site));
+    const preview = topSites.map(site => site && (site.isPinned || isSponsored(site) || site.isAddButton) ? site : null);
+    const unpinned = topSites.filter(site => site && !site.isPinned && !isSponsored(site) && !site.isAddButton);
     const siteToInsert = Object.assign({}, this.state.draggedSite, {
       isPinned: true,
       isDragged: true
@@ -8827,7 +8841,7 @@ class _TopSiteList extends (external_React_default()).PureComponent {
       const shiftingStep = index > this.state.draggedIndex ? 1 : -1;
       while (index > this.state.draggedIndex ? holeIndex < index : holeIndex > index) {
         let nextIndex = holeIndex + shiftingStep;
-        while (isSponsored(preview[nextIndex])) {
+        while (preview[nextIndex] && (isSponsored(preview[nextIndex]) || preview[nextIndex].isAddButton)) {
           nextIndex += shiftingStep;
         }
         preview[holeIndex] = preview[nextIndex];
@@ -11115,6 +11129,8 @@ const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state =>
 
 
 
+
+
 const TIMESTAMP_DISPLAY_DURATION = 15 * 60 * 1000;
 
 /**
@@ -11124,7 +11140,10 @@ const TIMESTAMP_DISPLAY_DURATION = 15 * 60 * 1000;
 const BriefingCard = ({
   sectionClassNames = "",
   headlines = [],
-  lastUpdated
+  lastUpdated,
+  selectedTopics,
+  isFollowed,
+  firstVisibleTimestamp
 }) => {
   const [showTimestamp, setShowTimestamp] = (0,external_React_namespaceObject.useState)(false);
   const [timeAgo, setTimeAgo] = (0,external_React_namespaceObject.useState)("");
@@ -11132,8 +11151,22 @@ const BriefingCard = ({
   const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
   const handleDismiss = () => {
     setIsDismissed(true);
-    const menuOption = LinkMenuOptions.BlockUrls(headlines, 0, "DAILY_BRIEFING");
+    const tilesWithFormat = headlines.map(headline => ({
+      ...headline,
+      format: "daily-briefing",
+      guid: headline.id,
+      tile_id: headline.id,
+      ...(headline.section ? {
+        section: headline.section,
+        section_position: 0,
+        is_section_followed: isFollowed
+      } : {})
+    }));
+    const menuOption = LinkMenuOptions.BlockUrls(tilesWithFormat, 0, "DAILY_BRIEFING");
     dispatch(menuOption.action);
+    if (menuOption.impression) {
+      dispatch(menuOption.impression);
+    }
   };
   (0,external_React_namespaceObject.useEffect)(() => {
     if (!lastUpdated) {
@@ -11161,6 +11194,35 @@ const BriefingCard = ({
   if (isDismissed || headlines.length === 0) {
     return null;
   }
+  const onLinkClick = headline => {
+    const userEvent = {
+      event: "CLICK",
+      source: "DAILY_BRIEFING",
+      action_position: headline.pos,
+      value: {
+        event_source: "CARD_GRID",
+        card_type: "organic",
+        recommendation_id: headline.recommendation_id,
+        tile_id: headline.id,
+        fetchTimestamp: headline.fetchTimestamp,
+        firstVisibleTimestamp,
+        corpus_item_id: headline.corpus_item_id,
+        scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
+        recommended_at: headline.recommended_at,
+        received_rank: headline.received_rank,
+        features: headline.features,
+        selected_topics: selectedTopics,
+        format: "daily-briefing",
+        ...(headline.section ? {
+          section: headline.section,
+          section_position: 0,
+          is_section_followed: isFollowed,
+          layout_name: "daily-briefing"
+        } : {})
+      }
+    };
+    dispatch(actionCreators.DiscoveryStreamUserEvent(userEvent));
+  };
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: `briefing-card ${sectionClassNames}`
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
@@ -11192,6 +11254,7 @@ const BriefingCard = ({
   }, /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
     url: headline.url,
     dispatch: dispatch,
+    onLinkClick: () => onLinkClick(headline),
     className: "briefing-card-headline-link",
     title: headline.title
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -11204,7 +11267,30 @@ const BriefingCard = ({
     className: "briefing-card-headline-icon"
   }), /*#__PURE__*/external_React_default().createElement("span", {
     className: "briefing-card-headline-source"
-  }, headline.publisher)))))));
+  }, headline.publisher)))))), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
+    rows: headlines.map(headline => ({
+      id: headline.id,
+      pos: headline.pos,
+      recommendation_id: headline.recommendation_id,
+      fetchTimestamp: headline.fetchTimestamp,
+      corpus_item_id: headline.corpus_item_id,
+      scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
+      recommended_at: headline.recommended_at,
+      received_rank: headline.received_rank,
+      features: headline.features,
+      format: "daily-briefing",
+      ...(headline.section ? {
+        section: headline.section,
+        // Daily Briefing is a single section, section_position is always 0.
+        section_position: 0,
+        is_section_followed: isFollowed,
+        sectionLayoutName: "daily-briefing"
+      } : {})
+    })),
+    dispatch: dispatch,
+    source: "DAILY_BRIEFING",
+    firstVisibleTimestamp: firstVisibleTimestamp
+  }));
 };
 
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/CardSections/CardSections.jsx
@@ -11505,7 +11591,10 @@ function CardSection({
           key: "briefing-card",
           sectionClassNames: classNames.join(" "),
           headlines: briefingHeadlines,
-          lastUpdated: briefingLastUpdated
+          lastUpdated: briefingLastUpdated,
+          selectedTopics: selectedTopics,
+          isFollowed: following,
+          firstVisibleTimestamp: firstVisibleTimestamp
         }));
         continue;
       }
