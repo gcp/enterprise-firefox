@@ -691,9 +691,13 @@ def verify_test_packaging(task, taskgraph, scratch_pad, graph_config, parameters
                     # there are no dependent tests.
 
                     # This is a hack for Enterprise because some macOS tests are scheduled
-                    # but depends at some point on build-mac-notarization that does not run
+                    # but depends at some point on build-mac-notarization that does not run
                     # on PR (level 1).
-                    missing_tests_allowed = missing_tests_allowed or int(parameters["level"]) == 1 and "enterprise" not in current_task.label
+                    missing_tests_allowed = (
+                        missing_tests_allowed
+                        or int(parameters["level"]) == 1
+                        and "enterprise" not in current_task.label
+                    )
 
                     if not missing_tests_allowed:
                         exceptions.append(

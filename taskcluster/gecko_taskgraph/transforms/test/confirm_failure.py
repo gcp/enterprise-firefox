@@ -22,7 +22,11 @@ def test_confirm_failure_tasks(config, tasks):
         depending on build-mac-notarization that is not ran on PR
         """
 
-        if int(config.params['level']) != 3 and "macosx" in task["test-platform"] and not "enterprise" in task["test-platform"]:
+        if (
+            int(config.params["level"]) != 3
+            and "macosx" in task["test-platform"]
+            and not "enterprise" in task["test-platform"]
+        ):
             continue
 
         if config.params["try_task_config"].get("new-test-config", False):
