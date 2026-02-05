@@ -14,11 +14,15 @@ export class AIChatContent extends MozLitElement {
   static properties = {
     conversationState: { type: Array },
     tokens: { type: Object },
+    isSearching: { type: Boolean },
+    searchQuery: { type: String },
   };
 
   constructor() {
     super();
     this.conversationState = [];
+    this.isSearching = false;
+    this.searchQuery = null;
   }
 
   connectedCallback() {
@@ -43,13 +47,17 @@ export class AIChatContent extends MozLitElement {
 
   messageEvent(event) {
     const message = event.detail;
-    this.#checkConversationState(message);
 
     switch (message.role) {
+      case "loading":
+        this.handleLoadingEvent(event);
+        break;
       case "assistant":
+        this.#checkConversationState(message);
         this.handleAIResponseEvent(event);
         break;
       case "user":
+        this.#checkConversationState(message);
         this.handleUserPromptEvent(event);
         break;
     }
@@ -73,6 +81,14 @@ export class AIChatContent extends MozLitElement {
     if (convIdChanged || isReloadingSameConvo) {
       this.conversationState = [];
     }
+  }
+
+  handleLoadingEvent(event) {
+    const { isSearching, searchQuery } = event.detail;
+    this.isSearching = !!isSearching;
+    this.searchQuery = searchQuery || null;
+    this.requestUpdate();
+    this.#scrollToBottom();
   }
 
   /**
@@ -100,6 +116,9 @@ export class AIChatContent extends MozLitElement {
    */
 
   handleAIResponseEvent(event) {
+    this.isSearching = false;
+    this.searchQuery = null;
+
     const {
       convId,
       ordinal,
@@ -107,7 +126,12 @@ export class AIChatContent extends MozLitElement {
       content,
       memoriesApplied,
       tokens,
+      webSearchQueries,
     } = event.detail;
+
+    if (typeof content.body !== "string" || !content.body) {
+      return;
+    }
 
     this.conversationState[ordinal] = {
       role: "assistant",
@@ -115,7 +139,9 @@ export class AIChatContent extends MozLitElement {
       messageId,
       body: content.body,
       appliedMemories: memoriesApplied ?? [],
-      searchTokens: tokens?.search || [],
+      // The "webSearchQueries" are coming from a conversation that is being initialized
+      // and "tokens" are streaming in from a live conversation.
+      searchTokens: webSearchQueries ?? tokens?.search ?? [],
     };
 
     this.requestUpdate();
@@ -138,6 +164,9 @@ export class AIChatContent extends MozLitElement {
       />
       <div class="chat-content-wrapper">
         ${this.conversationState.map(msg => {
+          if (!msg) {
+            return nothing;
+          }
           return html`
             <div class=${`chat-bubble chat-bubble-${msg.role}`}>
               <ai-chat-message
@@ -157,6 +186,19 @@ export class AIChatContent extends MozLitElement {
             </div>
           `;
         })}
+        ${this.isSearching
+          ? html`
+              <div
+                class="chat-bubble chat-bubble-assistant searching-indicator"
+              >
+                <span class="searching-text">
+                  ${this.searchQuery
+                    ? `Searching for: "${this.searchQuery}"`
+                    : "Searching the web..."}
+                </span>
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }
