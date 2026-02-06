@@ -2091,35 +2091,6 @@ def add_android_shippable_multi_index_routes(config, task):
 
 
 @transforms.add
-def add_enterprise_index_routes(config, tasks):
-    for task in tasks:
-        if (
-            not "enterprise" in task["label"]
-            or "upload" in task["label"]
-            or not "shippable" in task["label"]
-            or task["label"].endswith("/debug")
-            or task["label"].startswith("enterprise-test")
-            or task["label"].startswith("test-")
-        ):
-            yield task
-            continue
-
-        routes = task.setdefault("routes", [])
-
-        template = "index.{trust-domain}.v2.{project}.shippable-packages.latest.{product}.{job-name}"
-
-        subs = config.params.copy()
-        subs["job-name"] = task["label"].split("/")[0]
-        subs["product"] = config.params["release_product"]
-        subs["trust-domain"] = config.graph_config["trust-domain"]
-        subs["project"] = get_project_alias(config)
-
-        routes.append(template.format(**subs))
-
-        yield task
-
-
-@transforms.add
 def add_index_routes(config, tasks):
     for task in tasks:
         index = task.get("index", {})
