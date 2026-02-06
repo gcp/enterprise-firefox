@@ -358,7 +358,6 @@ class GCRuntime {
 
   void shrinkBuffers();
   void onOutOfMallocMemory();
-  void onOutOfMallocMemory(const AutoLockGC& lock);
 
   Nursery& nursery() { return nursery_.ref(); }
   gc::StoreBuffer& storeBuffer() { return storeBuffer_.ref(); }
@@ -437,15 +436,15 @@ class GCRuntime {
   void lockGC() { lock.lock(); }
   void unlockGC() { lock.unlock(); }
 
-  void lockStoreBuffer() { storeBufferLock.lock(); }
-  void unlockStoreBuffer() { storeBufferLock.unlock(); }
+  void lockSweepingLock() { sweepingLock.lock(); }
+  void unlockSweepingLock() { sweepingLock.unlock(); }
 
 #ifdef DEBUG
   void assertCurrentThreadHasLockedGC() const {
     lock.assertOwnedByCurrentThread();
   }
-  void assertCurrentThreadHasLockedStoreBuffer() const {
-    storeBufferLock.assertOwnedByCurrentThread();
+  void assertCurrentThreadHasLockedSweepingLock() const {
+    sweepingLock.assertOwnedByCurrentThread();
   }
 #endif  // DEBUG
 
@@ -872,6 +871,7 @@ class GCRuntime {
 
   template <class ZoneIterT>
   IncrementalProgress markWeakReferences(JS::SliceBudget& budget);
+  void markIncomingSymbolEdgesFromUncollectedZones();
   IncrementalProgress markWeakReferencesInCurrentGroup(JS::SliceBudget& budget);
   IncrementalProgress markGrayRoots(JS::SliceBudget& budget,
                                     gcstats::PhaseKind phase);
@@ -988,6 +988,9 @@ class GCRuntime {
   void releaseHeldRelocatedArenas();
   void releaseHeldRelocatedArenasWithoutUnlocking(const AutoLockGC& lock);
 #endif
+
+  bool waitForBackgroundTasksOnAllocFailure();
+  void onOutOfMallocMemory(const AutoLockGC& lock);
 
   IncrementalProgress waitForBackgroundTask(GCParallelTask& task,
                                             const JS::SliceBudget& budget,
@@ -1437,10 +1440,10 @@ class GCRuntime {
   Mutex lock MOZ_UNANNOTATED;
 
   /*
-   * Lock used to synchronise access to the store buffer during parallel
-   * sweeping.
+   * Lock used to synchronise access to resources that would normally only be
+   * accessed on the main thread during parallel sweeping.
    */
-  Mutex storeBufferLock MOZ_UNANNOTATED;
+  Mutex sweepingLock MOZ_UNANNOTATED;
 
   /* Lock used to synchronise access to delayed marking state. */
   Mutex delayedMarkingLock MOZ_UNANNOTATED;

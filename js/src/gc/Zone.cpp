@@ -154,6 +154,10 @@ template class TrackedAllocPolicy<TrackingKind::Zone>;
 template class TrackedAllocPolicy<TrackingKind::Cell>;
 }  // namespace js
 
+MOZ_COLD void BufferAllocPolicy::reportAllocOverflow() const {
+  zone->reportAllocOverflow();
+}
+
 JS::Zone::Zone(JSRuntime* rt, Kind kind)
     : ZoneAllocator(rt, kind),
       arenas(this),
@@ -598,7 +602,7 @@ void* ZoneAllocator::onOutOfMemory(js::AllocFunction allocFunc,
                                                 reallocPtr);
 }
 
-void ZoneAllocator::reportAllocationOverflow() const {
+void ZoneAllocator::reportAllocOverflow() const {
   js::ReportAllocationOverflow(static_cast<JSContext*>(nullptr));
 }
 

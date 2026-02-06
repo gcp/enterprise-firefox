@@ -3581,7 +3581,7 @@
 # disabled.
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -9221,7 +9221,7 @@
   type: bool
   value: false
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
 
   # Experimental support for Temporal in JavaScript.
 - name: javascript.options.experimental.temporal
@@ -9580,16 +9580,6 @@
   value: true
   mirror: always
   do_not_use_directly: true
-
-# Use the JS microtask queue for Promise jobs and other microtasks.
-- name: javascript.options.use_js_microtask_queue
-  type: RelaxedAtomicBool
-  value: true
-  # Changing this mid process will break invariants and crash, however
-  # making this mirror: once, and set_spidermonkey_pref: startup is
-  # broken: See Bug 1989094
-  mirror: always
-  set_spidermonkey_pref: always
 
 # Whether to use the off-thread script compilation and decoding.
 - name: javascript.options.parallel_parsing
@@ -16016,7 +16006,7 @@
 # Enable HTTP Compression Dictionary support
 - name: network.http.dictionaries.enable
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

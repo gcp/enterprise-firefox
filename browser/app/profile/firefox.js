@@ -2262,8 +2262,9 @@ pref("browser.smartwindow.memoriesLogLevel", "Warn");
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.firstrun.modelChoice", "");
-pref("browser.smartwindow.model", "qwen3-235b-a22b-instruct-2507-maas");
+pref("browser.smartwindow.model", "");
 pref("browser.smartwindow.preferences.enabled", false);
+pref("browser.smartwindow.preferences.endpoint", "");
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -3574,6 +3575,8 @@ pref("browser.ipProtection.guardian.endpoint", "https://vpn.mozilla.org/");
 pref("browser.ipProtection.added", false);
 // Pref that enables bandwidth usage feature
 pref("browser.ipProtection.bandwidth.enabled", false);
+// Pref that displays egress location in VPN panel
+pref("browser.ipProtection.egressLocationEnabled", false);
 // Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds
 pref("browser.ipProtection.bandwidthThreshold", 0);
 
