@@ -17,8 +17,7 @@ class FeltConsoleError(FeltTestsBase):
             self._manually_closed_child = True
         return super().teardown()
 
-    def test_felt_00_connection_error_display(self, exp):
-        console_addr = "http://127.0.0.1:1"
+    def connection_error_test(self, console_addr, error_msg):
         self.set_string_pref("enterprise.console.address", console_addr)
 
         self.submit_email()
@@ -30,10 +29,19 @@ class FeltConsoleError(FeltTestsBase):
 
         details = self.get_elem(".felt-browser-error-details")
         details_text = details.get_property("textContent").strip()
-        assert details_text, "No error details shown"
+        assert details_text == error_msg, f"Correct error message: '{details_text}'"
 
         self._driver.set_context("content")
         return True
+
+    def test_felt_00_connection_error_fluent(self, exp):
+        return self.connection_error_test("http://127.0.0.1:1", "Unknown network error")
+
+    def test_felt_01_connection_error_bundle(self, exp):
+        return self.connection_error_test(
+            "http://nonexistent.localdomain:80",
+            "We can’t connect to the server at nonexistent.localdomain.",
+        )
 
 
 if __name__ == "__main__":
