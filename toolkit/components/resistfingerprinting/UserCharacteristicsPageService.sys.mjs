@@ -1040,8 +1040,6 @@ export class UserCharacteristicsPageService {
         "mathml9",
         "mathml10",
         "monochrome",
-        "cssSystemColors",
-        "cssSystemFonts",
         "oscpu",
         "pdfViewer",
         "platform",

@@ -57,6 +57,9 @@
 #if defined(MOZ_WIDGET_GTK)
 #  include "mozilla/widget/GtkCompositorWidget.h"
 #endif
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
+#endif
 
 bool is_in_main_thread() { return NS_IsMainThread(); }
 
@@ -1824,54 +1827,38 @@ void WebRenderBridgeParent::UpdateBoolParameters() {
 }
 
 #if defined(MOZ_WIDGET_ANDROID)
-void WebRenderBridgeParent::RequestScreenPixels(
-    UiCompositorControllerParent* aController) {
-  mScreenPixelsTarget = aController;
+RefPtr<WebRenderBridgeParent::ScreenPixelsPromise>
+WebRenderBridgeParent::RequestScreenPixels(gfx::IntRect aSourceRect,
+                                           gfx::IntSize aDestSize) {
+  if (!IsRootWebRenderBridgeParent()) {
+    return ScreenPixelsPromise::CreateAndReject(NS_ERROR_ILLEGAL_VALUE,
+                                                __func__);
+  }
+
+  mScreenPixelsRequest.emplace(ScreenPixelsRequest{
+      .mSourceRect = aSourceRect,
+      .mDestSize = aDestSize,
+      .mPromise = new ScreenPixelsPromise::Private(__func__),
+  });
+  return mScreenPixelsRequest->mPromise;
 }
 
 void WebRenderBridgeParent::MaybeCaptureScreenPixels() {
-  if (!mScreenPixelsTarget) {
-    return;
-  }
-
-  if (mDestroyed) {
-    return;
-  }
-
-  if (auto* cbp = GetRootCompositorBridgeParent()) {
-    cbp->FlushPendingWrTransactionEventsWithWait();
-  }
-
   // This function should only get called in the root WRBP.
   MOZ_ASSERT(IsRootWebRenderBridgeParent());
+
+  if (!mScreenPixelsRequest) {
+    return;
+  }
+  auto request = mScreenPixelsRequest.extract();
+
 #  ifdef DEBUG
   CompositorBridgeParent* cbp = GetRootCompositorBridgeParent();
   MOZ_ASSERT(cbp && !cbp->IsPaused());
 #  endif
 
-  SurfaceFormat format = SurfaceFormat::R8G8B8A8;  // On android we use RGBA8
-  auto client_size = mWidget->GetClientSize();
-  size_t buffer_size =
-      client_size.width * client_size.height * BytesPerPixel(format);
-
-  ipc::Shmem mem;
-  if (!mScreenPixelsTarget->AllocPixelBuffer(buffer_size, &mem)) {
-    // Failed to alloc shmem, Just bail out.
-    return;
-  }
-
-  IntSize size(client_size.width, client_size.height);
-
-  bool needsYFlip = false;
-  mLateInit->mApi->Readback(TimeStamp::Now(), size, format,
-                            Range<uint8_t>(mem.get<uint8_t>(), buffer_size),
-                            &needsYFlip);
-
-  (void)mScreenPixelsTarget->SendScreenPixels(
-      std::move(mem), ScreenIntSize(client_size.width, client_size.height),
-      needsYFlip);
-
-  mScreenPixelsTarget = nullptr;
+  mLateInit->mApi->RequestScreenPixels(request.mSourceRect, request.mDestSize)
+      ->ChainTo(request.mPromise.forget(), __func__);
 }
 #endif
 
@@ -2556,6 +2543,12 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
     }
   }
 
+#if defined(MOZ_WIDGET_ANDROID)
+  // Ensure the rendered pixels get captured for the frame we are about to
+  // generate. Must be called before we generate the frame.
+  MaybeCaptureScreenPixels();
+#endif
+
   SetOMTASampleTime();
   SetAPZSampleTime();
 
@@ -2573,10 +2566,6 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
   NeedIncreasedMaxDirtyPageModifier();
 
   mLateInit->mApi->SendTransaction(fastTxn);
-
-#if defined(MOZ_WIDGET_ANDROID)
-  MaybeCaptureScreenPixels();
-#endif
 
   mMostRecentComposite = TimeStamp::Now();
 

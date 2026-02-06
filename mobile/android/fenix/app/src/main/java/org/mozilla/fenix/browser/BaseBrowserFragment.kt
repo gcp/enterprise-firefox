@@ -126,7 +126,11 @@ import mozilla.components.feature.webauthn.WebAuthnFeature
 import mozilla.components.lib.state.ext.consumeFlow
 import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.ext.flowScoped
+import mozilla.components.lib.state.helpers.StoreProvider.Companion.activityStore
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
+import mozilla.components.service.fxrelay.eligibility.RelayEligibilityStore
+import mozilla.components.service.fxrelay.eligibility.RelayFeature
+import mozilla.components.service.fxrelay.eligibility.RelayState
 import mozilla.components.service.sync.autofill.DefaultCreditCardValidationDelegate
 import mozilla.components.service.sync.logins.DefaultLoginValidationDelegate
 import mozilla.components.service.sync.logins.LoginsApiException
@@ -327,6 +331,7 @@ abstract class BaseBrowserFragment :
     private val shareResourceFeature = ViewBoundFeatureWrapper<ShareResourceFeature>()
     private val copyDownloadsFeature = ViewBoundFeatureWrapper<CopyDownloadFeature>()
     private val promptsFeature = ViewBoundFeatureWrapper<PromptFeature>()
+    private val relayFeature = ViewBoundFeatureWrapper<RelayFeature>()
 
     @VisibleForTesting
     internal val findInPageIntegration = ViewBoundFeatureWrapper<FindInPageIntegration>()
@@ -456,8 +461,8 @@ abstract class BaseBrowserFragment :
             feature = AppLinksFeature(
                 context = requireContext(),
                 store = requireComponents.core.store,
-                sessionId = customTabSessionId,
                 fragmentManager = parentFragmentManager,
+                sessionId = customTabSessionId,
                 launchInApp = { requireContext().settings().shouldOpenLinksInApp(customTabSessionId != null) },
                 loadUrlUseCase = requireComponents.useCases.sessionUseCases.loadUrl,
                 shouldPrompt = { requireContext().settings().shouldPromptOpenLinksInApp() },
@@ -1207,6 +1212,21 @@ abstract class BaseBrowserFragment :
             owner = this,
             view = view,
         )
+
+        if (context.settings().isEmailMaskFeatureEnabled && context.settings().isEmailMaskSuggestionEnabled) {
+            relayFeature.set(
+                feature = RelayFeature(
+                    accountManager = requireComponents.backgroundServices.accountManager,
+                    store = activityStore(RelayState()) {
+                        RelayEligibilityStore(
+                            initialState = it,
+                        )
+                    }.value,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
 
         sessionFeature.set(
             feature = SessionFeature(

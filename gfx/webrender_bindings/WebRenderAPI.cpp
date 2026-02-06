@@ -27,6 +27,10 @@
 
 #include "source-repo.h"
 
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
+#endif
+
 static mozilla::LazyLogModule sWrDLLog("wr.dl");
 #define WRDL_LOG(...) \
   MOZ_LOG(sWrDLLog, LogLevel::Debug, ("WRDL(%p): " __VA_ARGS__))
@@ -966,6 +970,44 @@ RefPtr<WebRenderAPI::EndRecordingPromise> WebRenderAPI::EndRecording() {
   RunOnRenderThread(std::move(event));
   return promise;
 }
+
+#ifdef MOZ_WIDGET_ANDROID
+RefPtr<WebRenderAPI::ScreenPixelsPromise> WebRenderAPI::RequestScreenPixels(
+    gfx::IntRect aSourceRect, gfx::IntSize aDestSize) {
+  class ScreenshotEvent final : public RendererEvent {
+   public:
+    explicit ScreenshotEvent(gfx::IntRect aSourceRect, gfx::IntSize aDestSize,
+                             RefPtr<ScreenPixelsPromise::Private> aPromise)
+        : mSourceRect(aSourceRect), mDestSize(aDestSize), mPromise(aPromise) {
+      MOZ_COUNT_CTOR(ScreenshotEvent);
+    }
+
+    MOZ_COUNTED_DTOR(ScreenshotEvent);
+
+    void Run(RenderThread& aRenderThread, WindowId aWindowId) override {
+      RendererOGL* const renderer = aRenderThread.GetRenderer(aWindowId);
+      if (!renderer) {
+        mPromise->Reject(NS_ERROR_FAILURE, __func__);
+      }
+      renderer->RequestScreenPixels(mSourceRect, mDestSize)
+          ->ChainTo(mPromise.forget(), __func__);
+    }
+
+    const char* Name() override { return "ScreenshotEvent"; }
+
+   private:
+    const gfx::IntRect mSourceRect;
+    const gfx::IntSize mDestSize;
+    RefPtr<ScreenPixelsPromise::Private> mPromise;
+  };
+
+  auto promise = MakeRefPtr<ScreenPixelsPromise::Private>(__func__);
+  auto event = MakeUnique<ScreenshotEvent>(aSourceRect, aDestSize, promise);
+
+  RenderThread::Get()->PostEvent(mId, std::move(event));
+  return promise;
+}
+#endif
 
 void TransactionBuilder::Clear() { wr_resource_updates_clear(mTxn); }
 

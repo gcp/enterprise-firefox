@@ -2385,19 +2385,6 @@ function createDefaultBrowserConfig({
 }
 
 SettingGroupManager.registerGroups({
-  containers: {
-    // This section is marked as in progress for testing purposes
-    inProgress: true,
-    items: [
-      {
-        id: "containersPlaceholder",
-        control: "moz-message-bar",
-        controlAttrs: {
-          message: "Placeholder for updated containers",
-        },
-      },
-    ],
-  },
   profilePane: {
     headingLevel: 2,
     id: "browserProfilesGroupPane",
@@ -2513,6 +2500,7 @@ SettingGroupManager.registerGroups({
   homepage: {
     inProgress: true,
     headingLevel: 2,
+    iconSrc: "chrome://browser/skin/window-firefox.svg",
     l10nId: "home-homepage-title",
     items: [
       {
@@ -2556,53 +2544,15 @@ SettingGroupManager.registerGroups({
   customHomepage: {
     inProgress: true,
     headingLevel: 2,
+    l10nId: "home-custom-homepage-card-header",
+    iconSrc: "chrome://global/skin/icons/link.svg",
     items: [
       {
-        id: "customHomepageCard",
-        control: "moz-card",
-        l10nId: "home-custom-homepage-card",
-        iconSrc: "chrome://global/skin/icons/link.svg",
-        items: [
-          {
-            id: "customHomepageBoxGroup",
-            control: "moz-box-group",
-            controlAttrs: {
-              type: "list",
-            },
-            items: [
-              {
-                id: "customHomepageBoxForm",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-              {
-                id: "customHomepageBoxUrlList",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-              {
-                id: "customHomepageBoxActions",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+        id: "customHomepageBoxGroup",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "list",
+        },
       },
     ],
   },
@@ -2610,8 +2560,7 @@ SettingGroupManager.registerGroups({
     inProgress: true,
     headingLevel: 2,
     l10nId: "home-prefs-content-header",
-    // Icons are not ready to be used yet.
-    // iconSrc: "chrome://browser/skin/home.svg",
+    iconSrc: "chrome://browser/skin/home.svg",
     items: [
       {
         id: "webSearch",

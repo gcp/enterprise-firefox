@@ -6944,7 +6944,7 @@ function Messages(prevState = INITIAL_STATE.Messages, action) {
         portID: action.data.portID || "",
       };
     case actionTypes.MESSAGE_TOGGLE_VISIBILITY:
-      return { ...prevState, isVisible: action.data };
+      return { ...prevState, isVisible: action.data.isVisible };
     default:
       return prevState;
   }
@@ -14269,7 +14269,6 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
     this.state = {
       activeCategory: null,
       activeCategoryFluentID: null,
-      showColorPicker: false,
       inputType: "radio",
       activeId: null,
       customWallpaperErrorType: null,
@@ -14604,12 +14603,13 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       activeWallpaper
     } = this.props;
     const {
-      activeCategory,
-      showColorPicker
+      activeCategory
     } = this.state;
     const {
       activeCategoryFluentID
     } = this.state;
+    // Enable custom color select if pref'ed on
+    let showColorPicker = prefs["newtabWallpapers.customColor.enabled"];
     let filteredWallpapers = wallpaperList.filter(wallpaper => wallpaper.category === activeCategory);
     const wallpaperUploadMaxFileSize = this.props.Prefs.values[PREF_WALLPAPER_UPLOAD_MAX_FILE_SIZE];
     function reduceColorsToFitCustomColorInput(arr) {
@@ -14624,17 +14624,10 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
 
     // User has previous selected a custom color
     if (selectedWallpaper.includes("solid-color-picker")) {
-      this.setState({
-        showColorPicker: true
-      });
+      showColorPicker = true;
       const regex = /#([a-fA-F0-9]{6})/;
       [wallpaperCustomSolidColorHex] = selectedWallpaper.match(regex);
     }
-
-    // Enable custom color select if pref'ed on
-    this.setState({
-      showColorPicker: prefs["newtabWallpapers.customColor.enabled"]
-    });
 
     // Remove last item of solid colors to make space for custom color picker
     if (prefs["newtabWallpapers.customColor.enabled"] && activeCategory === "solid-colors") {
@@ -15165,13 +15158,15 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     }
   }
   render() {
+    const activationWindowVariant = this.props.Prefs.values["activationWindow.variant"];
+    const activationWindowClass = activationWindowVariant ? `activation-window-variant-${activationWindowVariant}` : "";
     return /*#__PURE__*/external_React_default().createElement("span", null, /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
       timeout: 300,
       classNames: "personalize-animate",
       in: !this.props.showing,
       appear: true
     }, /*#__PURE__*/external_React_default().createElement("button", {
-      className: "personalize-button",
+      className: `${activationWindowClass} personalize-button`,
       "data-l10n-id": "newtab-customize-panel-icon-button",
       onClick: () => this.props.onOpen(),
       onKeyDown: e => {
@@ -15230,7 +15225,8 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
   }
 }
 const CustomizeMenu = (0,external_ReactRedux_namespaceObject.connect)(state => ({
-  DiscoveryStream: state.DiscoveryStream
+  DiscoveryStream: state.DiscoveryStream,
+  Prefs: state.Prefs
 }))(_CustomizeMenu);
 ;// CONCATENATED MODULE: ./content-src/components/Logo/Logo.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -16081,11 +16077,91 @@ function WallpaperFeatureHighlight({
     outsideClickCallback: handleDismiss
   }));
 }
+;// CONCATENATED MODULE: ./content-src/components/ActivationWindowMessage/ActivationWindowMessage.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+function ActivationWindowMessage({
+  dispatch,
+  handleBlock,
+  handleClick,
+  handleDismiss,
+  messageData
+}) {
+  const {
+    content
+  } = messageData;
+  const hasButtons = content.primaryButton || content.secondaryButton;
+  const onDismiss = (0,external_React_namespaceObject.useCallback)(() => {
+    handleDismiss();
+    handleBlock();
+  }, [handleDismiss, handleBlock]);
+  const onPrimaryClick = (0,external_React_namespaceObject.useCallback)(() => {
+    handleClick("primary-button");
+    if (content.primaryButton?.action?.dismiss) {
+      handleDismiss();
+      handleBlock();
+    }
+    if (content.primaryButton?.action?.type === "SHOW_PERSONALIZE") {
+      dispatch({
+        type: actionTypes.SHOW_PERSONALIZE
+      });
+      dispatch(actionCreators.UserEvent({
+        event: "SHOW_PERSONALIZE"
+      }));
+    }
+  }, [dispatch, handleClick, handleDismiss, handleBlock, content]);
+  const onSecondaryClick = (0,external_React_namespaceObject.useCallback)(() => {
+    handleClick("secondary-button");
+    if (content.secondaryButton?.action?.dismiss) {
+      handleDismiss();
+      handleBlock();
+    }
+  }, [handleClick, handleDismiss, handleBlock, content]);
+  return /*#__PURE__*/external_React_default().createElement("aside", {
+    className: hasButtons ? "activation-window-message" : "activation-window-message no-buttons"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "activation-window-message-dismiss"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "icon ghost",
+    iconSrc: "chrome://global/skin/icons/close.svg",
+    onClick: onDismiss,
+    "data-l10n-id": "newtab-activation-window-message-dismiss-button"
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "activation-window-message-inner"
+  }, /*#__PURE__*/external_React_default().createElement("img", {
+    src: content.imageSrc || "chrome://newtab/content/data/content/assets/kit-in-circle.svg",
+    alt: "",
+    role: "presentation"
+  }), /*#__PURE__*/external_React_default().createElement("div", null, content.heading && (typeof content.heading === "string" ? /*#__PURE__*/external_React_default().createElement("h2", null, content.heading) : /*#__PURE__*/external_React_default().createElement("h2", {
+    "data-l10n-id": content.heading.string_id
+  })), content.message && (typeof content.message === "string" ? /*#__PURE__*/external_React_default().createElement("p", null, content.message) : /*#__PURE__*/external_React_default().createElement("p", {
+    "data-l10n-id": content.message.string_id
+  })), (content.primaryButton || content.secondaryButton) && /*#__PURE__*/external_React_default().createElement("moz-button-group", null, content.primaryButton && (typeof content.primaryButton.label === "string" ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "primary",
+    onClick: onPrimaryClick
+  }, content.primaryButton.label) : /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "primary",
+    onClick: onPrimaryClick,
+    "data-l10n-id": content.primaryButton.label.string_id
+  })), content.secondaryButton && (typeof content.secondaryButton.label === "string" ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "default",
+    onClick: onSecondaryClick
+  }, content.secondaryButton.label) : /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "default",
+    onClick: onSecondaryClick,
+    "data-l10n-id": content.secondaryButton.label.string_id
+  }))))));
+}
 ;// CONCATENATED MODULE: ./content-src/components/Base/Base.jsx
 function Base_extends() { return Base_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Base_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -16616,7 +16692,8 @@ class BaseContent extends (external_React_default()).PureComponent {
   }
   shouldShowOMCHighlight(componentId) {
     const messageData = this.props.Messages?.messageData;
-    if (!messageData || Object.keys(messageData).length === 0) {
+    const isVisible = this.props.Messages?.isVisible;
+    if (!messageData || Object.keys(messageData).length === 0 || !isVisible) {
       return false;
     }
     return messageData?.content?.messageType === componentId;
@@ -16798,7 +16875,12 @@ class BaseContent extends (external_React_default()).PureComponent {
       showLogo: noSectionsEnabled || prefs["logowordmark.alwaysVisible"]
     }, props.Search)))), !prefs.showSearch && !noSectionsEnabled && /*#__PURE__*/external_React_default().createElement(Logo, null), /*#__PURE__*/external_React_default().createElement("div", {
       className: `body-wrapper${initialized ? " on" : ""}`
-    }, isDiscoveryStream ? /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+    }, this.shouldShowOMCHighlight("ActivationWindowMessage") && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+      dispatch: this.props.dispatch
+    }, /*#__PURE__*/external_React_default().createElement(ActivationWindowMessage, {
+      dispatch: this.props.dispatch,
+      messageData: this.props.Messages.messageData
+    })), isDiscoveryStream ? /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
       className: "borderless-error"
     }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
       locale: props.App.locale,

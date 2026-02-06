@@ -8635,16 +8635,16 @@
 
 # Whether to allow decoding of animated AVIF sequences.
 - name: image.avif.sequence.enabled
-  type: RelaxedAtomicBool
+  type: bool
   value: true
-  mirror: always
+  mirror: once
 
 # Whether AVIF files containing sequences should be animated even when the
 # major brand is set to 'avif'.
 - name: image.avif.sequence.animate_avif_major_branded_images
-  type: RelaxedAtomicBool
+  type: bool
   value: false
-  mirror: always
+  mirror: once
 
 # Whether we attempt to decode JXL images or not.
 - name: image.jxl.enabled
@@ -10102,7 +10102,7 @@
 # Whether style() container queries are enabled
 - name: layout.css.style-queries.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -13459,6 +13459,12 @@
   value: 80
   mirror: always
 
+# Whether to allow scroll amount larger than a page on a single mouse wheel event.
+- name: mousewheel.allow_scrolling_more_than_one_page
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mozilla."
 #---------------------------------------------------------------------------
@@ -14040,6 +14046,13 @@
 - name: network.socket.ip_addr_any.disabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# When MOZ_DISABLE_NONLOCAL_CONNECTIONS is set, allow these non-local domains
+# which are required for testing.
+- name: network.socket.allowed_nonlocal_domains
+  type: DataMutexString
+  value: ""
   mirror: always
 
 # Set true to allow resolving proxy for localhost
