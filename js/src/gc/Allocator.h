@@ -125,7 +125,8 @@ void* ReallocBuffer(JS::Zone* zone, void* alloc, size_t bytes,
 void FreeBuffer(JS::Zone* zone, void* alloc);
 
 template <typename T, typename... Args>
-T* NewBuffer(JS::Zone* zone, size_t bytes, bool nurseryOwned, Args&&... args) {
+T* NewSizedBuffer(JS::Zone* zone, size_t bytes, bool nurseryOwned,
+                  Args&&... args) {
   MOZ_ASSERT(sizeof(T) <= bytes);
   void* ptr = AllocBuffer(zone, bytes, nurseryOwned);
   if (!ptr) {
@@ -152,10 +153,8 @@ size_t GetAllocSize(JS::Zone* zone, const void* alloc);
 
 void* AllocBufferInGC(JS::Zone* zone, size_t bytes, bool nurseryOwned);
 bool IsBufferAllocMarkedBlack(JS::Zone* zone, void* alloc);
-void TraceBufferEdgeInternal(JSTracer* trc, Cell* owner, void** bufferp,
-                             const char* name);
-void TraceBufferEdgeInternal(JSTracer* trc, JS::Zone* zone, void** bufferp,
-                             const char* name);
+void TraceBufferEdgeInternal(JSTracer* trc, JS::Zone* zone, Cell* maybeOwner,
+                             void** bufferp, const char* name);
 void MarkTenuredBuffer(JS::Zone* zone, void* alloc);
 
 }  // namespace gc

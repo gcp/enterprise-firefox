@@ -23,18 +23,31 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs",
   IPProtectionStates:
     "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+  SpecialMessageActions:
+    "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
 });
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import {
   LINKS,
   ERRORS,
+  SIGNIN_DATA,
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+
+const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
+const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "BANDWIDTH_USAGE_ENABLED",
   "browser.ipProtection.bandwidth.enabled",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "EGRESS_LOCATION_ENABLED",
+  EGRESS_LOCATION_PREF,
   false
 );
 
@@ -163,6 +176,7 @@ export class IPProtectionPanel {
     this.#window = Cu.getWeakReference(window);
 
     this.handleEvent = this.#handleEvent.bind(this);
+    this.handlePrefChange = this.#handlePrefChange.bind(this);
 
     this.state = {
       isSignedOut: !lazy.IPPSignInWatcher.isSignedIn,
@@ -171,10 +185,7 @@ export class IPProtectionPanel {
         lazy.IPProtectionStates.UNAUTHENTICATED,
       isProtectionEnabled:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
-      location: {
-        name: "United States",
-        code: "us",
-      },
+      location: lazy.EGRESS_LOCATION_ENABLED ? DEFAULT_EGRESS_LOCATION : null,
       error: "",
       isAlpha: lazy.IPPEnrollAndEntitleManager.isAlpha,
       hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
@@ -222,6 +233,7 @@ export class IPProtectionPanel {
 
     this.#addProxyListeners();
     this.#addProgressListener();
+    this.#addPrefObserver();
   }
 
   /**
@@ -394,8 +406,8 @@ export class IPProtectionPanel {
    * @param {Window} window - which window to open the panel in.
    * @returns {Promise<void>}
    */
-  async open(window) {
-    if (!lazy.IPProtection.created || !window?.PanelUI) {
+  async open(window = this.#window.get()) {
+    if (!lazy.IPProtection.created || !window?.PanelUI || this.active) {
       return;
     }
 
@@ -419,12 +431,42 @@ export class IPProtectionPanel {
    * Start flow for signing in and then opening the panel on success
    */
   async startLoginFlow() {
-    let window = this.panel.ownerGlobal;
+    let window = this.#window.get();
     let browser = window.gBrowser;
+
+    if (lazy.IPPSignInWatcher.isSignedIn) {
+      return true;
+    }
+
+    // Close the panel if the user will need to sign in.
     this.close();
-    let isSignedIn = await lazy.IPProtectionService.startLoginFlow(browser);
-    if (isSignedIn) {
-      await this.open(window);
+
+    const signedIn = await lazy.SpecialMessageActions.fxaSignInFlow(
+      SIGNIN_DATA,
+      browser
+    );
+    return signedIn;
+  }
+
+  /**
+   * Ensure there is a signed in account and then open the panel after enrolling.
+   */
+  async enroll() {
+    const signedIn = await this.startLoginFlow();
+    if (!signedIn) {
+      return;
+    }
+
+    // Temporarily set the main panel view to show if enrolling.
+    this.setState({
+      unauthenticated: false,
+    });
+
+    // Asynchronously enroll and entitle the user.
+    // It will only need to finish before the proxy can start.
+    lazy.IPPEnrollAndEntitleManager.maybeEnrollAndEntitle();
+    if (!this.active) {
+      await this.open();
     }
   }
 
@@ -448,6 +490,7 @@ export class IPProtectionPanel {
     this.destroy();
     this.#removeProxyListeners();
     this.#removeProgressListener();
+    this.#removePrefObserver();
   }
 
   #addPanelListeners(doc) {
@@ -528,6 +571,23 @@ export class IPProtectionPanel {
   #removeProgressListener() {
     if (this.gBrowser) {
       this.gBrowser.removeTabsProgressListener(this.progressListener);
+    }
+  }
+
+  #addPrefObserver() {
+    Services.prefs.addObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+  }
+
+  #removePrefObserver() {
+    Services.prefs.removeObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+  }
+
+  #handlePrefChange(subject, topic, data) {
+    if (data === EGRESS_LOCATION_PREF) {
+      const isEnabled = Services.prefs.getBoolPref(EGRESS_LOCATION_PREF, false);
+      this.setState({
+        location: isEnabled ? DEFAULT_EGRESS_LOCATION : null,
+      });
     }
   }
 
@@ -613,7 +673,7 @@ export class IPProtectionPanel {
       this.initiatedUpgrade = true;
       this.close();
     } else if (event.type == "IPProtection:OptIn") {
-      this.startLoginFlow();
+      this.enroll();
     } else if (
       event.type == "IPPProxyManager:StateChanged" ||
       event.type == "IPProtectionService:StateChanged" ||

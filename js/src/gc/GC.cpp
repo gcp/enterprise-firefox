@@ -192,6 +192,7 @@
 
 #include "gc/GC-inl.h"
 
+#include "mozilla/Attributes.h"
 #include "mozilla/glue/Debug.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/TextUtils.h"
@@ -484,7 +485,7 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       alwaysPreserveCode(false),
       lowMemoryState(false),
       lock(mutexid::GCLock),
-      storeBufferLock(mutexid::StoreBuffer),
+      sweepingLock(mutexid::Sweeping),
       delayedMarkingLock(mutexid::GCDelayedMarkingLock),
       bufferAllocatorLock(mutexid::BufferAllocator),
       allocTask(this, emptyChunks_.ref()),
@@ -2442,7 +2443,7 @@ void GCRuntime::sweepZones(JS::GCContext* gcx, bool destroyingRuntime) {
 
   // Host destroy callbacks can access the store buffer, e.g. when resizing hash
   // tables containing nursery pointers.
-  AutoLockStoreBuffer lock(rt);
+  AutoLockSweepingLock lock(rt);
 
   // Sweep zones following the atoms zone.
   MOZ_ASSERT(zones()[0]->isAtomsZone());
@@ -5001,15 +5002,7 @@ void js::PrepareForDebugGC(JSRuntime* rt) {
 }
 
 void GCRuntime::onOutOfMallocMemory() {
-  // Stop allocating new chunks.
-  allocTask.cancelAndWait();
-
-  // Make sure we release anything queued for release.
-  decommitTask.join();
-  nursery().joinDecommitTask();
-
-  // Wait for background free of nursery huge slots to finish.
-  sweepTask.join();
+  waitForBackgroundTasksOnAllocFailure();
 
   AutoLockGC lock(this);
   onOutOfMallocMemory(lock);
@@ -5167,7 +5160,39 @@ void GCRuntime::waitForBackgroundTasks() {
 
   allocTask.join();
   freeTask.join();
+  nursery().joinSweepTask();
   nursery().joinDecommitTask();
+}
+
+MOZ_COLD bool GCRuntime::waitForBackgroundTasksOnAllocFailure() {
+  bool waited = false;
+
+  // Stop allocating new chunks.
+  if (allocTask.cancelAndWait()) {
+    waited = true;
+  }
+
+  if (nursery().joinSweepTask()) {
+    waited = true;
+  }
+
+  if (nursery().joinDecommitTask()) {
+    waited = true;
+  }
+
+  if (sweepTask.join()) {
+    waited = true;
+  }
+
+  if (freeTask.join()) {
+    waited = true;
+  }
+
+  if (decommitTask.join()) {
+    waited = true;
+  }
+
+  return waited;
 }
 
 Realm* js::NewRealm(JSContext* cx, JSPrincipals* principals,

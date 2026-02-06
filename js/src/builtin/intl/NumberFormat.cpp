@@ -1435,7 +1435,7 @@ NumberFormatObject* js::intl::GetOrCreateNumberFormat(JSContext* cx,
   return CreateNumberFormat(cx, locales, options);
 }
 
-void js::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* numberFormat = &obj->as<NumberFormatObject>();
   auto* nf = numberFormat->getNumberFormatter();
   auto* nrf = numberFormat->getNumberRangeFormatter();
@@ -2221,7 +2221,7 @@ static JSLinearString* FormattedResultToString(
     JSContext* cx,
     mozilla::Result<std::u16string_view, mozilla::intl::ICUError>& result) {
   if (result.isErr()) {
-    intl::ReportInternalError(cx, result.unwrapErr());
+    ReportInternalError(cx, result.unwrapErr());
     return nullptr;
   }
   return NewStringCopy<CanGC>(cx, result.unwrap());
