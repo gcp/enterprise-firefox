@@ -28,7 +28,7 @@ from taskgraph.util.yaml import load_yaml
 from . import GECKO
 from .actions import render_actions_json
 from .files_changed import get_changed_files
-from .parameters import get_app_version, get_version
+from .parameters import get_app_version, get_version, get_release_type
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_branch, get_hg_revision_info
@@ -119,7 +119,6 @@ PER_PROJECT_PARAMETERS = {
     # Firefox Enterprise, will be improved later.
     "enterprise-firefox": {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
-        "release_type": "nightly-enterprise",
         "release_product": "firefox-enterprise",
         "release_partners": ["sample"],
         "release_partner_config": {
@@ -445,7 +444,7 @@ def get_decision_parameters(graph_config, options):
     parameters["optimize_strategies"] = None
     parameters["optimize_target_tasks"] = True
     parameters["phabricator_diff"] = None
-    parameters["release_type"] = ""
+    parameters["release_type"] = get_release_type(parameters)
     parameters["release_eta"] = ""
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
