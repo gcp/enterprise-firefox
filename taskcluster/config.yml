@@ -194,8 +194,6 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
-        'Tent': 'Enterprise specific selenium tests'
-        'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
@@ -204,6 +202,7 @@ treeherder:
         'DEB-Ent': "Debian Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
+        'MnEnt': 'Marionette tests Enterprise'
 
         # The below symbols are from firefox-android (fenix/focus/android-components)
         'buildconfig': 'Make sure the content of .buildconfig.yml matches what gradle knows about its projects'
