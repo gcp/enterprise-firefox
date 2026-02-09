@@ -107,6 +107,8 @@ marionette-enterprise:
     treeherder-symbol: MnEnt()
     suite:
         name: marionette-enterprise
+    attributes:
+        required_checks: true
     variants:
         - webrender-sw
         - headless

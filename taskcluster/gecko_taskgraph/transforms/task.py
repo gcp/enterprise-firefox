@@ -1877,6 +1877,18 @@ def validate(config, tasks):
         yield task
 
 
+@transforms.add
+def add_github_checks(config, tasks):
+    """
+    Add "checks" routes to show in GitHub Checks UI
+    """
+
+    for task in tasks:
+        if "attributes" in task.keys() and task["attributes"].get("required_checks"):
+            task["routes"].append("checks")
+        yield task
+
+
 @index_builder("generic")
 def add_generic_index_routes(config, task):
     index = task.get("index")
