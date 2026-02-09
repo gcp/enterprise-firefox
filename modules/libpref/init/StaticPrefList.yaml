@@ -2746,6 +2746,12 @@
   value: false
   mirror: always
 
+# Eanbles the popover=hint attribute
+- name: dom.element.popoverhint.enabled
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.mouse_capture.enabled
   type: bool
   value: true
@@ -3571,12 +3577,6 @@
 #endif
   mirror: always
 
-# Enable/disable KeyboardEvent.initKeyEvent function
-- name: dom.keyboardevent.init_key_event.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Enable/disable KeyboardEvent.initKeyEvent function in addons even if it's
 # disabled.
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
@@ -3623,6 +3623,13 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+# Media element pseudo-classes
+- name: dom.media.pseudo-classes.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # WebCodecs API
 - name: dom.media.webcodecs.enabled
@@ -11376,7 +11383,7 @@
 # internal language x-math.
 - name: mathml.font_family_math.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 

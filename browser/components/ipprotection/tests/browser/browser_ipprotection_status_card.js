@@ -33,6 +33,7 @@ async function setupStatusCardTest(
       status: 200,
       error: undefined,
       pass: makePass(),
+      usage: makeUsage(),
     },
   });
   await IPPEnrollAndEntitleManager.refetchEntitlement();
@@ -46,6 +47,7 @@ async function setupStatusCardTest(
 }
 
 async function cleanupStatusCardTest() {
+  await SpecialPowers.popPrefEnv();
   cleanupService();
 }
 
