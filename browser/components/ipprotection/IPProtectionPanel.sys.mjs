@@ -35,6 +35,7 @@ import {
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
+const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
 const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -49,6 +50,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "EGRESS_LOCATION_ENABLED",
   EGRESS_LOCATION_PREF,
   false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "BANDWIDTH_THRESHOLD",
+  "browser.ipProtection.bandwidthThreshold",
+  0
 );
 
 let hasCustomElements = new WeakSet();
@@ -102,7 +110,7 @@ export class IPProtectionPanel {
    *  The location country name
    * @property {string} location.code
    *  The location country code
-   * @property {"generic" | ""} error
+   * @property {"generic-error" | "network-error" | ""} error
    *  The error type as a string if an error occurred, or empty string if there are no errors.
    * @property {boolean} isAlpha
    *  True if we're running the Alpha variant, else false.
@@ -129,6 +137,7 @@ export class IPProtectionPanel {
   panel = null;
   initiatedUpgrade = false;
   #window = null;
+  #lastBandwidthWarningMessageDismissed = 0;
 
   /**
    * Gets the gBrowser from the weak reference to the window.
@@ -195,7 +204,7 @@ export class IPProtectionPanel {
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
       siteData: this.#getSiteData(),
       bandwidthUsage: lazy.BANDWIDTH_USAGE_ENABLED
-        ? { currentBandwidthUsage: 0, maxBandwidth: 150 }
+        ? { currentBandwidthUsage: 0, maxBandwidth: 50 }
         : null,
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
@@ -317,6 +326,7 @@ export class IPProtectionPanel {
     }
 
     this.#updateSiteData();
+
     this.setState({
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
     });
@@ -505,6 +515,10 @@ export class IPProtectionPanel {
       "IPProtection:UserDisableVPNForSite",
       this.handleEvent
     );
+    doc.addEventListener(
+      "IPProtection:DismissBandwidthWarning",
+      this.handleEvent
+    );
   }
 
   #removePanelListeners(doc) {
@@ -520,6 +534,10 @@ export class IPProtectionPanel {
     );
     doc.removeEventListener(
       "IPProtection:UserDisableVPNForSite",
+      this.handleEvent
+    );
+    doc.removeEventListener(
+      "IPProtection:DismissBandwidthWarning",
       this.handleEvent
     );
   }
@@ -576,10 +594,15 @@ export class IPProtectionPanel {
 
   #addPrefObserver() {
     Services.prefs.addObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+    Services.prefs.addObserver(BANDWIDTH_THRESHOLD_PREF, this.handlePrefChange);
   }
 
   #removePrefObserver() {
     Services.prefs.removeObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+    Services.prefs.removeObserver(
+      BANDWIDTH_THRESHOLD_PREF,
+      this.handlePrefChange
+    );
   }
 
   #handlePrefChange(subject, topic, data) {
@@ -588,6 +611,25 @@ export class IPProtectionPanel {
       this.setState({
         location: isEnabled ? DEFAULT_EGRESS_LOCATION : null,
       });
+    } else if (data === BANDWIDTH_THRESHOLD_PREF) {
+      const threshold = lazy.BANDWIDTH_THRESHOLD;
+
+      // Reset dismissed warnings when threshold is cleared (e.g., new month)
+      if (threshold === 0) {
+        this.#lastBandwidthWarningMessageDismissed = 0;
+        return;
+      }
+
+      // Only show warning if threshold is 75 or 90
+      if (threshold !== 75 && threshold !== 90) {
+        return;
+      }
+
+      // Show warning only if current threshold is higher than dismissed threshold
+      // This allows warning to reappear when going from 75% → 90%
+      if (threshold > this.#lastBandwidthWarningMessageDismissed) {
+        this.setState({ bandwidthWarning: true });
+      }
     }
   }
 
@@ -681,7 +723,16 @@ export class IPProtectionPanel {
     ) {
       let hasError =
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR &&
-        lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC);
+        (lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC) ||
+          lazy.IPPProxyManager.errors.includes(ERRORS.NETWORK));
+
+      let errorType = "";
+      if (hasError) {
+        // Prioritize network error over generic error
+        errorType = lazy.IPPProxyManager.errors.includes(ERRORS.NETWORK)
+          ? ERRORS.NETWORK
+          : ERRORS.GENERIC;
+      }
 
       this.setState({
         isSignedOut: !lazy.IPPSignInWatcher.isSignedIn,
@@ -691,7 +742,7 @@ export class IPProtectionPanel {
         isProtectionEnabled:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
         hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
-        error: hasError ? ERRORS.GENERIC : "",
+        error: errorType,
         isActivating:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
       });
@@ -711,6 +762,10 @@ export class IPProtectionPanel {
       lazy.IPPExceptionsManager.setExclusion(principal, true);
 
       this.#reloadCurrentTab(win);
+    } else if (event.type == "IPProtection:DismissBandwidthWarning") {
+      // Store the dismissed threshold level
+      this.#lastBandwidthWarningMessageDismissed = event.detail.threshold;
+      this.setState({ bandwidthWarning: false });
     }
   }
 }

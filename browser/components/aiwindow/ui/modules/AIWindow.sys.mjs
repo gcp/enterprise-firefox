@@ -539,24 +539,44 @@ export const AIWindow = {
    * @param {Window} win
    */
   updateImmersiveView(currentURI, win) {
-    if (!currentURI || !this.isAIWindowActiveAndEnabled(win)) {
+    const root = win.document.getElementById("main-window");
+
+    if (!currentURI) {
+      return;
+    }
+
+    const aboutNewtabURI = Services.io.newURI("about:newtab");
+    const aboutHomeURI = Services.io.newURI("about:home");
+    const shouldHideSidebarForNewtab =
+      currentURI.equalsExceptRef(aboutNewtabURI) ||
+      currentURI.equalsExceptRef(aboutHomeURI);
+
+    if (!this.isAIWindowActiveAndEnabled(win)) {
+      root.toggleAttribute("hide-ai-sidebar", shouldHideSidebarForNewtab);
+      root.removeAttribute("aiwindow-immersive-view");
       return;
     }
 
     /* any URL that should have the immersive view */
     const validImmersiveURIs = [FIRSTRUN_URI, AIWINDOW_URI];
-    const root = win.document.getElementById("main-window");
     const isImmersiveView = validImmersiveURIs.some(uri =>
       uri.equalsExceptRef(currentURI)
     );
+
+    root.toggleAttribute("hide-ai-sidebar", isImmersiveView);
 
     /* sets attr only for first run for css reasons */
     const isFirstRun = currentURI.equalsExceptRef(FIRSTRUN_URI);
     root.toggleAttribute("aiwindow-first-run", isFirstRun && isImmersiveView);
     root.toggleAttribute("aiwindow-immersive-view", isImmersiveView);
 
-    /* disabling the current tab from being clicked from the keyboard */
+    // Set attr on the specific browser that has content to override color scheme
+    win.gBrowser.selectedBrowser?.toggleAttribute(
+      "smartwindow-content",
+      isImmersiveView
+    );
 
+    /* disabling the current tab from being clicked from the keyboard */
     const selectedTab = win.gBrowser.selectedTab;
     if (isFirstRun) {
       selectedTab?.setAttribute("tabindex", -1);

@@ -139,11 +139,18 @@ class ChunkPool {
 class BackgroundMarkTask : public GCParallelTask {
  public:
   explicit BackgroundMarkTask(GCRuntime* gc);
-  void setBudget(const JS::SliceBudget& budget) { this->budget = budget; }
+  void initialize(bool isConcurrent, const JS::SliceBudget& budget,
+                  AutoLockHelperThreadState& lock);
   void run(AutoLockHelperThreadState& lock) override;
+  void pause();
+  void unpause();
+  bool isOverBudget() { return budget.isOverBudget(); }
 
  private:
+  bool isConcurrent;
   JS::SliceBudget budget;
+  JS::SliceBudget::InterruptRequestFlag interruptRequest;
+  friend class GCRuntime;
 };
 
 class BackgroundUnmarkTask : public GCParallelTask {
@@ -432,6 +439,8 @@ class GCRuntime {
   void waitBackgroundFreeEnd();
   void waitForBackgroundTasks();
   bool isWaitingOnBackgroundTask() const;
+  bool pauseBackgroundMarking();
+  void resumeBackgroundMarking();
 
   void lockGC() { lock.lock(); }
   void unlockGC() { lock.unlock(); }
@@ -460,6 +469,14 @@ class GCRuntime {
 
   bool isIncrementalGCInProgress() const {
     return state() != State::NotActive && !isVerifyPreBarriersEnabled();
+  }
+
+  bool isConcurrentMarkingEnabled() const {
+#ifndef JS_GC_CONCURRENT_MARKING
+    return false;
+#else
+    return concurrentMarkingEnabled;
+#endif
   }
 
   bool hasForegroundWork() const;
@@ -516,8 +533,15 @@ class GCRuntime {
 
   void setFullCompartmentChecks(bool enable);
 
-  // Get the main marking tracer.
+  // Get the marking tracer used on the main thread.
   GCMarker& marker() { return *markers[0]; }
+  const GCMarker& marker() const { return *markers[0]; }
+
+  // Get the marking tracer used for concurrent marking.
+  GCMarker& concurrentMarker() {
+    MOZ_ASSERT(isConcurrentMarkingEnabled());
+    return *markers[1];
+  }
 
   JS::Zone* getCurrentSweepGroup() { return currentSweepGroup; }
   unsigned getCurrentSweepGroupIndex() {
@@ -667,10 +691,13 @@ class GCRuntime {
   void onParallelTaskEnd(bool wasDispatched,
                          const AutoLockHelperThreadState& lock);
 
-  // Parallel marking.
+  // Parallel and concurrent marking.
   bool setParallelMarkingEnabled(bool enabled);
-  bool initOrDisableParallelMarking();
-  [[nodiscard]] bool updateMarkersVector();
+#ifdef JS_GC_CONCURRENT_MARKING
+  bool setConcurrentMarkingEnabled(bool enabled);
+#endif
+  bool initOrDisableMultiThreadedMarking();
+  [[nodiscard]] bool resizeMarkersVector();
   size_t markingWorkerCount() const;
 
   // WeakRefs
@@ -835,23 +862,32 @@ class GCRuntime {
   void maybeDoCycleCollection();
   void findDeadCompartments();
 
+  std::tuple<JS::SliceBudget, JS::SliceBudget> budgetConcurrentMarking(
+      const JS::SliceBudget& requestedBudget);
+  void maybeStartConcurrentMarking(JS::SliceBudget& budget);
+  void finishAnyConcurrentMarking(JS::SliceBudget& budget);
   friend class BackgroundMarkTask;
   enum ParallelMarking : bool {
-    SingleThreadedMarking = false,
+    NoParallelMarking = false,
     AllowParallelMarking = true
   };
-  IncrementalProgress markUntilBudgetExhausted(
+  enum ConcurrentMarking : bool {
+    NoConcurrentMarking = false,
+    AllowConcurrentMarking = true
+  };
+  IncrementalProgress markPhase(JS::SliceBudget& sliceBudget);
+  IncrementalProgress markSynchronously(
       JS::SliceBudget& sliceBudget,
-      ParallelMarking allowParallelMarking = SingleThreadedMarking,
+      ParallelMarking allowParallelMarking = NoParallelMarking,
       ShouldReportMarkTime reportTime = ReportMarkTime);
   bool canMarkInParallel() const;
-  bool initParallelMarking();
-  void finishParallelMarkers();
+  bool canMarkConcurrently() const;
+  bool initMultiThreadedMarkers();
 
   bool reserveMarkingThreads(size_t count);
   void releaseMarkingThreads();
 
-  bool hasMarkingWork(MarkColor color) const;
+  bool hasMarkingWork() const;
 
   void drainMarkStack();
 
@@ -1090,6 +1126,12 @@ class GCRuntime {
    */
   MainThreadData<JS::CreateSliceBudgetCallback> createBudgetCallback;
 
+#ifdef MOZ_TSAN
+  // TSAN doesn't understand use of atomic_thread_fence to synchronize relaxed
+  // atomics so use reads/writes to this atomic instead.
+  mozilla::Atomic<int, mozilla::SequentiallyConsistent> tsanMemoryBarrier;
+#endif
+
  private:
   // Arenas used for permanent things created at startup and shared by child
   // runtimes.
@@ -1190,6 +1232,9 @@ class GCRuntime {
   /* Whether to use parallel marking. */
   MainThreadData<ParallelMarking> useParallelMarking;
 
+  /* Whether to use concurrent marking. */
+  MainThreadData<ConcurrentMarking> useConcurrentMarking;
+
   /* The invocation kind of the current GC, set at the start of collection. */
   MainThreadOrGCTaskData<mozilla::Maybe<JS::GCOptions>> maybeGcOptions;
 
@@ -1226,6 +1271,8 @@ class GCRuntime {
   // Whether any sweeping and decommitting will run on a separate GC helper
   // thread.
   MainThreadData<bool> useBackgroundThreads;
+
+  MainThreadData<size_t> markSliceCount;
 
 #ifdef DEBUG
   /* Shutdown has started. Further collections must be shutdown collections. */
@@ -1354,6 +1401,15 @@ class GCRuntime {
    * pref: javascript.options.mem.gc_parallel_marking
    */
   MainThreadData<bool> parallelMarkingEnabled;
+
+#ifdef JS_GC_CONCURRENT_MARKING
+  /*
+   * Whether concurrent marking is enabled globally.
+   *
+   * JSGC_CONCURRENT_MARKING_ENABLED
+   */
+  MainThreadOrGCTaskData<bool> concurrentMarkingEnabled;
+#endif
 
   MainThreadData<bool> rootsRemoved;
 
