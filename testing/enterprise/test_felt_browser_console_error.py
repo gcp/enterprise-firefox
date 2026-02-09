@@ -33,10 +33,10 @@ class FeltConsoleError(FeltTestsBase):
 
         self._driver.set_context("content")
 
-    def test_felt_00_connection_error_fluent(self, exp):
+    def test_felt_00_connection_error_fluent(self):
         return self.connection_error_test("http://127.0.0.1:1", "Unknown network error")
 
-    def test_felt_01_connection_error_bundle(self, exp):
+    def test_felt_01_connection_error_bundle(self):
         return self.connection_error_test(
             "http://nonexistent.localdomain:80",
             "We can’t connect to the server at nonexistent.localdomain.",
