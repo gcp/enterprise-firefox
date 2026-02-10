@@ -107,7 +107,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     this.abnormalExitFirstTime = 0;
 
-    this.restartObserver = {
+    this.browserObserver = {
       observe(aSubject, aTopic) {
         console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
@@ -181,11 +181,6 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       },
     };
-
-    Services.obs.addObserver(this.restartObserver, "felt-firefox-exiting");
-    Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
-    Services.obs.addObserver(this.restartObserver, "felt-extension-ready");
-    Services.obs.addObserver(this.restartObserver, "felt-firefox-logout");
   }
 
   sanitizePrefs(prefs) {
@@ -266,6 +261,25 @@ export class FeltProcessParent extends JSProcessActorParent {
     resetFeltFirefoxWindowReady();
     gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
+
+    const observerTopics = [
+      "felt-firefox-exiting",
+      "felt-firefox-restarting",
+      "felt-extension-ready",
+      "felt-firefox-logout",
+    ];
+
+    observerTopics.forEach(aTopic => {
+      const num = Array.from(Services.obs.enumerateObservers(aTopic)).length;
+      if (num !== 0) {
+        console.debug(
+          `FeltExtension: ParentProcess: observerTopics[${aTopic}]: ${num} INCORRECT TOO MANY`
+        );
+        throw new Error(`Too many observers: ${aTopic}:${num}`);
+      }
+      Services.obs.addObserver(this.browserObserver, aTopic);
+    });
+
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
@@ -314,6 +328,11 @@ export class FeltProcessParent extends JSProcessActorParent {
           console.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
           );
+
+          observerTopics.forEach(aTopic => {
+            Services.obs.removeObserver(this.browserObserver, aTopic);
+          });
+
           if (!this.restartReported && !this.logoutReported) {
             if (this.proc.exitCode === 0) {
               this.abnormalExitCounter = 0;
