@@ -18,18 +18,7 @@ from marionette_driver.errors import (
 )
 
 
-class BrowserSignout(FeltTests):
-    def test_browser_signout(self):
-        super().run_felt_base()
-        self.run_browser_ui_state_when_user_is_logged_in()
-        self.run_perform_signout()
-        self.run_whoami()
-        self.run_prefilled_email_submit()
-        self.run_load_sso()
-        self.run_perform_sso_auth()
-        self.run_new_browser()
-        self.run_new_browser_new_tab()
-
+class BaseBrowserSignout(FeltTests):
     def felt_whoami(self):
         self._child_driver.set_context("chrome")
         rv = self._child_driver.execute_script(
@@ -207,3 +196,16 @@ class BrowserSignout(FeltTests):
         assert len(expected_cookie) == 1, (
             f"Cookie {self.cookie_name} was properly set on Firefox started by FELT, found {expected_cookie}"
         )
+
+
+class BrowserSignout(BaseBrowserSignout):
+    def test_browser_signout(self):
+        super().run_felt_base()
+        self.run_browser_ui_state_when_user_is_logged_in()
+        self.run_perform_signout()
+        self.run_whoami()
+        self.run_prefilled_email_submit()
+        self.run_load_sso()
+        self.run_perform_sso_auth()
+        self.run_new_browser()
+        self.run_new_browser_new_tab()
