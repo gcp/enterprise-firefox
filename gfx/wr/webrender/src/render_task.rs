@@ -206,10 +206,8 @@ pub struct EmptyTask {
 pub struct PrimTask {
     pub pattern: PatternKind,
     pub pattern_input: PatternShaderInput,
-    pub device_pixel_scale: DevicePixelScale,
     pub content_origin: DevicePoint,
     pub prim_address_f: GpuBufferAddress,
-    pub raster_spatial_node_index: SpatialNodeIndex,
     pub transform_id: GpuTransformId,
     pub edge_flags: EdgeAaSegmentMask,
     pub quad_flags: QuadFlags,
@@ -530,8 +528,6 @@ impl RenderTaskKind {
     pub fn new_prim(
         pattern: PatternKind,
         pattern_input: PatternShaderInput,
-        raster_spatial_node_index: SpatialNodeIndex,
-        device_pixel_scale: DevicePixelScale,
         content_origin: DevicePoint,
         prim_address_f: GpuBufferAddress,
         transform_id: GpuTransformId,
@@ -543,8 +539,6 @@ impl RenderTaskKind {
         RenderTaskKind::Prim(PrimTask {
             pattern,
             pattern_input,
-            raster_spatial_node_index,
-            device_pixel_scale,
             content_origin,
             prim_address_f,
             transform_id,
@@ -734,7 +728,7 @@ impl RenderTaskKind {
             RenderTaskKind::Prim(ref task) => {
                 [
                     // NOTE: This must match the render task data format for Picture tasks currently
-                    task.device_pixel_scale.0,
+                    DevicePixelScale::identity().0,
                     task.content_origin.x,
                     task.content_origin.y,
                     0.0,

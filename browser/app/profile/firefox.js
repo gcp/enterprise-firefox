@@ -1386,6 +1386,9 @@ pref("browser.preferences.experimental.hidden", false);
 pref("browser.preferences.moreFromMozilla", true);
 // Whether we show the "AI Controls" pane.
 pref("browser.preferences.aiControls", true);
+// Whether to show unavailable AI controls regardless of region/locale
+// restrictions. This is intended for localizers to be able to see the strings.
+pref("browser.preferences.aiControls.showUnavailable", false);
 
 // Used by settings to track whether the user customized advanced
 // performance settings. Not used directly elsewhere.
@@ -3110,6 +3113,9 @@ pref("devtools.application.enabled", true);
 // The internal Anti tracking debugging panel
 pref("devtools.anti-tracking.enabled", false);
 
+// Session History panel
+pref("devtools.application.sessionHistory.enabled", false);
+
 // Enable the custom formatters feature
 // This preference represents the user's choice to enable the custom formatters feature.
 // While the preference above will be removed once the feature is stable, this one is menat to stay.
@@ -3332,6 +3338,9 @@ pref("devtools.debugger.features.map-await-expression", true);
 // This relies on javascript.options.asyncstack as well or it has no effect.
 pref("devtools.debugger.features.async-captured-stacks", true);
 pref("devtools.debugger.features.async-live-stacks", false);
+
+// This supports showing stylesheet sources in the debugger
+pref("devtools.debugger.features.stylesheets-in-debugger", false);
 
 // When debugging a website, this pref controls if extension content scripts applied
 // to the currently debugged page should be shown in the Debugger Source Tree

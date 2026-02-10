@@ -22,6 +22,8 @@ menu-history-chats =
 menu-history-chats-recent =
     .label = Recent Chats
 
+smartwindow-document-title = New Tab
+
 ## Smart Window Toggle Button
 
 toolbar-button-ai-window-toggle =
@@ -81,18 +83,6 @@ aiwindow-firstrun-model-allpurpose-body = Solid fit for most needs
 aiwindow-firstrun-model-personal-label = Personal
 aiwindow-firstrun-model-personal-body = Most tailored answers
 aiwindow-firstrun-button = Let’s go!
-
-## Assistant Message footer
-
-aiwindow-memories-used = Memories used
-aiwindow-retry-without-memories =
-    .label = Retry without memories
-aiwindow-retry =
-  .tooltiptext = Retry
-  .aria-label = Retry
-aiwindow-copy-message =
-    .tooltiptext = Copy
-    .aria-label = Copy message
 
 ## Ask Toolbar Button
 
