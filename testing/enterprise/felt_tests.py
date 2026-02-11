@@ -25,8 +25,10 @@ from marionette_driver.by import By
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
-    def reply(self, payload, code=200, status="Success"):
+    def reply(self, payload, code=200, status="Success", contentType=None):
         self.send_response(code, status)
+        if contentType:
+            self.send_header("Content-Type", contentType)
         self.send_header("Content-Length", len(payload))
         self.end_headers()
         self.wfile.write(bytes(payload, "utf8"))
@@ -39,6 +41,9 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
             self.reply("OK")
             setattr(self.server, "_BaseServer__shutdown_request", True)
             self.server.server_close()
+            return json.dumps({})
+
+        return None
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
@@ -94,7 +99,7 @@ class SsoHttpHandler(LocalHttpRequestHandler):
             return
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType="text/html")
         else:
             self.not_found(path)
 
@@ -118,6 +123,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
     def do_GET(self):
         print("GET", self.path)
         m = None
+        contentType = None
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -154,11 +160,13 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     ]
                 ]
             })
+            contentType = "application/json"
         elif path == "/api/browser/hacks/startup":
             # Browser prefs that needs to be set in the prefs.js file
             m = json.dumps({
                 "prefs": felt_consts.userjs_prefs + [["marionette.port", 0]],
             })
+            contentType = "application/json"
 
         elif path == "/api/browser/policies":
             self.check_auth()
@@ -186,6 +194,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
 
             m = json.dumps({"policies": policy_content})
+            contentType = "application/json"
 
         elif path == "/api/browser/whoami":
             self.check_auth()
@@ -201,6 +210,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "updated_at": "2025-11-14T14:27:23.602803Z",
                 "policy_roles_id": None,
             })
+            contentType = "application/json"
 
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
@@ -232,6 +242,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </body>
 </html>
             """
+            contentType = "text/html"
 
         elif path == "/ping":
             m = """
@@ -243,10 +254,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </body>
 </html>
             """
+            contentType = "text/html"
 
         # Not a real end point, just used for tests
         elif path == "/sso/get_device_posture":
             m = json.dumps(self.server.device_posture_payload)
+            contentType = "application/json"
 
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
@@ -263,15 +276,13 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 return
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType=contentType)
         else:
             self.not_found(path)
 
     def do_POST(self):
-        super().do_POST()
-
         print("POST", self.path)
-        m = None
+        m = super().do_POST()
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -297,7 +308,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps(None)
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType="application/json")
         else:
             self.not_found(path)
 
