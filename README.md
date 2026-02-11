@@ -27,5 +27,5 @@ You can also specify a test file, by default the manifest from the directory wil
 OR
 
 ```
-$ ./mach test marionette-enterprise 
+$ ./mach test marionette-enterprise
 ```
