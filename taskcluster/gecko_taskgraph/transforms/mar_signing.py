@@ -97,7 +97,8 @@ def make_task_description(config, jobs):
         attributes["required_signoffs"] = sorted_unique_list(
             attributes.get("required_signoffs", []), job.pop("required_signoffs")
         )
-        attributes["shipping_phase"] = job["shipping-phase"]
+        # No shipping-phase for enterprise for now, running on-push instead of cron or relpro
+        # attributes["shipping_phase"] = job["shipping-phase"]
         if locale:
             attributes["locale"] = locale
 
