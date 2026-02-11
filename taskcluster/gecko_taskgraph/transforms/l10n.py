@@ -196,7 +196,10 @@ def gather_required_signoffs(config, jobs):
 def remove_repackage_dependency(config, jobs):
     for job in jobs:
         build_platform = job["attributes"]["build_platform"]
-        if not build_platform.startswith("macosx"):
+        if (
+            not build_platform.startswith("macosx")
+            and "repackage" in job["dependencies"].keys()
+        ):
             del job["dependencies"]["repackage"]
 
         yield job
@@ -255,6 +258,7 @@ def all_locales_attribute(config, jobs):
     for job in jobs:
         locales_platform = job["attributes"]["build_platform"].replace("-shippable", "")
         locales_platform = locales_platform.replace("-pgo", "")
+        locales_platform = locales_platform.replace("-enterprise", "")
         locales_with_changesets = parse_locales_file(
             job["locales-file"], platform=locales_platform
         )

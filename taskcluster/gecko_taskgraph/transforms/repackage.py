@@ -494,6 +494,9 @@ def make_job_description(config, jobs):
                 family = "Rpk-Ent"
                 variant = f"{repack_id}"
 
+            if locale:
+                variant = f"{variant}-{locale}"
+
             # Follow central behavior and have rs() on Windows
             if "repackage-signing-win" in dep_job.label:
                 family = "rs"
