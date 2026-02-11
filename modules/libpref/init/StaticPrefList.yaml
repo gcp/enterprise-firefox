@@ -1062,7 +1062,7 @@
 # nsXPLookAndFeel::GenericDarkColor for Linktext.
 - name: browser.anchor_color.dark
   type: String
-  value: "#8C8CFF"
+  value: "#00CADB"
   mirror: never
 
 # See http://dev.w3.org/html5/spec/forms.html#attr-fe-autofocus
@@ -3627,7 +3627,7 @@
 # Media element pseudo-classes
 - name: dom.media.pseudo-classes.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -4875,7 +4875,7 @@
 
 - name: dom.workers.throttling.enabled
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 
 - name: dom.workers.serialized-sab-access
@@ -6167,6 +6167,15 @@
 - name: extensions.filterResponseServiceWorkerScript.disabled
   type: bool
   value: false
+  mirror: always
+
+- name: extensions.webextensions.allow_executeScript_in_moz_extension
+  type: bool
+#if defined(NIGHTLY_BUILD)
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 # This pref governs whether we run webextensions in a separate process (true)
@@ -9101,13 +9110,6 @@
   # Non-startup pref because the WPT test harness sets prefs after startup.
   set_spidermonkey_pref: always
 
-# Experimental support for Uint8Array base64/hex in JavaScript.
-- name: javascript.options.experimental.uint8array_base64
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
   # Experimental support for Atomics.pause in JavaScript.
 - name: javascript.options.experimental.atomics_pause
   type: bool
@@ -9245,6 +9247,15 @@
     mirror: always
     set_spidermonkey_pref: always
 #endif  // ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  # Experimental support for source phase imports in JavaScript.
+- name: javascript.options.experimental.source_phase_imports
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+#endif
 
 - name: javascript.options.experimental.error_capture_stack_trace
   type: bool
@@ -13721,6 +13732,17 @@
 - name: network.cookie.skip_browsing_context_check_in_parent_for_testing
   type: bool
   value: false
+  mirror: always
+
+# The string to return to the server as the 'workstation' that the user is
+# using. Bug 1046421 notes that the previous default of the system hostname
+# could be used for user fingerprinting.
+# However, in some network environments where allowedWorkstations is in use to
+# provide a level of host-based access control, it must be set to a string that
+# is listed in allowedWorkstations for the user's account in their AD Domain.
+- name: network.generic-ntlm-auth.workstation
+  type: DataMutexString
+  value: "WORKSTATION"
   mirror: always
 
 # If we should attempt to race the cache with network.
