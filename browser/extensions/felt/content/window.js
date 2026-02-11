@@ -70,7 +70,9 @@ const ErrorReport = {
   },
 
   async getLocalisedErrorString(details, cause) {
-    const errorMessage = await document.l10n.formatValue(`felt-error-${details}`);
+    const errorMessage = await document.l10n.formatValue(
+      `felt-error-${details}`
+    );
     if (errorMessage) {
       return errorMessage;
     }

@@ -127,7 +127,10 @@ def get_release_type(parameters):
     if parameters["project"] != "enterprise-firefox":
         return ""
 
-    if not parameters["base_repository"] == "https://github.com/mozilla/enterprise-firefox":
+    if (
+        not parameters["base_repository"]
+        == "https://github.com/mozilla/enterprise-firefox"
+    ):
         return ""
 
     if parameters["head_ref"] == "refs/heads/enterprise-release":

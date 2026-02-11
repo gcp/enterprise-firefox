@@ -509,7 +509,10 @@ def get_signing_type_per_platform(build_platform, is_shippable, config):
     if "enterprise" in build_platform:
         if (
             is_shippable
-            and any(name in config.params["head_ref"] for name in ["enterprise-main", "enterprise-release"])
+            and any(
+                name in config.params["head_ref"]
+                for name in ["enterprise-main", "enterprise-release"]
+            )
             and int(config.params["level"]) == 3
         ):
             return get_enterprise_main_or_release_signing_type(config)
