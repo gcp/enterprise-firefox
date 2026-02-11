@@ -154,14 +154,22 @@ pub fn inject_int_pref(name: String, value: i32) {
     });
 }
 
-pub fn notify_observers(name: String) {
+pub fn notify_observers_with_payload(name: String, payload: Option<String>) {
     do_main_thread("felt_notify_observers", async move {
         let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
         let topic = CString::new(name).expect("Topic name contained a null byte");
-        let rv =
-            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) };
+        let rv = if let Some(data) = payload {
+            let payload_data = nsstring::nsString::from(&data);
+            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), payload_data.as_ptr()) }
+        } else {
+            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) }
+        };
         assert!(rv.succeeded());
     });
+}
+
+pub fn notify_observers(name: String) {
+    notify_observers_with_payload(name, None)
 }
 
 pub fn open_url_in_firefox(url: String, disposition: i32) {
@@ -175,22 +183,7 @@ pub fn open_url_in_firefox(url: String, disposition: i32) {
         "disposition": disposition,
     })
     .to_string();
-    do_main_thread("felt_open_url", async move {
-        let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
-        let topic = CString::new("felt-open-url").unwrap();
-        let url_data = nsstring::nsString::from(&payload);
-
-        let rv =
-            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), url_data.as_ptr()) };
-
-        if rv.succeeded() {
-            trace!(
-                "open_url_in_firefox() successfully sent observer notification for URL request"
-            );
-        } else {
-            trace!("open_url_in_firefox() NotifyObservers failed: {:?}", rv);
-        }
-    });
+    notify_observers_with_payload("felt-open-url".to_string(), Some(payload));
 }
 
 pub fn do_main_thread<F>(name: &'static str, future: F)

@@ -3,9 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 const IS_TESTING_ENVIRONMENT = "enterprise.is_testing";
+const IS_BLOCKING_SHUTDOWN = "enterprise.felt_tests.is_blocking_shutdown";
 
 export const isTesting = () => {
   return Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false);
+};
+
+export const isBlockingShutdown = () => {
+  return Services.prefs.getBoolPref(IS_BLOCKING_SHUTDOWN, false);
 };
 
 export const EnterpriseCommon = {

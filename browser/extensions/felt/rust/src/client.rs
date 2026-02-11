@@ -87,6 +87,28 @@ impl FeltIpcClient {
         }
     }
 
+    pub fn send_back_tokens(&self) {
+        trace!("FeltIpcClient::send_back_tokens()");
+        match TOKENS.read() {
+            Ok(tokens) => {
+                let msg = FeltMessage::Tokens((
+                    tokens.access_token.clone(),
+                    tokens.refresh_token.clone(),
+                    tokens.expires_at,
+                ));
+                if let Some(tx) = &self.tx {
+                    match tx.send(msg) {
+                        Ok(()) => trace!("FeltIpcClient::send_back_tokens() SENT"),
+                        Err(err) => trace!("FeltIpcClient::send_back_tokens() TX ERROR: {}", err),
+                    }
+                }
+            }
+            Err(_) => {
+                trace!("FeltIpcClient::send_back_tokens failed: couldn't acquire lock",);
+            }
+        }
+    }
+
     pub fn report_version(&self) -> bool {
         trace!("FeltIpcClient::report_version()");
         let msg = FeltMessage::VersionProbe(FELT_IPC_VERSION);
@@ -216,6 +238,7 @@ impl FeltClientThread {
                             "FeltClientThread::start_thread::observe() quit-application: data={}",
                             obsData
                         );
+
                         if let Some(ref tx) = self.tx {
                             match obsData.trim() {
                                 "restart" => {
@@ -453,5 +476,11 @@ impl FeltClientThread {
         trace!("FeltClientThread::notify_signout()");
         let client = self.ipc_client.borrow();
         client.notify_signout();
+    }
+
+    pub fn send_back_tokens(&self) {
+        trace!("FeltClientThread::send_back_tokens()");
+        let client = self.ipc_client.borrow();
+        client.send_back_tokens();
     }
 }

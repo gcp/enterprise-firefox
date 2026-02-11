@@ -593,6 +593,12 @@ class FeltTestsBase(EnterpriseTestsBase):
         btn.click()
         self._driver.set_context("content")
 
+    def force_window(self):
+        self._driver.set_context("chrome")
+        assert len(self._driver.chrome_window_handles) == 1, "One window exists"
+        self._driver.switch_to_window(self._driver.chrome_window_handles[0])
+        self._driver.set_context("content")
+
 
 class FeltTests(FeltTestsBase):
     def run_felt_chrome_on_email_submit(self):

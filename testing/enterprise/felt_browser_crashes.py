@@ -14,12 +14,6 @@ from felt_tests import FeltTests
 class BrowserCrashes(FeltTests):
     EXTRA_ENV = {"MOZ_GDB_SLEEP": "1"}
 
-    def force_window(self):
-        self._driver.set_context("chrome")
-        assert len(self._driver.chrome_window_handles) == 1, "One window exists"
-        self._driver.switch_to_window(self._driver.chrome_window_handles[0])
-        self._driver.set_context("content")
-
     def crash_parent(self):
         self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Crashing browser at {self._browser_pid}")
