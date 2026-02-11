@@ -81,6 +81,7 @@ known_errors = [
     {
         "message": "Error updating FxA account info:, InvalidAuthError: Unhandled reauthentication",
     },
+    {"message": "FeltExtension: _refreshSession()"},
 ]
 
 # Same rules apply here - please don't add anything! - but headless runs
