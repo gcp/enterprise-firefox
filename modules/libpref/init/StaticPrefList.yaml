@@ -4513,6 +4513,13 @@
   value: false
   mirror: always
 
+# Set to false to avoid clearing the navigation cache, to get the deterministic
+# result during the automated testing.
+- name: dom.script_loader.experimental.navigation_cache.check_memory_pressure
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.securecontext.allowlist_onions
   type: bool
   value: false
@@ -5862,7 +5869,7 @@
 # Block notifications and revoke permission for sites on Safe Browsing lists.
 - name: dom.webnotifications.block_if_on_safebrowsing
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -17377,15 +17384,6 @@
 -   name: security.sandbox.windows.log.stackTraceDepth
     type: RelaxedAtomicUint32
     value: 0
-    mirror: always
-
-  # Whether \\??\\pipe\\chrome.* rule is added to the sandbox configurations.
-  # We are removing this using a pref because we know that in the past some
-  # injected DLLs have relied on this rule existing for their own pipes.
-  # This gives users a work-around if they have issues.
--   name: security.sandbox.chrome-pipe-rule.enabled
-    type: RelaxedAtomicBool
-    value: false
     mirror: always
 
   # Whether \Device\KsecDD is closed in content process. We are closing this
