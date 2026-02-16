@@ -149,7 +149,8 @@ void CrossShadowBoundaryRange::ContentWillBeRemoved(nsIContent* aChild,
   MOZ_ASSERT(startContainer && endContainer);
 
   if (startContainer == aChild || endContainer == aChild) {
-    mOwner->ResetCrossShadowBoundaryRange();
+    mOwner->ResetCrossShadowBoundaryRange(
+        ResetCommonAncestorIfInAnySelection::Yes);
     return;
   }
 
@@ -157,20 +158,23 @@ void CrossShadowBoundaryRange::ContentWillBeRemoved(nsIContent* aChild,
   // anonymous contents created by the frame of aChild, and they are
   // unbounded from the document now.
   if (!startContainer->IsInComposedDoc() || !endContainer->IsInComposedDoc()) {
-    mOwner->ResetCrossShadowBoundaryRange();
+    mOwner->ResetCrossShadowBoundaryRange(
+        ResetCommonAncestorIfInAnySelection::Yes);
     return;
   }
 
   if (const auto* shadowRoot = aChild->GetShadowRoot()) {
     if (startContainer == shadowRoot || endContainer == shadowRoot) {
-      mOwner->ResetCrossShadowBoundaryRange();
+      mOwner->ResetCrossShadowBoundaryRange(
+          ResetCommonAncestorIfInAnySelection::Yes);
       return;
     }
   }
 
   if (startContainer->IsShadowIncludingInclusiveDescendantOf(aChild) ||
       endContainer->IsShadowIncludingInclusiveDescendantOf(aChild)) {
-    mOwner->ResetCrossShadowBoundaryRange();
+    mOwner->ResetCrossShadowBoundaryRange(
+        ResetCommonAncestorIfInAnySelection::Yes);
     return;
   }
 
@@ -206,14 +210,19 @@ void CrossShadowBoundaryRange::ContentWillBeRemoved(nsIContent* aChild,
   }
 }
 
-// For now CrossShadowBoundaryRange::CharacterDataChanged is only meant
-// to handle the character removal initiated by nsRange::CutContents.
 void CrossShadowBoundaryRange::CharacterDataChanged(
     nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {
-  // When aInfo.mDetails is present, it means the character data was
-  // changed due to splitText() or normalize(), which shouldn't be the
-  // case for nsRange::CutContents, so we return early.
+  // DOM mutation for cross-shadow-boundary selections is not specified.
+  // (https://github.com/w3c/selection-api/issues/168)
+  //
+  // When aInfo.mDetails is present, it means the character data was changed
+  // due to splitText() or normalize(). Only reset the cross-shadow-boundary
+  // range if the split/normalize affects the start or end container.
   if (aInfo.mDetails) {
+    if (aContent == mStart.GetContainer() || aContent == mEnd.GetContainer()) {
+      mOwner->ResetCrossShadowBoundaryRange(
+          ResetCommonAncestorIfInAnySelection::Yes);
+    }
     return;
   }
   MOZ_ASSERT(aContent);
@@ -260,6 +269,7 @@ void CrossShadowBoundaryRange::ParentChainChanged(nsIContent* aContent) {
   MOZ_DIAGNOSTIC_ASSERT(mCommonAncestor == aContent,
                         "Wrong ParentChainChanged notification");
   MOZ_DIAGNOSTIC_ASSERT(mOwner);
-  mOwner->ResetCrossShadowBoundaryRange();
+  mOwner->ResetCrossShadowBoundaryRange(
+      ResetCommonAncestorIfInAnySelection::Yes);
 }
 }  // namespace mozilla::dom
