@@ -415,13 +415,9 @@ class FragmentOrElement : public nsIContent {
   void SetInnerHTMLInternal(const nsAString& aInnerHTML, ErrorResult& aError);
 
   // Override from nsINode
-  nsIContent::nsContentSlots* CreateSlots() override {
-    return new nsDOMSlots();
-  }
+  nsIContent::nsContentSlots* CreateSlots() override;
 
-  nsIContent::nsExtendedContentSlots* CreateExtendedSlots() final {
-    return new nsExtendedDOMSlots();
-  }
+  nsIContent::nsExtendedContentSlots* CreateExtendedSlots() final;
 
   nsDOMSlots* DOMSlots() { return static_cast<nsDOMSlots*>(Slots()); }
 
@@ -429,20 +425,7 @@ class FragmentOrElement : public nsIContent {
     return static_cast<nsDOMSlots*>(GetExistingSlots());
   }
 
-  nsExtendedDOMSlots* ExtendedDOMSlots() {
-    nsContentSlots* slots = GetExistingContentSlots();
-    if (!slots) {
-      FatSlots* fatSlots = new FatSlots();
-      mSlots = fatSlots;
-      return fatSlots;
-    }
-
-    if (!slots->GetExtendedContentSlots()) {
-      slots->SetExtendedContentSlots(CreateExtendedSlots(), true);
-    }
-
-    return static_cast<nsExtendedDOMSlots*>(slots->GetExtendedContentSlots());
-  }
+  nsExtendedDOMSlots* ExtendedDOMSlots();
 
   const nsExtendedDOMSlots* GetExistingExtendedDOMSlots() const {
     return static_cast<const nsExtendedDOMSlots*>(

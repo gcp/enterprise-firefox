@@ -530,6 +530,16 @@ void nsIContent::nsExtendedContentSlots::TraverseExtendedSlots(
 
 nsIContent::nsExtendedContentSlots::nsExtendedContentSlots() = default;
 
+nsIContent::nsContentSlots* nsIContent::CreateSlots() {
+  void* mem = AllocateSlots(sizeof(nsContentSlots));
+  return new (mem) nsContentSlots();
+}
+
+nsIContent::nsExtendedContentSlots* nsIContent::CreateExtendedSlots() {
+  void* mem = AllocateSlots(sizeof(nsExtendedContentSlots));
+  return new (mem) nsExtendedContentSlots();
+}
+
 nsIContent::nsExtendedContentSlots::~nsExtendedContentSlots() {
   MOZ_ASSERT(!mManualSlotAssignment);
 }
@@ -628,6 +638,32 @@ size_t FragmentOrElement::nsDOMSlots::SizeOfIncludingThis(
 }
 
 FragmentOrElement::nsExtendedDOMSlots::nsExtendedDOMSlots() = default;
+
+nsIContent::nsContentSlots* FragmentOrElement::CreateSlots() {
+  void* mem = AllocateSlots(sizeof(nsDOMSlots));
+  return new (mem) nsDOMSlots();
+}
+
+nsIContent::nsExtendedContentSlots* FragmentOrElement::CreateExtendedSlots() {
+  void* mem = AllocateSlots(sizeof(nsExtendedDOMSlots));
+  return new (mem) nsExtendedDOMSlots();
+}
+
+FragmentOrElement::nsExtendedDOMSlots* FragmentOrElement::ExtendedDOMSlots() {
+  nsContentSlots* slots = GetExistingContentSlots();
+  if (!slots) {
+    void* mem = AllocateSlots(sizeof(FatSlots));
+    FatSlots* fatSlots = new (mem) FatSlots();
+    mSlots = fatSlots;
+    return fatSlots;
+  }
+
+  if (!slots->GetExtendedContentSlots()) {
+    slots->SetExtendedContentSlots(CreateExtendedSlots(), true);
+  }
+
+  return static_cast<nsExtendedDOMSlots*>(slots->GetExtendedContentSlots());
+}
 
 FragmentOrElement::nsExtendedDOMSlots::~nsExtendedDOMSlots() = default;
 

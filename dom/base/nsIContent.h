@@ -666,7 +666,11 @@ class nsIContent : public nsINode {
 
     ~nsContentSlots() {
       if (!(mExtendedSlots & sNonOwningExtendedSlotsFlag)) {
-        delete GetExtendedContentSlots();
+        nsExtendedContentSlots* extSlots = GetExtendedContentSlots();
+        if (extSlots) {
+          extSlots->~nsExtendedContentSlots();
+          free(extSlots);
+        }
       }
     }
 
@@ -709,7 +713,7 @@ class nsIContent : public nsINode {
   };
 
   // Override from nsINode
-  nsContentSlots* CreateSlots() override { return new nsContentSlots(); }
+  nsContentSlots* CreateSlots() override;
 
   nsContentSlots* ContentSlots() {
     return static_cast<nsContentSlots*>(Slots());
@@ -723,9 +727,7 @@ class nsIContent : public nsINode {
     return static_cast<nsContentSlots*>(GetExistingSlots());
   }
 
-  virtual nsExtendedContentSlots* CreateExtendedSlots() {
-    return new nsExtendedContentSlots();
-  }
+  virtual nsExtendedContentSlots* CreateExtendedSlots();
 
   const nsExtendedContentSlots* GetExistingExtendedContentSlots() const {
     const nsContentSlots* slots = GetExistingContentSlots();

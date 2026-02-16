@@ -5947,6 +5947,13 @@ void nsContentUtils::AddEntryToDOMArenaTable(nsINode* aNode,
   sDOMArenaHashtable->InsertOrUpdate(aNode, RefPtr<DOMArena>(aDOMArena));
 }
 
+DOMArena* nsContentUtils::GetEntryFromDOMArenaTable(const nsINode* aNode) {
+  if (!sDOMArenaHashtable) {
+    return nullptr;
+  }
+  return sDOMArenaHashtable->MaybeGet(aNode).valueOr(nullptr);
+}
+
 already_AddRefed<DOMArena> nsContentUtils::TakeEntryFromDOMArenaTable(
     const nsINode* aNode) {
   MOZ_ASSERT(sDOMArenaHashtable->Contains(aNode));

@@ -1536,6 +1536,13 @@ class nsINode : public mozilla::dom::EventTarget {
   };
 
   /**
+   * Helper to allocate slot memory from the appropriate arena,
+   * or from the heap if no arena is available.
+   * Always returns allocated memory.
+   */
+  void* AllocateSlots(size_t aSize);
+
+  /**
    * Functions for managing flags and slots
    */
 #ifdef DEBUG

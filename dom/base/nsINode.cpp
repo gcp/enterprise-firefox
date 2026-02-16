@@ -309,7 +309,25 @@ nsIPolicyContainer* nsINode::GetPolicyContainer() const {
   return OwnerDoc()->GetPolicyContainer();
 }
 
-nsINode::nsSlots* nsINode::CreateSlots() { return new nsSlots(); }
+void* nsINode::AllocateSlots(size_t aSize) {
+  DOMArena* arena = nullptr;
+  if (HasFlag(NODE_KEEPS_DOMARENA)) {
+    arena = nsContentUtils::GetEntryFromDOMArenaTable(this);
+  }
+  if (!arena) {
+    arena = NodeInfo()->NodeInfoManager()->GetArenaAllocator();
+  }
+
+  if (arena) {
+    return arena->Allocate(aSize);
+  }
+  return malloc(aSize);
+}
+
+nsINode::nsSlots* nsINode::CreateSlots() {
+  void* mem = AllocateSlots(sizeof(nsSlots));
+  return new (mem) nsSlots();
+}
 
 static const nsINode* GetClosestCommonInclusiveAncestorForRangeInSelection(
     const nsINode* aNode) {
@@ -881,8 +899,9 @@ void nsINode::LastRelease() {
       }
     }
 
-    delete slots;
+    slots->~nsSlots();
     mSlots = nullptr;
+    free(slots);
   }
 
   // Kill properties first since that may run external code, so we want to
