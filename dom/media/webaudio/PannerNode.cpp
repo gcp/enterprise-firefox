@@ -442,6 +442,9 @@ void PannerNodeEngine::HRTFPanningFunction(const AudioBlock& aInput,
   input.mVolume *=
       ComputeConeGain(position, orientation) * ComputeDistanceGain(position);
 
+  if (mDestination->Graph()->IsNonRealtime()) {
+    mHRTFPanner->DatabaseLoader()->waitForLoaderThreadCompletion();
+  }
   mHRTFPanner->pan(azimuth, elevation, &input, aOutput);
 }
 
