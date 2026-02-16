@@ -3353,10 +3353,16 @@
     }
 
     /**
-     * @param {string} id
+     * @param {number} id
      * @returns {MozTabSplitViewWrapper}
      */
     _createTabSplitView(id) {
+      if (id && typeof id !== "number") {
+        throw new Error("Unexpected id type: " + typeof id);
+      }
+      if (!id) {
+        id = SessionStore.getNextSplitViewId();
+      }
       let splitview = document.createXULElement("tab-split-view-wrapper", {
         is: "tab-split-view-wrapper",
       });
@@ -3370,10 +3376,10 @@
      * @param {object[]} tabs
      *   The set of tabs to include in the split view.
      * @param {object} [options]
-     * @param {string} [options.id]
+     * @param {number} [options.id]
      *   Optionally assign an ID to the split view. Useful when rebuilding an
-     *   existing splitview e.g. when restoring. A pseudorandom string will be
-     *   generated if not set.
+     *   existing splitview e.g. when restoring. An integer id from a incrementing
+     *   counter will be generated if not set.
      * @param {MozTabbrowserTab} [options.insertBefore]
      *   An optional argument that accepts a single tab, which, if passed, will
      *   cause the split view to be inserted just before this tab in the tab strip. By
@@ -3384,9 +3390,6 @@
         throw new Error("Cannot create split view with zero tabs");
       }
 
-      if (!id) {
-        id = `${Date.now()}-${Math.round(Math.random() * 100)}`;
-      }
       let splitview = this._createTabSplitView(id);
       this.tabContainer.insertBefore(
         splitview,
@@ -3441,6 +3444,8 @@
         splitview.remove();
       } else {
         aboutOpenTabs.forEach(aboutOpenTab => {
+          // Note: removeTab triggers #observeTabChanges in tabsplitview.js,
+          // which will call unsplitTabs() again.
           gBrowser.removeTab(aboutOpenTab);
         });
       }
@@ -4330,9 +4335,11 @@
           }
         }
 
-        let splitView = splitViewWorkingData.get(tabData.splitViewId);
-        if (tabData.splitViewId) {
+        let splitView =
+          tabData.splitViewId && splitViewWorkingData.get(tabData.splitViewId);
+        if (splitView) {
           splitView.tabs.push(tab);
+          // Only create the split view when we've got the last tab it would contain
           if (splitView.tabs.length == splitView.numberOfTabs) {
             splitView.node = this._createTabSplitView(tabData.splitViewId);
           }
@@ -7075,6 +7082,7 @@
      * @property {number} tabIndex
      * @property {number} [elementIndex]
      * @property {string} [tabGroupId]
+     * @property {number} [splitViewId]
      */
 
     /**
@@ -7116,8 +7124,10 @@
         previousTabState.tabIndex != currentTabState.tabIndex;
       let changedTabGroup =
         previousTabState.tabGroupId != currentTabState.tabGroupId;
+      let changedSplitView =
+        previousTabState.splitViewId != currentTabState.splitViewId;
 
-      if (changedPosition || changedTabGroup) {
+      if (changedPosition || changedTabGroup || changedSplitView) {
         tab.dispatchEvent(
           new CustomEvent("TabMove", {
             bubbles: true,
@@ -7380,16 +7390,38 @@
     /**
      * Update accessible names of close buttons in the (multi) selected tabs
      * collection with how many tabs they will close
+     *
+     * @param {Set<MozTabbrowserTab>} [aTabsRemovedFromMultiselection]
+     *          An optional Set of tabs that used to be (multi) selected, but
+     *          no longer. The accessible name of their close button will be
+     *          reset to default.
      */
-    _updateMultiselectedTabCloseButtonTooltip() {
-      const tabCount = gBrowser.selectedTabs.length;
-      gBrowser.selectedTabs.forEach(selectedTab => {
-        document.l10n.setArgs(selectedTab.querySelector(".tab-close-button"), {
-          tabCount,
-        });
+    _updateMultiselectedTabCloseButtonTooltip(aTabsRemovedFromMultiselection) {
+      const { selectedTabs } = gBrowser;
+      const args = { tabCount: selectedTabs.length };
+      selectedTabs.forEach(selectedTab => {
+        document.l10n.setArgs(
+          selectedTab.querySelector(".tab-close-button"),
+          args
+        );
+      });
+      args.tabCount = 1;
+      aTabsRemovedFromMultiselection?.forEach(unselectedTab => {
+        document.l10n.setArgs(
+          unselectedTab.querySelector(".tab-close-button"),
+          args
+        );
       });
     }
 
+    /**
+     * Adds a tab into the (multi) selected tabs collection.
+     *
+     * Warning: this function can be called from a loop, when selecting several tabs.
+     * Instead of adding expensive logic here, do it in `_endMultiSelectChange()`.
+     *
+     * @param {MozTabbrowserTab} aTab
+     */
     addToMultiSelectedTabs(aTab) {
       if (aTab.splitview) {
         aTab.splitview.setAttribute("multiselected", "true");
@@ -7403,13 +7435,9 @@
       aTab.setAttribute("aria-selected", "true");
       this._multiSelectedTabsSet.add(aTab);
       this._startMultiSelectChange();
-      if (this._multiSelectChangeRemovals.has(aTab)) {
-        this._multiSelectChangeRemovals.delete(aTab);
-      } else {
+      if (!this._multiSelectChangeRemovals.delete(aTab)) {
         this._multiSelectChangeAdditions.add(aTab);
       }
-
-      this._updateMultiselectedTabCloseButtonTooltip();
     }
 
     /**
@@ -7432,10 +7460,16 @@
       for (let i = lowerIndex; i <= higherIndex; i++) {
         this.addToMultiSelectedTabs(tabs[i]);
       }
-
-      this._updateMultiselectedTabCloseButtonTooltip();
     }
 
+    /**
+     * Removes a tab from the (multi) selected tabs collection.
+     *
+     * Warning: this function can be called from a loop, when unselecting several tabs.
+     * Instead of adding expensive logic here, do it in `_endMultiSelectChange()`.
+     *
+     * @param {MozTabbrowserTab} aTab
+     */
     removeFromMultiSelectedTabs(aTab) {
       if (!aTab.multiselected) {
         return;
@@ -7447,18 +7481,9 @@
       aTab.removeAttribute("aria-selected");
       this._multiSelectedTabsSet.delete(aTab);
       this._startMultiSelectChange();
-      if (this._multiSelectChangeAdditions.has(aTab)) {
-        this._multiSelectChangeAdditions.delete(aTab);
-      } else {
+      if (!this._multiSelectChangeAdditions.delete(aTab)) {
         this._multiSelectChangeRemovals.add(aTab);
       }
-      // Update labels for Close buttons of the remaining multiselected tabs:
-      this._updateMultiselectedTabCloseButtonTooltip();
-      // Update the label for the Close button of the tab being removed
-      // from the multiselection:
-      document.l10n.setArgs(aTab.querySelector(".tab-close-button"), {
-        tabCount: 1,
-      });
     }
 
     clearMultiSelectedTabs() {
@@ -7647,6 +7672,11 @@
         }
         this._avoidSingleSelectedTab();
         noticeable = true;
+      }
+      if (noticeable) {
+        this._updateMultiselectedTabCloseButtonTooltip(
+          this._multiSelectChangeRemovals
+        );
       }
       this._multiSelectChangeStarted = false;
       if (noticeable || this._multiSelectChangeSelected) {
@@ -10120,6 +10150,13 @@ var TabContextMenu = {
         multiselectingDiverseUrls || !this.TabNotes.isEligible(this.contextTab);
       contextUpdateNote.disabled = multiselectingDiverseUrls;
 
+      this.removeNewBadge(contextAddNote);
+      if (
+        Services.prefs.getBoolPref("browser.tabs.notes.newBadge.enabled", true)
+      ) {
+        this.addNewBadge(contextAddNote);
+      }
+
       this.TabNotes.has(this.contextTab).then(hasNote => {
         contextAddNote.hidden = hasNote;
         contextUpdateNote.hidden = !hasNote;
@@ -10160,6 +10197,9 @@ var TabContextMenu = {
         this.contextTabs.length > 2 ||
         pinnedTabs.length ||
         customizeTabs.length;
+
+      this.addNewBadge(contextMoveTabToNewSplitView);
+      this.addNewBadge(contextSeparateSplitView);
     }
 
     // Only one of Reload_Tab/Reload_Selected_Tabs should be visible.
@@ -10539,7 +10579,12 @@ var TabContextMenu = {
   moveTabsToNewGroup() {
     let insertBefore = this.contextTab;
     if (insertBefore._tPos < gBrowser.pinnedTabCount) {
-      insertBefore = gBrowser.tabs[gBrowser.pinnedTabCount];
+      let firstUnpinnedTab = gBrowser.tabs[gBrowser.pinnedTabCount];
+      if (firstUnpinnedTab.splitview) {
+        insertBefore = firstUnpinnedTab.splitview;
+      } else {
+        insertBefore = firstUnpinnedTab;
+      }
     } else if (this.contextTab.group) {
       insertBefore = this.contextTab.group;
     } else if (this.contextTab.splitview) {
@@ -10670,17 +10715,15 @@ var TabContextMenu = {
     splitviews.forEach(splitview => gBrowser.unsplitTabs(splitview));
   },
 
-  addNewBadge() {
-    let badgeNewMenuItems = document.querySelectorAll(
-      "#tabContextMenu menuitem.badge-new"
+  addNewBadge(menuItem) {
+    menuItem.setAttribute(
+      "badge",
+      gBrowser.tabLocalization.formatValueSync("tab-context-badge-new")
     );
+  },
 
-    badgeNewMenuItems.forEach(badgedMenuItem => {
-      badgedMenuItem.setAttribute(
-        "badge",
-        gBrowser.tabLocalization.formatValueSync("tab-context-badge-new")
-      );
-    });
+  removeNewBadge(menuItem) {
+    menuItem.removeAttribute("badge");
   },
 
   deleteTabNotes() {

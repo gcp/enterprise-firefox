@@ -4772,7 +4772,7 @@ dependencies = [
 [[package]]
 name = "mp4parse"
 version = "0.17.0"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f955be5d2a04a631c0f1777d6f35370ea1a99e2d#f955be5d2a04a631c0f1777d6f35370ea1a99e2d"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=26788821a443614d88470fe71f51f66720696096#26788821a443614d88470fe71f51f66720696096"
 dependencies = [
  "bitreader",
  "byteorder",
@@ -4789,7 +4789,7 @@ version = "0.1.0"
 [[package]]
 name = "mp4parse_capi"
 version = "0.17.0"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f955be5d2a04a631c0f1777d6f35370ea1a99e2d#f955be5d2a04a631c0f1777d6f35370ea1a99e2d"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=26788821a443614d88470fe71f51f66720696096#26788821a443614d88470fe71f51f66720696096"
 dependencies = [
  "byteorder",
  "fallible_collections",
@@ -7734,9 +7734,9 @@ dependencies = [
 
 [[package]]
 name = "urlpattern"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ffe0983283c841b6c6e9f116833a0061cc690c0eb67994d65bbdfa5cd3f24e"
+checksum = "df16f50ef4cc145211879a3867ba757076b25dfee812040dcb0658bd9ae7904b"
 dependencies = [
  "icu_properties",
  "regex",
