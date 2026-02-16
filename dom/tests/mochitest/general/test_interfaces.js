@@ -320,7 +320,6 @@ let interfaceNamesInGlobalScope = [
     name: "CloseWatcher",
     insecureContext: true,
     nightly: true,
-    android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CommandEvent", insecureContext: true },
