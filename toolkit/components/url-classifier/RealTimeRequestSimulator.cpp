@@ -10,6 +10,7 @@
 #include "mozilla/RandomNum.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/glean/UrlClassifierMetrics.h"
 #include "nsIObserverService.h"
 #include "nsThreadUtils.h"
 #include "nsUrlClassifierDBService.h"
@@ -31,8 +32,6 @@ RealTimeRequestSimulator* RealTimeRequestSimulator::GetInstance() {
   }
   return sInstance.get();
 }
-
-RealTimeRequestSimulator::RealTimeRequestSimulator() = default;
 
 void RealTimeRequestSimulator::ComputeFullHashesFromURL(
     const nsACString& aURL, nsTArray<Completion>& aHashes) {
@@ -217,11 +216,35 @@ void RealTimeRequestSimulator::NotifyResult(bool aWouldSendRequest,
                                             uint32_t aRequestBytes,
                                             uint32_t aResponseBytes,
                                             bool aIsPrivate) {
-  // TODO: Dispatch to main thread to record the event.
-
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       "RealTimeRequestSimulator::NotifyResult",
-      [aWouldSendRequest, aRequestBytes, aResponseBytes]() {
+      [aWouldSendRequest, aRequestBytes, aResponseBytes, aIsPrivate]() {
+        if (aWouldSendRequest) {
+          nsAutoCString etpCategory;
+          nsresult rv = Preferences::GetCString(
+              "browser.contentblocking.category", etpCategory);
+
+          if (NS_SUCCEEDED(rv)) {
+            nsAutoCString label;
+            if (etpCategory.EqualsLiteral("standard") ||
+                etpCategory.EqualsLiteral("strict") ||
+                etpCategory.EqualsLiteral("custom")) {
+              label = etpCategory;
+            } else {
+              label = "other"_ns;
+            }
+            label.Append('_');
+            label.Append(aIsPrivate ? "private"_ns : "normal"_ns);
+
+            glean::urlclassifier::realtime_simulation_request_count.Get(label)
+                .Add(1);
+            glean::urlclassifier::realtime_simulation_request_size.Get(label)
+                .Add(aRequestBytes);
+            glean::urlclassifier::realtime_simulation_response_size.Get(label)
+                .Add(aResponseBytes);
+          }
+        }
+
         if (Preferences::GetBool("browser.safebrowsing.realTime.debug",
                                  false)) {
           nsAutoCString data;

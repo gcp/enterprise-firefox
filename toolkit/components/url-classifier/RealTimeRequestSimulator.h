@@ -27,7 +27,7 @@ class RealTimeRequestSimulator final {
   void CleanCache();
 
  private:
-  RealTimeRequestSimulator();
+  RealTimeRequestSimulator() = default;
   ~RealTimeRequestSimulator() = default;
 
   void ComputeFullHashesFromURL(const nsACString& aURL,
