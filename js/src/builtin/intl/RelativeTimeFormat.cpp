@@ -108,10 +108,10 @@ const ClassSpec RelativeTimeFormatObject::classSpec_ = {
 };
 
 struct js::intl::RelativeTimeFormatOptions {
-  enum class Style : int8_t { Long, Short, Narrow };
+  using Style = mozilla::intl::RelativeTimeFormatOptions::Style;
   Style style = Style::Long;
 
-  enum class Numeric : int8_t { Always, Auto };
+  using Numeric = mozilla::intl::RelativeTimeFormatOptions::Numeric;
   Numeric numeric = Numeric::Always;
 };
 
@@ -119,8 +119,8 @@ struct PackedRelativeTimeFormatOptions {
   using RawValue = uint32_t;
 
   using StyleField =
-      packed::EnumField<RawValue, RelativeTimeFormatOptions::Style::Long,
-                        RelativeTimeFormatOptions::Style::Narrow>;
+      packed::EnumField<RawValue, RelativeTimeFormatOptions::Style::Short,
+                        RelativeTimeFormatOptions::Style::Long>;
 
   using NumericField =
       packed::EnumField<StyleField, RelativeTimeFormatOptions::Numeric::Always,
@@ -366,41 +366,6 @@ static bool ResolveLocale(
   return true;
 }
 
-static auto ToRelativeTimeFormatOptionsStyle(
-    RelativeTimeFormatOptions::Style style) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::RelativeTimeFormatOptions::Style;
-#else
-  USING_ENUM(mozilla::intl::RelativeTimeFormatOptions::Style, Long, Short,
-             Narrow);
-#endif
-  switch (style) {
-    case RelativeTimeFormatOptions::Style::Long:
-      return Long;
-    case RelativeTimeFormatOptions::Style::Short:
-      return Short;
-    case RelativeTimeFormatOptions::Style::Narrow:
-      return Narrow;
-  }
-  MOZ_CRASH("invalid relative time format style");
-}
-
-static auto ToRelativeTimeFormatOptionsNumeric(
-    RelativeTimeFormatOptions::Numeric numeric) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::RelativeTimeFormatOptions::Numeric;
-#else
-  USING_ENUM(mozilla::intl::RelativeTimeFormatOptions::Numeric, Always, Auto);
-#endif
-  switch (numeric) {
-    case RelativeTimeFormatOptions::Numeric::Always:
-      return Always;
-    case RelativeTimeFormatOptions::Numeric::Auto:
-      return Auto;
-  }
-  MOZ_CRASH("invalid relative time format numeric");
-}
-
 /**
  * Returns a new URelativeDateTimeFormatter with the locale and options of the
  * given RelativeTimeFormatObject.
@@ -426,8 +391,8 @@ static mozilla::intl::RelativeTimeFormat* NewRelativeTimeFormatter(
   }
 
   mozilla::intl::RelativeTimeFormatOptions options = {
-      .style = ToRelativeTimeFormatOptionsStyle(rtfOptions.style),
-      .numeric = ToRelativeTimeFormatOptionsNumeric(rtfOptions.numeric),
+      .style = rtfOptions.style,
+      .numeric = rtfOptions.numeric,
   };
 
   auto result =
