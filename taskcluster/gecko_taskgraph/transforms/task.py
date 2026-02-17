@@ -327,14 +327,13 @@ def get_head_ref(config) -> tuple[str, typing.Optional[str]]:
 
 
 def get_head_ref_index(config) -> str:
-    """
-    Build a URL-encoded index string for the head_ref with namespace prefix.
+    """Build a URL-encoded index string for the head_ref with namespace prefix.
 
     Args:
         config (TransformConfig): The configuration for the kind being transformed.
 
     Returns:
-        string: The URL-encoded index path (e.g., '.branch.main' or '.tag.v1.0')
+        str: The URL-encoded index path (e.g., '.branch.main' or '.tag.v1.0')
             with appropriate namespace prefix, or empty string if no head_ref.
     """
     head_ref, ref_type = get_head_ref(config)
@@ -354,7 +353,15 @@ def get_head_ref_index(config) -> str:
     return quote(index, safe="")
 
 
-def get_treeherder_link(config) -> str:
+def get_treeherder_project(config) -> str:
+    """Resolve and retrieve the Treeherder project name.
+
+    Args:
+        config (TransformConfig): The configuration for the kind being transformed.
+
+    Returns:
+        str: The Treeherder project identifier.
+    """
     th_branch_map = resolve_keyed_by(
         config.graph_config["treeherder"],
         "branch-map",
@@ -362,14 +369,17 @@ def get_treeherder_link(config) -> str:
         project=config.params["project"],
     ).get("branch-map", {})
 
-    branch_rev = get_branch_rev(config)
     head_ref, _ = get_head_ref(config)
     if head_ref and head_ref in th_branch_map:
-        th_repo = th_branch_map[head_ref]
-    else:
-        th_repo = get_project_alias(config)
+        return th_branch_map[head_ref]
 
-    return f"{TREEHERDER_ROOT_URL}/#/jobs?repo={th_repo}&revision={branch_rev}&selectedTaskRun=<self>"
+    return get_project_alias(config)
+
+
+def get_treeherder_link(config) -> str:
+    branch_rev = get_branch_rev(config)
+    th_project = get_treeherder_project(config)
+    return f"{TREEHERDER_ROOT_URL}/#/jobs?repo={th_project}&revision={branch_rev}&selectedTaskRun=<self>"
 
 
 @memoize
@@ -2364,7 +2374,7 @@ def build_task(config, tasks):
             branch_rev = get_branch_rev(config)
 
             routes.append(
-                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_project_alias(config)}.{branch_rev}"
+                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_treeherder_project(config)}.{branch_rev}"
             )
 
         if "deadline-after" not in task:
