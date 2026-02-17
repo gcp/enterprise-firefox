@@ -2752,6 +2752,16 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
     return false;
   }
 
+  nsCOMPtr<nsIPrincipal> resultPrincipal;
+  nsresult rv = sSecurityManager->GetChannelResultPrincipal(
+      aChannel, getter_AddRefs(resultPrincipal));
+  if (NS_SUCCEEDED(rv) && IsPDFJS(resultPrincipal)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIChannel*)"
+             " PDF.js document exempted"));
+    return false;
+  }
+
   if (ETPSaysShouldNotResistFingerprinting(aChannel, loadInfo)) {
     MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
             ("Inside ShouldResistFingerprinting(nsIChannel*)"
