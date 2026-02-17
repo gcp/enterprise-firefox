@@ -483,6 +483,7 @@ tasks:
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'tasks_for == "pr-action"':
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
+                                                - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'eventType == "cron"':
                                                 - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision-${cron.job_name}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"
