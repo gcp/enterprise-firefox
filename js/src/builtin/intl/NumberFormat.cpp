@@ -33,6 +33,7 @@
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/NumberFormatOptions.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/PluralRules.h"
 #include "builtin/intl/RelativeTimeFormat.h"

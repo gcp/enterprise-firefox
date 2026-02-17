@@ -14,7 +14,7 @@
 #include "builtin/Array.h"
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/LocaleNegotiation.h"
-#include "builtin/intl/NumberFormat.h"
+#include "builtin/intl/NumberFormatOptions.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
 #include "gc/GCContext.h"

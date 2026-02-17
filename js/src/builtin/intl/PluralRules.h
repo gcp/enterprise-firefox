@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "builtin/intl/NumberFormat.h"
+#include "builtin/intl/NumberFormatOptions.h"
 #include "builtin/intl/Packed.h"
 #include "js/Class.h"
 #include "js/TypeDecls.h"
