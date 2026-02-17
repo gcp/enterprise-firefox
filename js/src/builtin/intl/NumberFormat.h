@@ -61,6 +61,20 @@ struct NumberFormatDigitOptions {
 
   enum class TrailingZeroDisplay : int8_t { Auto, StripIfInteger };
   TrailingZeroDisplay trailingZeroDisplay = TrailingZeroDisplay::Auto;
+
+  static constexpr auto defaultOptions() {
+    return NumberFormatDigitOptions{
+        .roundingIncrement = 1,
+        .minimumIntegerDigits = 1,
+        .minimumFractionDigits = 0,
+        .maximumFractionDigits = 3,
+        .minimumSignificantDigits = 0,
+        .maximumSignificantDigits = 0,
+        .roundingMode = RoundingMode::HalfExpand,
+        .roundingPriority = RoundingPriority::Auto,
+        .trailingZeroDisplay = TrailingZeroDisplay::Auto,
+    };
+  }
 };
 
 struct NumberFormatUnitOptions {
@@ -78,11 +92,36 @@ struct NumberFormatUnitOptions {
 
   struct Currency {
     char code[3] = {};
+
+    constexpr bool operator==(const Currency&) const = default;
+
+    constexpr std::string_view to_string_view() const {
+      return {code, std::size(code)};
+    }
+
+    constexpr uint16_t toIndex() const {
+      // Prefer small hash values because they can be more likely encoded as
+      // literals in assembly code.
+      //
+      // Each character is in A..Z, so there are 26 possible values, which can
+      // be represented in five bits. That means 15 bits are needed in total to
+      // hash a currency, which fits in int16 and therefore can be encoded
+      // directly for x86 and arm64 assembly.
+      return ((code[0] - 'A') << 10) | ((code[1] - 'A') << 5) |
+             ((code[2] - 'A') << 0);
+    }
   };
   Currency currency{};
 
   struct Unit {
-    char name[40] = {};
+    static constexpr uint8_t InvalidUnit = 0xff;
+
+    uint8_t numerator = InvalidUnit;
+    uint8_t denominator = InvalidUnit;
+
+    bool hasNumerator() const { return numerator != InvalidUnit; }
+    bool hasDenominator() const { return denominator != InvalidUnit; }
+
   };
   Unit unit{};
 };

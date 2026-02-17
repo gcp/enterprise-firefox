@@ -157,30 +157,35 @@ static constexpr bool IsWellFormedNormalizedCurrencyCode(
  */
 static constexpr bool IsWellFormedNormalizedCurrencyCode(
     const NumberFormatUnitOptions::Currency& currency) {
-  return IsWellFormedNormalizedCurrencyCode(
-      std::string_view{currency.code, std::size(currency.code)});
+  return IsWellFormedNormalizedCurrencyCode(currency.to_string_view());
 }
 #endif
 
 /**
  * Hash a well-formed currency in normalized case.
  */
-static constexpr int32_t CurrencyHash(std::string_view currency) {
+static constexpr int32_t CurrencyHash(
+    const NumberFormatUnitOptions::Currency& currency) {
   MOZ_ASSERT(IsWellFormedNormalizedCurrencyCode(currency));
 
-  // Prefer small hash values because they can be more likely encoded as
-  // literals in assembly code.
-  //
-  // Each character is in A..Z, so there are 26 possible values, which can be
-  // represented in five bits. That means 15 bits are needed in total to hash a
-  // currency, which fits in int16 and therefore can be encoded directly for
-  // x86 and arm64 assembly.
-  return ((currency[0] - 'A') << 10) | ((currency[1] - 'A') << 5) |
-         ((currency[2] - 'A') << 0);
+  return currency.toIndex();
 }
 
-constexpr auto operator""_curr(const char* code, size_t n) {
-  return CurrencyHash({code, n});
+struct CurrencyLiteral {
+  NumberFormatUnitOptions::Currency currency;
+
+  static constexpr size_t CurrencyLength =
+      std::extent_v<decltype(currency.code)>;
+
+  constexpr MOZ_IMPLICIT CurrencyLiteral(
+      const char (&code)[CurrencyLength + 1]) {
+    std::copy_n(code, CurrencyLength, currency.code);
+  }
+};
+
+template <CurrencyLiteral C>
+constexpr auto operator""_curr() {
+  return CurrencyHash(C.currency);
 }
 
 /**
@@ -194,7 +199,7 @@ static int32_t CurrencyDigits(
   MOZ_ASSERT(IsWellFormedNormalizedCurrencyCode(currency));
 
   // Step 2.
-  switch (CurrencyHash(currency.code)) {
+  switch (CurrencyHash(currency)) {
 #define CURRENCY(currency, digits) \
   case #currency##_curr:           \
     return digits;
@@ -280,12 +285,20 @@ static constexpr size_t MaxUnitLength() {
  *
  * Also see: https://unicode.org/reports/tr35/tr35-general.html#Unit_Elements
  */
-static bool IsSanctionedSingleUnitIdentifier(std::string_view unitIdentifier) {
-  return std::ranges::binary_search(
-      std::begin(mozilla::intl::simpleMeasureUnits),
-      std::end(mozilla::intl::simpleMeasureUnits), unitIdentifier,
-      [](const auto& a, const auto& b) { return a < b; },
-      [](const auto& unit) { return std::string_view{unit.name}; });
+static mozilla::Maybe<uint8_t> IsSanctionedSingleUnitIdentifier(
+    std::string_view unitIdentifier) {
+  auto comp = [](const auto& a, const auto& b) { return a < b; };
+  auto proj = [](const auto& unit) { return std::string_view{unit.name}; };
+
+  const auto* first = std::begin(mozilla::intl::simpleMeasureUnits);
+  const auto* last = std::end(mozilla::intl::simpleMeasureUnits);
+
+  const auto* it =
+      std::ranges::lower_bound(first, last, unitIdentifier, comp, proj);
+  if (it == last || (unitIdentifier != it->name)) {
+    return mozilla::Nothing();
+  }
+  return mozilla::Some(uint8_t(std::distance(first, it)));
 }
 
 /**
@@ -297,10 +310,13 @@ static bool IsSanctionedSingleUnitIdentifier(std::string_view unitIdentifier) {
  * sanctioned by UTS #35 or be a compound unit composed of two sanctioned simple
  * units.
  */
-static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
+static mozilla::Maybe<NumberFormatUnitOptions::Unit> IsWellFormedUnitIdentifier(
+    std::string_view unitIdentifier) {
   // Step 1.
-  if (IsSanctionedSingleUnitIdentifier(unitIdentifier)) {
-    return true;
+  if (auto numerator = IsSanctionedSingleUnitIdentifier(unitIdentifier)) {
+    return mozilla::Some(NumberFormatUnitOptions::Unit{
+        .numerator = *numerator,
+    });
   }
 
   // Step 2.
@@ -309,7 +325,7 @@ static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
 
   // Step 3.
   if (pos == std::string_view::npos) {
-    return false;
+    return mozilla::Nothing();
   }
 
   // Step 4.
@@ -318,23 +334,32 @@ static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
   // so we can skip searching for the second "-per-" substring.
 
   // Step 5.
-  auto numerator = unitIdentifier.substr(0, pos);
+  auto numerator =
+      IsSanctionedSingleUnitIdentifier(unitIdentifier.substr(0, pos));
 
   // Step 6.
-  auto denominator = unitIdentifier.substr(pos + separator.length());
+  auto denominator = IsSanctionedSingleUnitIdentifier(
+      unitIdentifier.substr(pos + separator.length()));
 
-  // Steps 7-8.
-  return IsSanctionedSingleUnitIdentifier(numerator) &&
-         IsSanctionedSingleUnitIdentifier(denominator);
+  // Step 7.
+  if (numerator && denominator) {
+    return mozilla::Some(NumberFormatUnitOptions::Unit{
+        .numerator = *numerator,
+        .denominator = *denominator,
+    });
+  }
+
+  // Step 8.
+  return mozilla::Nothing();
 }
 
 /**
  * Return true if |unitIdentifier| is an available unit identifier.
  */
-static bool IsAvailableUnitIdentifier(JSContext* cx,
-                                      std::string_view unitIdentifier,
-                                      bool* result) {
-  MOZ_ASSERT(IsWellFormedUnitIdentifier(unitIdentifier));
+static bool IsAvailableUnitIdentifier(
+    JSContext* cx, const NumberFormatUnitOptions::Unit& unitIdentifier,
+    bool* result) {
+  MOZ_ASSERT(unitIdentifier.hasNumerator());
 
 #if DEBUG || MOZ_SYSTEM_ICU
   auto units = mozilla::intl::MeasureUnit::GetAvailable();
@@ -343,20 +368,17 @@ static bool IsAvailableUnitIdentifier(JSContext* cx,
     return false;
   }
 
-  constexpr std::string_view separator = "-per-";
+  std::string_view numerator =
+      mozilla::intl::simpleMeasureUnits[unitIdentifier.numerator].name;
 
-  auto numerator = unitIdentifier;
-  auto denominator = unitIdentifier;
-
-  // Compound units are separated by "-per-".
-  auto pos = unitIdentifier.find(separator);
-  if (pos != std::string_view::npos) {
-    numerator = unitIdentifier.substr(0, pos);
-    denominator = unitIdentifier.substr(pos + separator.length());
+  std::string_view denominator{};
+  if (unitIdentifier.hasDenominator()) {
+    denominator =
+        mozilla::intl::simpleMeasureUnits[unitIdentifier.denominator].name;
   }
 
   bool foundNumerator = false;
-  bool foundDenominator = false;
+  bool foundDenominator = !unitIdentifier.hasDenominator();
   for (auto unit : units.unwrap()) {
     if (unit.isErr()) {
       ReportInternalError(cx);
@@ -368,7 +390,7 @@ static bool IsAvailableUnitIdentifier(JSContext* cx,
     if (numerator == unitView) {
       foundNumerator = true;
     }
-    if (denominator == unitView) {
+    if (unitIdentifier.hasDenominator() && denominator == unitView) {
       foundDenominator = true;
     }
 
@@ -411,9 +433,6 @@ static bool ToWellFormedUnitIdentifier(JSContext* cx,
                                        NumberFormatUnitOptions::Unit* result) {
   static constexpr size_t UnitLength = MaxUnitLength();
 
-  static_assert(std::extent_v<decltype(result->name)> > UnitLength,
-                "large enough to hold the largest unit and a NUL terminator");
-
   if (unitIdentifier->length() <= UnitLength) {
     auto* linear = unitIdentifier->ensureLinear(cx);
     if (!linear) {
@@ -425,18 +444,15 @@ static bool ToWellFormedUnitIdentifier(JSContext* cx,
       char chars[UnitLength] = {};
       CopyChars(reinterpret_cast<JS::Latin1Char*>(chars), *linear);
 
-      // String view over the unit identifier characters.
-      std::string_view unit{chars, unitIdentifier->length()};
-
       // If the unit is well-formed and available, copy it to the result.
-      if (IsWellFormedUnitIdentifier(unit)) {
+      auto unit = IsWellFormedUnitIdentifier({chars, unitIdentifier->length()});
+      if (unit) {
         bool isAvailable;
-        if (!IsAvailableUnitIdentifier(cx, unit, &isAvailable)) {
+        if (!IsAvailableUnitIdentifier(cx, *unit, &isAvailable)) {
           return false;
         }
         if (isAvailable) {
-          unit.copy(result->name, std::size(result->name));
-          result->name[unit.length()] = '\0';
+          *result = *unit;
           return true;
         }
       }
@@ -1331,21 +1347,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     }
   } else {
     static constexpr NumberFormatOptions defaultOptions = {
-        .digitOptions =
-            {
-                .roundingIncrement = 1,
-                .minimumIntegerDigits = 1,
-                .minimumFractionDigits = 0,
-                .maximumFractionDigits = 3,
-                .minimumSignificantDigits = 0,
-                .maximumSignificantDigits = 0,
-                .roundingMode =
-                    NumberFormatDigitOptions::RoundingMode::HalfExpand,
-                .roundingPriority =
-                    NumberFormatDigitOptions::RoundingPriority::Auto,
-                .trailingZeroDisplay =
-                    NumberFormatDigitOptions::TrailingZeroDisplay::Auto,
-            },
+        .digitOptions = NumberFormatDigitOptions::defaultOptions(),
         .unitOptions =
             {
                 .style = NumberFormatUnitOptions::Style::Decimal,
@@ -1713,6 +1715,35 @@ struct MozNumberFormatOptions : public mozilla::intl::NumberRangeFormatOptions {
   char unitChars[MaxUnitLength() + 1] = {};
 };
 
+template <size_t N>
+static std::string_view UnitName(const NumberFormatUnitOptions::Unit& unit,
+                                 char (&result)[N]) {
+  static_assert(N >= MaxUnitLength());
+
+  static constexpr size_t SimpleMeasureUnitsLength =
+      std::size(mozilla::intl::simpleMeasureUnits);
+
+  MOZ_RELEASE_ASSERT(unit.hasNumerator() &&
+                     unit.numerator < SimpleMeasureUnitsLength);
+  MOZ_RELEASE_ASSERT(!unit.hasDenominator() ||
+                     unit.denominator < SimpleMeasureUnitsLength);
+
+  size_t length = 0;
+
+  auto appendToUnit = [&](std::string_view sv) {
+    sv.copy(result + length, sv.length());
+    length += sv.length();
+  };
+
+  appendToUnit(mozilla::intl::simpleMeasureUnits[unit.numerator].name);
+  if (unit.hasDenominator()) {
+    appendToUnit("-per-");
+    appendToUnit(mozilla::intl::simpleMeasureUnits[unit.denominator].name);
+  }
+
+  return {result, length};
+}
+
 static void SetNumberFormatUnitOptions(
     const NumberFormatUnitOptions& unitOptions,
     MozNumberFormatOptions& options) {
@@ -1734,8 +1765,8 @@ static void SetNumberFormatUnitOptions(
       static_assert(std::extent_v<decltype(options.currencyChars)> ==
                     CurrencyLength);
 
-      std::copy_n(unitOptions.currency.code, CurrencyLength,
-                  options.currencyChars);
+      unitOptions.currency.to_string_view().copy(options.currencyChars,
+                                                 CurrencyLength);
 
       auto display = ToCurrencyDisplay(unitOptions.currencyDisplay);
 
@@ -1745,21 +1776,10 @@ static void SetNumberFormatUnitOptions(
     }
 
     case NumberFormatUnitOptions::Style::Unit: {
-      static constexpr size_t UnitLength = MaxUnitLength();
-
-      static_assert(
-          std::extent_v<decltype(unitOptions.unit.name)> > UnitLength,
-          "large enough to hold the largest unit and a NUL terminator");
-      static_assert(
-          std::extent_v<decltype(options.unitChars)> > UnitLength,
-          "large enough to hold the largest unit and a NUL terminator");
-
-      std::copy_n(unitOptions.unit.name, UnitLength, options.unitChars);
-
+      auto name = UnitName(unitOptions.unit, options.unitChars);
       auto display = ToUnitDisplay(unitOptions.unitDisplay);
 
-      options.mUnit = mozilla::Some(
-          std::make_pair(std::string_view(options.unitChars), display));
+      options.mUnit = mozilla::Some(std::make_pair(name, display));
       return;
     }
   }
@@ -3022,8 +3042,8 @@ static bool numberFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
       // currency, currencyDisplay, and currencySign are only present for
       // currency formatters.
 
-      const auto& code = nfOptions.unitOptions.currency.code;
-      auto* currency = NewStringCopyN<CanGC>(cx, code, std::size(code));
+      auto code = nfOptions.unitOptions.currency.to_string_view();
+      auto* currency = NewStringCopy<CanGC>(cx, code);
       if (!currency) {
         return false;
       }
@@ -3057,9 +3077,10 @@ static bool numberFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
 
     case Unit: {
       // unit and unitDisplay are only present for unit formatters.
+      char unitChars[MaxUnitLength()] = {};
 
-      auto name = std::string_view{nfOptions.unitOptions.unit.name};
-      auto* unit = NewStringCopy<CanGC>(cx, name);
+      auto* unit = NewStringCopy<CanGC>(
+          cx, UnitName(nfOptions.unitOptions.unit, unitChars));
       if (!unit) {
         return false;
       }

@@ -270,22 +270,9 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
     }
   } else {
     static constexpr PluralRulesOptions defaultOptions = {
-        .digitOptions =
-            {
-                .roundingIncrement = 1,
-                .minimumIntegerDigits = 1,
-                .minimumFractionDigits = 0,
-                .maximumFractionDigits = 3,
-                .minimumSignificantDigits = 0,
-                .maximumSignificantDigits = 0,
-                .roundingMode =
-                    NumberFormatDigitOptions::RoundingMode::HalfExpand,
-                .roundingPriority =
-                    NumberFormatDigitOptions::RoundingPriority::Auto,
-                .trailingZeroDisplay =
-                    NumberFormatDigitOptions::TrailingZeroDisplay::Auto,
-            },
-        .notation = NumberFormatOptions::Notation::Standard,
+        .digitOptions = NumberFormatDigitOptions::defaultOptions(),
+        .type = PluralRulesOptions::Type::Cardinal,
+        .notation = PluralRulesOptions::Notation::Standard,
     };
 
     // Initialize using the default plural rules options.
