@@ -117,7 +117,6 @@ config = {
                 "--quiet",
                 "--log-errorsummary=%(error_summary_file)s",
                 "--screenshot-on-fail",
-                "--chunk-by-runtime",
                 "--subsuite=media",
                 "--deviceSerial=%(device_serial)s",
             ],
