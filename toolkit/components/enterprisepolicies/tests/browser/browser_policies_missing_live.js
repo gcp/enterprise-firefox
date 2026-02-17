@@ -36,6 +36,7 @@ add_task(async function check_all_policies_are_live() {
     "DisablePasswordReveal",
     "DisableProfileImport",
     "DisableProfileRefresh",
+    "DisableRemoteImprovements",
     "DisableSafeMode",
     "DisableSecurityBypass",
     "DisableSetDesktopBackground",
