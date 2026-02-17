@@ -352,12 +352,10 @@ static bool CreateDateTimeFormat(
   }
   dateTimeFormat->setRequestedLocales(requestedLocalesArray);
 
-  auto dtfOptions = cx->make_unique<DateTimeFormatOptions>();
-  if (!dtfOptions) {
-    return false;
-  }
-  dtfOptions->required = required;
-  dtfOptions->defaults = defaults;
+  auto dtfOptions = DateTimeFormatOptions{
+      .required = required,
+      .defaults = defaults,
+  };
 
   if (!optionsValue.isUndefined()) {
     // ResolveOptions, steps 2-3.
@@ -398,7 +396,7 @@ static bool CreateDateTimeFormat(
     }
 
     if (!GetBooleanOption(cx, options, cx->names().hour12,
-                          &dtfOptions->hour12)) {
+                          &dtfOptions.hour12)) {
       return false;
     }
 
@@ -408,14 +406,14 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::HourCycle::H23,
                                       DateTimeFormatOptions::HourCycle::H24);
     if (!GetStringOption(cx, options, cx->names().hourCycle, hourCycles,
-                         &dtfOptions->hourCycle)) {
+                         &dtfOptions.hourCycle)) {
       return false;
     }
 
     // ResolveOptions, step 7.
-    if (dtfOptions->hour12.isSome()) {
+    if (dtfOptions.hour12.isSome()) {
       // The "hourCycle" option is ignored if "hour12" is also present.
-      dtfOptions->hourCycle = mozilla::Nothing();
+      dtfOptions.hourCycle = mozilla::Nothing();
     }
 
     // ResolveOptions, step 8. (Performed in ResolveLocale)
@@ -497,15 +495,14 @@ static bool CreateDateTimeFormat(
                                     DateTimeFormatOptions::Weekday::Short,
                                     DateTimeFormatOptions::Weekday::Long);
     if (!GetStringOption(cx, options, cx->names().weekday, weekdays,
-                         &dtfOptions->weekday)) {
+                         &dtfOptions.weekday)) {
       return false;
     }
 
     static constexpr auto eras = MapOptions<EraToString>(
         DateTimeFormatOptions::Era::Narrow, DateTimeFormatOptions::Era::Short,
         DateTimeFormatOptions::Era::Long);
-    if (!GetStringOption(cx, options, cx->names().era, eras,
-                         &dtfOptions->era)) {
+    if (!GetStringOption(cx, options, cx->names().era, eras, &dtfOptions.era)) {
       return false;
     }
 
@@ -513,7 +510,7 @@ static bool CreateDateTimeFormat(
         MapOptions<YearToString>(DateTimeFormatOptions::Year::TwoDigit,
                                  DateTimeFormatOptions::Year::Numeric);
     if (!GetStringOption(cx, options, cx->names().year, years,
-                         &dtfOptions->year)) {
+                         &dtfOptions.year)) {
       return false;
     }
 
@@ -524,15 +521,14 @@ static bool CreateDateTimeFormat(
                                   DateTimeFormatOptions::Month::Short,
                                   DateTimeFormatOptions::Month::Long);
     if (!GetStringOption(cx, options, cx->names().month, months,
-                         &dtfOptions->month)) {
+                         &dtfOptions.month)) {
       return false;
     }
 
     static constexpr auto days =
         MapOptions<DayToString>(DateTimeFormatOptions::Day::TwoDigit,
                                 DateTimeFormatOptions::Day::Numeric);
-    if (!GetStringOption(cx, options, cx->names().day, days,
-                         &dtfOptions->day)) {
+    if (!GetStringOption(cx, options, cx->names().day, days, &dtfOptions.day)) {
       return false;
     }
 
@@ -541,7 +537,7 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::DayPeriod::Short,
                                       DateTimeFormatOptions::DayPeriod::Long);
     if (!GetStringOption(cx, options, cx->names().dayPeriod, dayPeriods,
-                         &dtfOptions->dayPeriod)) {
+                         &dtfOptions.dayPeriod)) {
       return false;
     }
 
@@ -549,7 +545,7 @@ static bool CreateDateTimeFormat(
         MapOptions<HourToString>(DateTimeFormatOptions::Hour::TwoDigit,
                                  DateTimeFormatOptions::Hour::Numeric);
     if (!GetStringOption(cx, options, cx->names().hour, hours,
-                         &dtfOptions->hour)) {
+                         &dtfOptions.hour)) {
       return false;
     }
 
@@ -557,7 +553,7 @@ static bool CreateDateTimeFormat(
         MapOptions<MinuteToString>(DateTimeFormatOptions::Minute::TwoDigit,
                                    DateTimeFormatOptions::Minute::Numeric);
     if (!GetStringOption(cx, options, cx->names().minute, minutes,
-                         &dtfOptions->minute)) {
+                         &dtfOptions.minute)) {
       return false;
     }
 
@@ -565,7 +561,7 @@ static bool CreateDateTimeFormat(
         MapOptions<SecondToString>(DateTimeFormatOptions::Second::TwoDigit,
                                    DateTimeFormatOptions::Second::Numeric);
     if (!GetStringOption(cx, options, cx->names().second, seconds,
-                         &dtfOptions->second)) {
+                         &dtfOptions.second)) {
       return false;
     }
 
@@ -574,7 +570,7 @@ static bool CreateDateTimeFormat(
                          &fractionalSecondDigits)) {
       return false;
     }
-    dtfOptions->fractionalSecondDigits = fractionalSecondDigits;
+    dtfOptions.fractionalSecondDigits = fractionalSecondDigits;
 
     static constexpr auto timeZoneNames = MapOptions<TimeZoneNameToString>(
         DateTimeFormatOptions::TimeZoneName::Short,
@@ -584,7 +580,7 @@ static bool CreateDateTimeFormat(
         DateTimeFormatOptions::TimeZoneName::ShortGeneric,
         DateTimeFormatOptions::TimeZoneName::LongGeneric);
     if (!GetStringOption(cx, options, cx->names().timeZoneName, timeZoneNames,
-                         &dtfOptions->timeZoneName)) {
+                         &dtfOptions.timeZoneName)) {
       return false;
     }
 
@@ -609,7 +605,7 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::DateStyle::Medium,
                                       DateTimeFormatOptions::DateStyle::Short);
     if (!GetStringOption(cx, options, cx->names().dateStyle, dateStyles,
-                         &dtfOptions->dateStyle)) {
+                         &dtfOptions.dateStyle)) {
       return false;
     }
 
@@ -620,45 +616,45 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::TimeStyle::Medium,
                                       DateTimeFormatOptions::TimeStyle::Short);
     if (!GetStringOption(cx, options, cx->names().timeStyle, timeStyles,
-                         &dtfOptions->timeStyle)) {
+                         &dtfOptions.timeStyle)) {
       return false;
     }
 
     // Step 30.
-    if (dtfOptions->dateStyle.isSome() || dtfOptions->timeStyle.isSome()) {
+    if (dtfOptions.dateStyle.isSome() || dtfOptions.timeStyle.isSome()) {
       // Step 23.
       const char* explicitFormatComponent = ([&]() -> const char* {
-        if (dtfOptions->weekday.isSome()) {
+        if (dtfOptions.weekday.isSome()) {
           return "weekday";
         }
-        if (dtfOptions->era.isSome()) {
+        if (dtfOptions.era.isSome()) {
           return "era";
         }
-        if (dtfOptions->year.isSome()) {
+        if (dtfOptions.year.isSome()) {
           return "year";
         }
-        if (dtfOptions->month.isSome()) {
+        if (dtfOptions.month.isSome()) {
           return "month";
         }
-        if (dtfOptions->day.isSome()) {
+        if (dtfOptions.day.isSome()) {
           return "day";
         }
-        if (dtfOptions->dayPeriod.isSome()) {
+        if (dtfOptions.dayPeriod.isSome()) {
           return "dayPeriod";
         }
-        if (dtfOptions->hour.isSome()) {
+        if (dtfOptions.hour.isSome()) {
           return "hour";
         }
-        if (dtfOptions->minute.isSome()) {
+        if (dtfOptions.minute.isSome()) {
           return "minute";
         }
-        if (dtfOptions->second.isSome()) {
+        if (dtfOptions.second.isSome()) {
           return "second";
         }
-        if (dtfOptions->fractionalSecondDigits.isSome()) {
+        if (dtfOptions.fractionalSecondDigits.isSome()) {
           return "fractionalSecondDigits";
         }
-        if (dtfOptions->timeZoneName.isSome()) {
+        if (dtfOptions.timeZoneName.isSome()) {
           return "timeZoneName";
         }
         return nullptr;
@@ -669,13 +665,13 @@ static bool CreateDateTimeFormat(
         JS_ReportErrorNumberASCII(
             cx, GetErrorMessage, nullptr, JSMSG_INVALID_DATETIME_OPTION,
             explicitFormatComponent,
-            dtfOptions->dateStyle.isSome() ? "dateStyle" : "timeStyle");
+            dtfOptions.dateStyle.isSome() ? "dateStyle" : "timeStyle");
         return false;
       }
 
       // Step 30.b.
       if (required == DateTimeFormatOptions::Required::Date &&
-          dtfOptions->timeStyle.isSome()) {
+          dtfOptions.timeStyle.isSome()) {
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_INVALID_DATETIME_STYLE, "timeStyle",
                                   "date");
@@ -684,7 +680,7 @@ static bool CreateDateTimeFormat(
 
       // Step 30.c.
       if (required == DateTimeFormatOptions::Required::Time &&
-          dtfOptions->dateStyle.isSome()) {
+          dtfOptions.dateStyle.isSome()) {
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_INVALID_DATETIME_STYLE, "dateStyle",
                                   "time");
@@ -710,9 +706,7 @@ static bool CreateDateTimeFormat(
     // Step 20.
     dateTimeFormat->setTimeZone(timeZone);
   }
-  dateTimeFormat->setOptions(dtfOptions.release());
-  AddCellMemory(dateTimeFormat, sizeof(DateTimeFormatOptions),
-                MemoryUse::IntlOptions);
+  dateTimeFormat->setOptions(dtfOptions);
 
   // Step 34.
   return true;
@@ -877,10 +871,6 @@ void js::intl::DateTimeFormatObject::finalize(JS::GCContext* gcx,
   auto* df = dateTimeFormat->getDateFormat();
   auto* dif = dateTimeFormat->getDateIntervalFormat();
 
-  if (auto* options = dateTimeFormat->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
-
   if (df) {
     RemoveICUCellMemory(gcx, obj,
                         DateTimeFormatObject::UDateFormatEstimatedMemoryUse);
@@ -941,7 +931,7 @@ static bool ResolveLocale(JSContext* cx,
   if (dateTimeFormat->isLocaleResolved()) {
     return true;
   }
-  auto* dtfOptions = dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   Rooted<ArrayObject*> requestedLocales(
       cx, &dateTimeFormat->getRequestedLocales()->as<ArrayObject>());
@@ -958,12 +948,12 @@ static bool ResolveLocale(JSContext* cx,
   if (auto* ca = dateTimeFormat->getCalendar()) {
     localeOptions.setUnicodeExtension(UnicodeExtensionKey::Calendar, ca);
   }
-  if (dtfOptions->hour12.isSome()) {
+  if (dtfOptions.hour12.isSome()) {
     // Explicitly opt-out of hourCycle if the hour12 option is present, because
     // the latter takes precedence over hourCycle.
     localeOptions.setUnicodeExtension(UnicodeExtensionKey::HourCycle, nullptr);
   } else {
-    if (auto hourCycle = dtfOptions->hourCycle) {
+    if (auto hourCycle = dtfOptions.hourCycle) {
 #ifndef USING_ENUM
       using enum DateTimeFormatOptions::HourCycle;
 #else
@@ -1037,7 +1027,7 @@ static bool ResolveLocale(JSContext* cx,
 
   auto hc = resolved.extension(UnicodeExtensionKey::HourCycle);
   if (hc) {
-    MOZ_ASSERT(dtfOptions->hour12.isNothing());
+    MOZ_ASSERT(dtfOptions.hour12.isNothing());
 
 #ifndef USING_ENUM
     using enum DateTimeFormatOptions::HourCycle;
@@ -1045,14 +1035,14 @@ static bool ResolveLocale(JSContext* cx,
     USING_ENUM(DateTimeFormatOptions::HourCycle, H11, H12, H23, H24);
 #endif
     if (StringEqualsLiteral(hc, "h11")) {
-      dtfOptions->hourCycle = mozilla::Some(H11);
+      dtfOptions.hourCycle = mozilla::Some(H11);
     } else if (StringEqualsLiteral(hc, "h12")) {
-      dtfOptions->hourCycle = mozilla::Some(H12);
+      dtfOptions.hourCycle = mozilla::Some(H12);
     } else if (StringEqualsLiteral(hc, "h23")) {
-      dtfOptions->hourCycle = mozilla::Some(H23);
+      dtfOptions.hourCycle = mozilla::Some(H23);
     } else {
       MOZ_ASSERT(StringEqualsLiteral(hc, "h24"));
-      dtfOptions->hourCycle = mozilla::Some(H24);
+      dtfOptions.hourCycle = mozilla::Some(H24);
     }
   }
 
@@ -1065,6 +1055,9 @@ static bool ResolveLocale(JSContext* cx,
     return false;
   }
   dateTimeFormat->setLocale(locale);
+
+  // Set the resolved options.
+  dateTimeFormat->setOptions(dtfOptions);
 
   MOZ_ASSERT(dateTimeFormat->isLocaleResolved(),
              "locale successfully resolved");
@@ -1803,7 +1796,7 @@ static mozilla::intl::DateTimeFormat* NewDateTimeFormat(
   if (!ResolveLocale(cx, dateTimeFormat)) {
     return nullptr;
   }
-  auto dtfOptions = *dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   auto locale = DateTimeFormatLocale(cx, dateTimeFormat);
   if (!locale) {
@@ -3290,7 +3283,7 @@ static bool dateTimeFormat_resolvedOptions(JSContext* cx,
   if (!ResolveLocale(cx, dateTimeFormat)) {
     return false;
   }
-  auto dtfOptions = *dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);
