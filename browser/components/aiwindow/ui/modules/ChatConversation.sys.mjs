@@ -41,6 +41,7 @@ export class ChatConversation {
   updatedDate;
   status;
   #messages;
+  #minNextOrdinal = 0;
   activeBranchTipMessageId;
 
   /**
@@ -143,7 +144,11 @@ export class ChatConversation {
 
     const convId = this.id;
     const currentMessages = this?.messages || [];
-    const ordinal = currentMessages.length ? currentMessages.length + 1 : 1;
+    const maxOrdinal = Math.max(
+      this.#minNextOrdinal,
+      ...currentMessages.map(m => m.ordinal ?? 0)
+    );
+    const ordinal = maxOrdinal + 1;
 
     const messageData = {
       parentMessageId,
@@ -280,9 +285,14 @@ export class ChatConversation {
   }
 
   /**
-   * Retries a specified user message. Will remove the original message
-   * being retried as well as all messages that come after the message
-   * being retried.
+   * Removes the given user message and all messages after it from the
+   * in-memory conversation, filtering out ephemeral system messages and
+   * preserving the highest ordinal so future messages never reuse one.
+   * The caller is responsible for deleting the returned messages from
+   * the database and re-generating the response.
+   *
+   * TODO: Bug 2016249 - Rename to something like truncateFromMessage() and
+   * consider moving the chatStore.deleteMessages() call into this method.
    *
    * @param {ChatMessage} message
    *
@@ -293,6 +303,23 @@ export class ChatConversation {
       throw new Error("Not a user message");
     }
 
+    // Capture ephemeral system messages before removal so we can return them.
+    const ephemeralMessages = this.#messages.filter(
+      m =>
+        m.role === MESSAGE_ROLE.SYSTEM &&
+        (m.content?.type === SYSTEM_PROMPT_TYPE.REAL_TIME ||
+          m.content?.type === SYSTEM_PROMPT_TYPE.MEMORIES)
+    );
+
+    // Remove ephemeral system messages (they'll be re-added by generatePrompt).
+    this.removeSystemTimeMemoriesMessages();
+
+    // Preserve the highest ordinal so addMessage() never reuses one.
+    this.#minNextOrdinal = Math.max(
+      this.#minNextOrdinal,
+      ...this.#messages.map(m => m.ordinal ?? 0)
+    );
+
     const retryMessageIndex = this.#messages.findIndex(
       chatMessage => message.id === chatMessage.id
     );
@@ -301,7 +328,8 @@ export class ChatConversation {
       throw new Error("Unrelated message");
     }
 
-    return this.#messages.splice(retryMessageIndex);
+    const toDeleteMessages = this.#messages.splice(retryMessageIndex);
+    return [...ephemeralMessages, ...toDeleteMessages];
   }
 
   /**

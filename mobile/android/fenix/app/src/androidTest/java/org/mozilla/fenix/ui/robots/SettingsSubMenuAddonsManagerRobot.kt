@@ -148,9 +148,8 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
     }
 
     fun verifyAddonInstallCompletedPrompt(addonName: String, activityTestRule: HomeActivityIntentTestRule) {
-        // Assigns a more descriptive name to the addon if it is "Bitwarden", otherwise keeps the original name
+        // Assigns a more descriptive name to the addon if it is "Bitwarden" or "Tomato Clock", otherwise keeps the original name
         // The name of this extenssion is being displayed differently across the app
-
         val addonDisplayName = when (addonName) {
             "Bitwarden" -> "Bitwarden Password Manager"
             "Tomato Clock" -> "Tomato Clock - A Simple Pomodoro Timer"
@@ -175,20 +174,24 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
     }
 
     fun verifyAddonIsInstalled(addonName: String) {
-        // Assigns a more descriptive name to the addon if it is "Bitwarden", otherwise keeps the original name
+        // Assigns a more descriptive name to the addon if it is "Bitwarden" or "Tomato Clock", otherwise keeps the original name
         // The name of this extenssion is being displayed differently across the app
-        var addonName = if (addonName == "Bitwarden") "Bitwarden Password Manager" else addonName
+        val addonDisplayName = when (addonName) {
+            "Bitwarden" -> "Bitwarden Password Manager"
+            "Tomato Clock" -> "Tomato Clock - A Simple Pomodoro Timer"
+            else -> addonName
+        }
 
-        scrollToAddon(addonName)
-        Log.i(TAG, "verifyAddonIsInstalled: Trying to verify that the $addonName add-on was installed")
+        scrollToAddon(addonDisplayName)
+        Log.i(TAG, "verifyAddonIsInstalled: Trying to verify that the $addonDisplayName add-on was installed")
         onView(
             allOf(
                 withId(R.id.add_button),
                 isDescendantOfA(withId(addonsR.id.add_on_item)),
-                hasSibling(hasDescendant(withText(addonName))),
+                hasSibling(hasDescendant(withText(addonDisplayName))),
             ),
         ).check(matches(withEffectiveVisibility(Visibility.INVISIBLE)))
-        Log.i(TAG, "verifyAddonIsInstalled: Verified that the $addonName add-on was installed")
+        Log.i(TAG, "verifyAddonIsInstalled: Verified that the $addonDisplayName add-on was installed")
     }
 
     fun verifyEnabledTitleDisplayed() {
@@ -434,17 +437,21 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
             addonName: String,
             interact: SettingsSubMenuAddonsManagerAddonDetailedMenuRobot.() -> Unit,
         ): SettingsSubMenuAddonsManagerAddonDetailedMenuRobot.Transition {
-            // Assigns a more descriptive name to the addon if it is "Bitwarden", otherwise keeps the original name
+            // Assigns a more descriptive name to the addon if it is "Bitwarden" or "Tomato Clock", otherwise keeps the original name
             // The name of this extenssion is being displayed differently across the app
-            var addonName = if (addonName == "Bitwarden") "Bitwarden Password Manager" else addonName
+            val addonDisplayName = when (addonName) {
+                "Bitwarden" -> "Bitwarden Password Manager"
+                "Tomato Clock" -> "Tomato Clock - A Simple Pomodoro Timer"
+                else -> addonName
+            }
 
-            scrollToAddon(addonName)
-            Log.i(TAG, "openDetailedMenuForAddon: Trying to verify that the $addonName add-on is visible")
-            addonItem(addonName).check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-            Log.i(TAG, "openDetailedMenuForAddon: Verified that the $addonName add-on is visible")
-            Log.i(TAG, "openDetailedMenuForAddon: Trying to click the $addonName add-on")
-            addonItem(addonName).perform(click())
-            Log.i(TAG, "openDetailedMenuForAddon: Clicked the $addonName add-on")
+            scrollToAddon(addonDisplayName)
+            Log.i(TAG, "openDetailedMenuForAddon: Trying to verify that the $addonDisplayName add-on is visible")
+            addonItem(addonDisplayName).check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
+            Log.i(TAG, "openDetailedMenuForAddon: Verified that the $addonDisplayName add-on is visible")
+            Log.i(TAG, "openDetailedMenuForAddon: Trying to click the $addonDisplayName add-on")
+            addonItem(addonDisplayName).perform(click())
+            Log.i(TAG, "openDetailedMenuForAddon: Clicked the $addonDisplayName add-on")
 
             SettingsSubMenuAddonsManagerAddonDetailedMenuRobot().interact()
             return SettingsSubMenuAddonsManagerAddonDetailedMenuRobot.Transition(composeTestRule)

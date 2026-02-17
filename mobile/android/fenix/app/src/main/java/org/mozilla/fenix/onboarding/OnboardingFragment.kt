@@ -35,6 +35,8 @@ import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
+import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
 import org.mozilla.fenix.components.initializeGlean
 import org.mozilla.fenix.components.metrics.installSourcePackage
 import org.mozilla.fenix.components.startMetricsIfEnabled
@@ -508,6 +510,8 @@ class OnboardingFragment : Fragment() {
             id = R.id.onboardingFragment,
             directions = OnboardingFragmentDirections.actionHome(),
         )
+
+        maybeAddMenuNotification()
     }
 
     private fun enableSearchBarCFRForNewUser() {
@@ -573,4 +577,19 @@ class OnboardingFragment : Fragment() {
         ManagePrivacyPreferencesDialogFragment()
             .show(parentFragmentManager, ManagePrivacyPreferencesDialogFragment.TAG)
     }
+
+    private fun maybeAddMenuNotification() {
+        with(requireContext()) {
+            if (shouldAddMenuNotification()) {
+                requireComponents.appStore.dispatch(
+                    AppAction.MenuNotification.AddMenuNotification(
+                        SupportedMenuNotifications.NotDefaultBrowser,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun shouldAddMenuNotification() =
+        with(requireContext()) { !settings().isDefaultBrowser && settings().shouldShowMenuBanner }
 }

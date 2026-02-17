@@ -2277,12 +2277,9 @@ void nsContentUtils::Shutdown() {
     }
   }
 
-  if (sDOMArenaHashtable) {
-    MOZ_ASSERT(sDOMArenaHashtable->Count() == 0);
-    MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
-    delete sDOMArenaHashtable;
-    sDOMArenaHashtable = nullptr;
-  }
+  MOZ_ASSERT_IF(sDOMArenaHashtable, sDOMArenaHashtable->Count() == 0);
+  delete sDOMArenaHashtable;
+  sDOMArenaHashtable = nullptr;
 
   NS_ASSERTION(!sBlockedScriptRunners || sBlockedScriptRunners->Length() == 0,
                "How'd this happen?");
@@ -5940,7 +5937,6 @@ EventListenerManager* nsContentUtils::GetExistingListenerManagerForNode(
 
 void nsContentUtils::AddEntryToDOMArenaTable(nsINode* aNode,
                                              DOMArena* aDOMArena) {
-  MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
   MOZ_ASSERT_IF(sDOMArenaHashtable, !sDOMArenaHashtable->Contains(aNode));
   MOZ_ASSERT(!aNode->HasFlag(NODE_KEEPS_DOMARENA));
   if (!sDOMArenaHashtable) {
@@ -5951,10 +5947,16 @@ void nsContentUtils::AddEntryToDOMArenaTable(nsINode* aNode,
   sDOMArenaHashtable->InsertOrUpdate(aNode, RefPtr<DOMArena>(aDOMArena));
 }
 
+DOMArena* nsContentUtils::GetEntryFromDOMArenaTable(const nsINode* aNode) {
+  if (!sDOMArenaHashtable) {
+    return nullptr;
+  }
+  return sDOMArenaHashtable->MaybeGet(aNode).valueOr(nullptr);
+}
+
 already_AddRefed<DOMArena> nsContentUtils::TakeEntryFromDOMArenaTable(
     const nsINode* aNode) {
   MOZ_ASSERT(sDOMArenaHashtable->Contains(aNode));
-  MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
   RefPtr<DOMArena> arena;
   sDOMArenaHashtable->Remove(aNode, getter_AddRefs(arena));
   return arena.forget();

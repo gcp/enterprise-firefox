@@ -2200,12 +2200,10 @@ pref("pdfjs.handleOctetStream", true);
 pref("sidebar.position_start", true);
 #ifdef NIGHTLY_BUILD
 pref("sidebar.revamp", true);
-// This is nightly only for now, as we need to address bug 1933527 and bug 1934039.
-pref("sidebar.revamp.round-content-area", true);
 #else
 pref("sidebar.revamp", false);
-pref("sidebar.revamp.round-content-area", false);
 #endif
+pref("sidebar.revamp.round-content-area", true);
 pref("sidebar.animation.enabled", true);
 pref("sidebar.animation.duration-ms", 200);
 pref("sidebar.animation.expand-on-hover.duration-ms", 400);
@@ -2697,12 +2695,7 @@ pref("browser.tabs.fadeOutExplicitlyUnloadedTabs", true);
 pref("browser.tabs.fadeOutUnloadedTabs", false);
 
 // Whether tabs can be "split" or displayed side by side at once.
-#ifdef NIGHTLY_BUILD
-  pref("browser.tabs.splitView.enabled", true);
-#else
-  pref("browser.tabs.splitView.enabled", false);
-#endif
-
+pref("browser.tabs.splitView.enabled", true);
 pref("browser.tabs.splitview.hasUsed", false);
 
 // Whether SVG favicons should be safely re-encoded using the moz-remote-image:// protocol.
@@ -3115,6 +3108,7 @@ pref("devtools.netmonitor.features.requestBlocking", true);
 
 // Enable the Application panel
 pref("devtools.application.enabled", true);
+pref("devtools.application.selectedSidebar", "service-workers");
 
 // The internal Anti tracking debugging panel
 pref("devtools.anti-tracking.enabled", false);

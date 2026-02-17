@@ -174,8 +174,11 @@ export class AIChatContent extends MozLitElement {
    * @param {ChatMessage} message
    */
   #checkConversationState(message) {
-    const lastMessage = this.conversationState.at(-1);
-    const firstMessage = this.conversationState.at(0);
+    // Use find/findLast instead of at(0)/at(-1) because
+    // conversationState is a sparse array indexed by ordinal and
+    // at() can land on a hole (undefined) after truncation.
+    const lastMessage = this.conversationState.findLast(m => m);
+    const firstMessage = this.conversationState.find(m => m);
     const isReloadingSameConvo =
       firstMessage &&
       firstMessage.convId === message.convId &&

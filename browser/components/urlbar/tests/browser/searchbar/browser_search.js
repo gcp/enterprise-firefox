@@ -6,11 +6,12 @@
 const CANONIZE_MODIFIERS =
   AppConstants.platform == "macosx" ? { metaKey: true } : { ctrlKey: true };
 
-let searchbar = document.getElementById("searchbar-new");
+let searchbar;
 let engine1;
 let engine2;
 
 add_setup(async function () {
+  searchbar = document.getElementById("searchbar-new");
   await SearchTestUtils.updateRemoteSettingsConfig([
     { identifier: "engine1" },
     {

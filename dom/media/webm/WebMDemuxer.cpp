@@ -524,6 +524,7 @@ nsresult WebMDemuxer::ReadMetadata() {
       }
 
       if (params.rate <= 0 || params.rate > AudioInfo::MAX_RATE ||
+          params.channels == 0 ||
           params.channels > AudioConfig::ChannelLayout::MAX_CHANNELS) {
         WEBM_DEBUG("Invalid audio param rate: %lf channel count: %d",
                    params.rate, params.channels);

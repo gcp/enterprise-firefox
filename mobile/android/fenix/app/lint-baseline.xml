@@ -1080,6 +1080,17 @@
     </issue>
 
     <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?attr/colorSurface` with a theme that also paints a background (inferred theme is `@style/NormalTheme`)"
+        errorLine1="    android:background=&quot;?attr/colorSurface&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/email_mask_bar.xml"
+            line="9"
+            column="5"/>
+    </issue>
+
+    <issue
         id="UnusedResources"
         message="The resource `R.drawable.ic_onboarding_key_features` appears to be unused"
         errorLine1="&lt;vector xmlns:aapt=&quot;http://schemas.android.com/aapt&quot; xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot; android:height=&quot;320dp&quot; android:viewportHeight=&quot;193.94&quot; android:viewportWidth=&quot;200&quot; android:width=&quot;329.99896dp&quot;>"

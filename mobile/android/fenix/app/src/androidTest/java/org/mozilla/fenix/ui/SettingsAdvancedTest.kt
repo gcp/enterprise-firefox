@@ -7,7 +7,6 @@ package org.mozilla.fenix.ui
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.core.net.toUri
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -19,7 +18,6 @@ import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
 import org.mozilla.fenix.helpers.OpenLinksInApp
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.externalLinksAsset
-import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestHelper
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.helpers.TestHelper.mDevice
@@ -221,7 +219,6 @@ class SettingsAdvancedTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1058617
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=2009379")
     @Test
     fun dismissOpenLinksInAppCFRTest() {
         composeTestRule.activityRule.applySettingsExceptions {
@@ -231,7 +228,7 @@ class SettingsAdvancedTest : TestSetup() {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser("https://m.youtube.com/".toUri()) {
-            waitForPageToLoad(pageLoadWaitingTime = waitingTimeLong)
+            verifyPageContent("youtube")
             verifyOpenLinksInAppsCFRExists(true)
             clickOpenLinksInAppsDismissCFRButton()
             verifyOpenLinksInAppsCFRExists(false)

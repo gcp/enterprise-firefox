@@ -609,6 +609,10 @@ export class UrlbarView {
     if (this.#pickSearchTipIfPresent(event)) {
       return false;
     }
+    if (this.input.inOverflowPanel) {
+      // The results panel is currently disabled in the overflow panel.
+      return false;
+    }
 
     if (!event) {
       return false;
@@ -1148,7 +1152,19 @@ export class UrlbarView {
 
     this.controller.notify(this.controller.NOTIFICATIONS.VIEW_OPEN);
 
-    if (lazy.UrlbarPrefs.get("closeOtherPanelsOnOpen")) {
+    this.maybeRollupPopups();
+  }
+
+  /**
+   * Depending on the pref, rolls up all popups in the window.
+   * If the moz-urlbar is in the overflow panel, it does nothing
+   * to avoid closing the overflow panel.
+   */
+  maybeRollupPopups() {
+    if (
+      lazy.UrlbarPrefs.get("closeOtherPanelsOnOpen") &&
+      !this.input.inOverflowPanel
+    ) {
       this.window.docShell.treeOwner
         .QueryInterface(Ci.nsIInterfaceRequestor)
         .getInterface(Ci.nsIAppWindow)

@@ -168,6 +168,7 @@ class BrowserToolbarMiddleware(
                         accesspoint = MenuAccessPoint.Home,
                     ),
                 )
+                removeMenuButtonHighlight()
                 next(action)
             }
 
@@ -423,6 +424,15 @@ class BrowserToolbarMiddleware(
                     updateEndBrowserActions(store)
                     updateNavigationActions(store)
                 }
+        }
+    }
+
+    private fun removeMenuButtonHighlight() {
+        val notification = SupportedMenuNotifications.NotDefaultBrowser
+        if (notification in appStore.state.supportedMenuNotifications) {
+            appStore.dispatch(
+                AppAction.MenuNotification.RemoveMenuNotification(notification),
+            )
         }
     }
 

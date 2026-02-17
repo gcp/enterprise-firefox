@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="reftest-wait">
 <head><title>MSE Audio PoC</title></head>
 <body>
 <script>
@@ -15,6 +15,10 @@ var init2 = b64ToU8("GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwH////
 var cluster1 = b64ToU8("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");
 var cluster2 = b64ToU8("H0O2dUW554KCgqNBa4EAAIYHrL++wL+/v776Hh8fgt+w4rAb8z2KPNQUQREAAAAAAAAAAAAAmDcBAPw56gjo/f/GAAAAvvoeHx+C37DiMBvzPYosaoqgCAAAAAAAAAAAAAA8PwsAcHwcbMDttS4AAAC++h6fH4LfsOIwG/MtcqgpgiIAAAAAAAAAAAAAEGcBADA8LKTgiQ3TAAAAvvoeHx+C37DisBvzPYo81BRBEQAAAAAAAAAAAACYNwEA/DnqCOj9/8YAAAC++h4fH4LfsOIwG/M9iixqiqAIAAAAAAAAAAAAADw/CwBwfBxswO21LgAAAL76Hp8fgt+w4jAb8z2IHGqKoAgAAAAAAAAAAAAAxFkAAAwPCyl4YsM0AAAAvvoeHx+C37DisBvzPYo81BRBEQAAAAAAAAAAAACYNwEA/DnqCOj9/8YAAAC++h4fH4LfsOIwG/M9iixqiqAIAAAAAAAAAAAAADw/CwBwfBxswO21LgAAAKNBaYEgAYYHq8C/vsC/vr76Hp8fgt+w4jAb8y1yqCmCIgAAAAAAAAAAAAAQZwEAMDwspOCJDdMAAAC++h4fH4LfsOKwG/M9ijzUFEERAAAAAAAAAAAAAJg3AQD8OeoI6P3/xgAAAL76Hh8fgt+w4jAb8z2KLGqKoAgAAAAAAAAAAAAAPD8LAHB8HGzA7bUuAAAAvvoenx+C37DiMBvzLXKoKYIiAAAAAAAAAAAAABBnAQAwPCyk4IkN0wAAAL76Hh8fgt+w4rAb8z2KPNQUQREAAAAAAAAAAAAAmDcBAPw56gjo/f/GAAAAvvoeHx+C37DiMBvzPYosaoqgCAAAAAAAAAAAAAA8PwsAcHwcbMDttS4AAAC++h6fH4LfsOIwG/MtcqgpgiIAAAAAAAAAAAAAEGcBADA8LKTgiQ3TAAAAvvoeHx+C37DisBvzPYo81BRBEQAAAAAAAAAAAACYNwEA/DnqCOj9/8YAAACjQWqBQAGGB6y/v7++wL+++h4fH4LfsOIwG/M9iixqiqAIAAAAAAAAAAAAADw/CwBwfBxswO21LgAAAL76Hp8fgt+w4jAb8z2IHGqKoAgAAAAAAAAAAAAAxFkAAAwPCyl4YsM0AAAAvvoeHx+C37DisBvzPYo81BRBEQAAAAAAAAAAAACYNwEA/DnqCOj9/8YAAAC++h4fH4LfsOIwG/M9iixqiqAIAAAAAAAAAAAAADw/CwBwfBxswO21LgAAAL76Hp8fgt+w4jAb8y1yqCmCIgAAAAAAAAAAAAAQZwEAMDwspOCJDdMAAAC++h4fH4LfsOKwG/M9ijzUFEERAAAAAAAAAAAAAJg3AQD8OeoI6P3/xgAAAL76Hh8fgt+w4jAb8z2KLGqKoAgAAAAAAAAAAAAAPD8LAHB8HGzA7bUuAAAAvvoenx+C37DiMBvzLXKoKYIiAAAAAAAAAAAAABBnAQAwPCyk4IkN0wAAAKNBa4FgAoYHrL+/v7++wL76Hh8fgt+w4rAb8z2KPNQUQREAAAAAAAAAAAAAmDcBAPw56gjo/f/GAAAAvvoeHx+C37DiMBvzPYosaoqgCAAAAAAAAAAAAAA8PwsAcHwcbMDttS4AAAC++h6fH4LfsOIwG/M9iBxqiqAIAAAAAAAAAAAAAMRZAAAMDwspeGLDNAAAAL76Hh8fgt+w4rAb8z2KPNQUQREAAAAAAAAAAAAAmDcBAPw56gjo/f/GAAAAvvoeHx+C37DiMBvzPYosaoqgCAAAAAAAAAAAAAA8PwsAcHwcbMDttS4AAAC++h6fH4LfsOIwG/MtcqgpgiIAAAAAAAAAAAAAEGcBADA8LKTgiQ3TAAAAvvoeHx+C37DisBvzPYo81BRBEQAAAAAAAAAAAACYNwEA/DnqCOj9/8YAAAC++h4fH4LfsOIwG/M9iixqiqAIAAAAAAAAAAAAADw/CwBwfBxswO21LgAAAA==");
 
+function removeReftestWait() {
+    document.documentElement.removeAttribute("class");
+}
+
 function doTest() {
     var ms = new MediaSource();
     var audio = document.createElement('audio');
@@ -27,6 +31,7 @@ function doTest() {
         try {
             sb = ms.addSourceBuffer('audio/webm; codecs=vorbis');
         } catch(e) {
+            removeReftestWait();
             return;
         }
 
@@ -35,44 +40,41 @@ function doTest() {
             step++;
             try {
                 if (step === 1) {
-                    // Step 1 done: init1 appended. Now append media data.
                     sb.appendBuffer(cluster1);
                 } else if (step === 2) {
-                    // Step 2 done: cluster1 appended. Start playback, then change init.
                     audio.play().catch(function(e) {});
-                    // Small delay then append new init segment with channels=0
                     setTimeout(function() {
                         try {
                             if (!sb.updating) {
                                 sb.appendBuffer(init2);
+                            } else {
+                                removeReftestWait();
                             }
-                        } catch(e) {}
+                        } catch(e) {
+                            removeReftestWait();
+                        }
                     }, 50);
                 } else if (step === 3) {
-                    // Step 3 done: init2 appended. Now append media data for new config.
                     sb.appendBuffer(cluster2);
                 } else if (step === 4) {
-                    // Step 4 done: cluster2 with ch=0 config appended.
-                    // The decoder should be recreated with ch=0 now.
-                    // Try playing to trigger decode.
                     audio.currentTime = 0;
                     audio.play().catch(function(e) {});
+                    removeReftestWait();
                 }
-            } catch(e) {}
+            } catch(e) {
+                removeReftestWait();
+            }
         });
 
         sb.addEventListener('error', function(e) {
-            // Try continuing even on error
+            removeReftestWait();
         });
 
-        // Start: append init1
         sb.appendBuffer(init1);
     });
 }
 
 doTest();
-// Keep page alive
-setTimeout(function() {}, 30000);
 </script>
 </body>
 </html>

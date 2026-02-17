@@ -3038,7 +3038,7 @@ var CustomizableUIInternal = {
       }
 
       let tagName = target.localName;
-      if (tagName == "input" || tagName == "searchbar") {
+      if (tagName == "input" || target.closest("#search-container")) {
         return true;
       }
       if (tagName == "toolbaritem" || tagName == "toolbarbutton") {

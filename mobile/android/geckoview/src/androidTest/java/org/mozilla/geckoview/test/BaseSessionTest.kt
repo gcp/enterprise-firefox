@@ -167,6 +167,8 @@ open class BaseSessionTest(
         const val VIEW_TRANSITION_SNAPSHOT_SIZE = "/assets/www/view-transition-snapshot-size.html"
         const val FRAMEBUSTING_CHILD_URI = "https://example.org/tests/junit/framebusting_child.html"
         const val FRAMEBUSTING_PARENT_URI = "https://example.net/tests/junit/framebusting_parent.html"
+        const val DIALOG_HTML_PATH = "/assets/www/dialog.html"
+        const val POPOVER_HTML_PATH = "/assets/www/popover.html"
 
         const val TEST_ENDPOINT = GeckoSessionTestRule.TEST_ENDPOINT
         const val TEST_HOST = GeckoSessionTestRule.TEST_HOST
