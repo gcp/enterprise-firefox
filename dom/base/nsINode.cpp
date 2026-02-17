@@ -134,11 +134,8 @@ static bool ShouldUseUAWidgetScope(const nsINode* aNode) {
 }
 
 void* nsINode::operator new(size_t aSize, nsNodeInfoManager* aManager) {
-  if (StaticPrefs::dom_arena_allocator_enabled_AtStartup()) {
-    MOZ_ASSERT(aManager, "nsNodeInfoManager needs to be initialized");
-    return aManager->Allocate(aSize);
-  }
-  return ::operator new(aSize);
+  MOZ_ASSERT(aManager, "nsNodeInfoManager needs to be initialized");
+  return aManager->Allocate(aSize);
 }
 void nsINode::operator delete(void* aPtr) { free_impl(aPtr); }
 
@@ -312,7 +309,25 @@ nsIPolicyContainer* nsINode::GetPolicyContainer() const {
   return OwnerDoc()->GetPolicyContainer();
 }
 
-nsINode::nsSlots* nsINode::CreateSlots() { return new nsSlots(); }
+void* nsINode::AllocateSlots(size_t aSize) {
+  DOMArena* arena = nullptr;
+  if (HasFlag(NODE_KEEPS_DOMARENA)) {
+    arena = nsContentUtils::GetEntryFromDOMArenaTable(this);
+  }
+  if (!arena) {
+    arena = NodeInfo()->NodeInfoManager()->GetArenaAllocator();
+  }
+
+  if (arena) {
+    return arena->Allocate(aSize);
+  }
+  return malloc(aSize);
+}
+
+nsINode::nsSlots* nsINode::CreateSlots() {
+  void* mem = AllocateSlots(sizeof(nsSlots));
+  return new (mem) nsSlots();
+}
 
 static const nsINode* GetClosestCommonInclusiveAncestorForRangeInSelection(
     const nsINode* aNode) {
@@ -884,8 +899,9 @@ void nsINode::LastRelease() {
       }
     }
 
-    delete slots;
+    slots->~nsSlots();
     mSlots = nullptr;
+    free(slots);
   }
 
   // Kill properties first since that may run external code, so we want to
@@ -3924,17 +3940,15 @@ already_AddRefed<nsINode> nsINode::CloneAndAdopt(
     // node isn't allocated by the NodeInfoManager of this document,
     // so we need to do this SetArenaAllocator logic to bypass
     // the !HasChildren() check in NodeInfoManager::Allocate.
-    if (mozilla::StaticPrefs::dom_arena_allocator_enabled_AtStartup()) {
-      if (!newDoc->NodeInfoManager()->HasAllocated()) {
-        if (DocGroup* docGroup = newDoc->GetDocGroup()) {
-          newDoc->NodeInfoManager()->SetArenaAllocator(
-              docGroup->ArenaAllocator());
-        }
+    if (!newDoc->NodeInfoManager()->HasAllocated()) {
+      if (DocGroup* docGroup = newDoc->GetDocGroup()) {
+        newDoc->NodeInfoManager()->SetArenaAllocator(
+            docGroup->ArenaAllocator());
       }
+    }
 
-      if (domArenaToStore && newDoc->GetDocGroup() != oldDoc->GetDocGroup()) {
-        nsContentUtils::AddEntryToDOMArenaTable(aNode, domArenaToStore);
-      }
+    if (domArenaToStore && newDoc->GetDocGroup() != oldDoc->GetDocGroup()) {
+      nsContentUtils::AddEntryToDOMArenaTable(aNode, domArenaToStore);
     }
   }
 

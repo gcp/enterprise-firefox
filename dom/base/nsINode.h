@@ -802,6 +802,11 @@ class nsINode : public mozilla::dom::EventTarget {
     return mNodeInfo->GetDocument();
   }
 
+  // Returns our owning NodeInfo manager.
+  nsNodeInfoManager* NodeInfoManager() const {
+    return mNodeInfo->NodeInfoManager();
+  }
+
   /**
    * Return the "owner document" of this node as an nsINode*.  Implemented
    * in Document.h.
@@ -1529,6 +1534,13 @@ class nsINode : public mozilla::dom::EventTarget {
     mozilla::UniquePtr<mozilla::LinkedList<mozilla::dom::AbstractRange>>
         mClosestCommonInclusiveAncestorRanges;
   };
+
+  /**
+   * Helper to allocate slot memory from the appropriate arena,
+   * or from the heap if no arena is available.
+   * Always returns allocated memory.
+   */
+  void* AllocateSlots(size_t aSize);
 
   /**
    * Functions for managing flags and slots

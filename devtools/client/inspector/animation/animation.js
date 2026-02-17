@@ -242,9 +242,7 @@ class AnimationInspector {
 
     const { animations, timeScale } = this.state;
     currentTime = currentTime + timeScale.minStartTime;
-    await this.animationsFront.setCurrentTimes(animations, currentTime, true, {
-      relativeToCreatedTime: true,
-    });
+    await this.animationsFront.setCurrentTimes(animations, currentTime, true);
   }
 
   /**

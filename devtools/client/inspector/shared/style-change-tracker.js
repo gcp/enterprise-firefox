@@ -64,9 +64,11 @@ class InspectorStyleChangeTracker {
       // walker.children, so don't attempt to check the previous or next element siblings.
       // It's good enough to know that one sibling changed.
       let parent = currentNode.parentNode();
-      const siblings = parent.treeChildren();
-      if (siblings.includes(mutationTarget)) {
-        return true;
+      if (parent) {
+        const siblings = parent.treeChildren();
+        if (siblings.includes(mutationTarget)) {
+          return true;
+        }
       }
 
       // Is the mutation on one of the current selected node's parents?

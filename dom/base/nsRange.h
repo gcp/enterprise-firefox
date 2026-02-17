@@ -37,6 +37,8 @@ class InspectorFontFace;
 class Selection;
 class TrustedHTMLOrString;
 
+enum class ResetCommonAncestorIfInAnySelection : bool { No, Yes };
+
 enum class RangeBehaviour : uint8_t {
   // Keep both ranges
   KeepDefaultRangeAndCrossShadowBoundaryRanges,
@@ -513,7 +515,8 @@ class nsRange final : public mozilla::dom::AbstractRange,
       const mozilla::RangeBoundaryBase<SPT, SRT>& aStartBoundary,
       const mozilla::RangeBoundaryBase<EPT, ERT>& aEndBoundary);
 
-  void ResetCrossShadowBoundaryRange() { mCrossShadowBoundaryRange = nullptr; }
+  void ResetCrossShadowBoundaryRange(
+      mozilla::dom::ResetCommonAncestorIfInAnySelection aResetCommonAncestor);
 
   bool CrossShadowBoundaryRangeCollapsed() const {
     MOZ_ASSERT(mCrossShadowBoundaryRange);

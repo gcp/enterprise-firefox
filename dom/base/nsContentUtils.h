@@ -1839,6 +1839,9 @@ class nsContentUtils {
   static void AddEntryToDOMArenaTable(nsINode* aNode,
                                       mozilla::dom::DOMArena* aDOMArena);
 
+  static mozilla::dom::DOMArena* GetEntryFromDOMArenaTable(
+      const nsINode* aNode);
+
   static already_AddRefed<mozilla::dom::DOMArena> TakeEntryFromDOMArenaTable(
       const nsINode* aNode);
 

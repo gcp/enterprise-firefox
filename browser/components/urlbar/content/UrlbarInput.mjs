@@ -21,6 +21,8 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  CustomizableUI:
+    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
@@ -370,8 +372,8 @@ export class UrlbarInput extends HTMLElement {
       this.#init();
     }
 
-    if (this.sapName == "searchbar") {
-      this.parentNode.setAttribute("overflows", "false");
+    if (this.inOverflowPanel && this.view.isOpen) {
+      this.view.close();
     }
 
     // Don't attach event listeners if the toolbar is not visible
@@ -470,8 +472,6 @@ export class UrlbarInput extends HTMLElement {
 
   #disconnectedCallback() {
     if (this.sapName == "searchbar") {
-      this.parentNode.removeAttribute("overflows");
-
       // Exit search mode to make sure it doesn't become stale while the
       // searchbar is invisible. Otherwise, the engine might get deleted
       // but we don't notice because the search service observer is inactive.
@@ -1187,7 +1187,7 @@ export class UrlbarInput extends HTMLElement {
       searchSource: this.getSearchSource(event),
     });
 
-    if (URL.canParse(url)) {
+    if (this.#isAddressbar && URL.canParse(url)) {
       // Annotate if the untrimmed value contained a scheme, to later potentially
       // be upgraded by schemeless HTTPS-First.
       openParams.schemelessInput = this.#getSchemelessInput(
@@ -2135,6 +2135,10 @@ export class UrlbarInput extends HTMLElement {
       this.confirmSearchMode();
     }
 
+    if (this.inOverflowPanel) {
+      return;
+    }
+
     this._lastSearchString = searchString;
     this._valueOnLastSearch = this.value;
 
@@ -3038,6 +3042,7 @@ export class UrlbarInput extends HTMLElement {
         this.setAttribute("breakout", "true");
         this.parentNode.setAttribute("breakout", "true");
         this.showPopover();
+        this.#fixAddressbarSearchbarOrder();
         this.#updateTextboxPosition();
 
         resolve();
@@ -3352,6 +3357,63 @@ export class UrlbarInput extends HTMLElement {
         });
       }
     });
+  }
+
+  get inOverflowPanel() {
+    if (!this.parentElement?.id) {
+      return false;
+    }
+    return (
+      lazy.CustomizableUI.getPlacementOfWidget(this.parentElement.id)?.area ==
+        lazy.CustomizableUI.AREA_FIXED_OVERFLOW_PANEL ||
+      this.parentElement.getAttribute("overflowedItem") == "true"
+    );
+  }
+
+  /**
+   * Should be directly after every showPopover to fix the popover order
+   * among urlbar and searchbar.
+   * Since a moz-urlbar only extends downwards when focused, the moz-urlbar
+   * that's higher (along the y axis) should also be on top (along the z axis).
+   *
+   * Note: this is a hack necessary because of bug 2014481.
+   * Once that's fixed, we can simply always show the focused one on top.
+   */
+  #fixAddressbarSearchbarOrder() {
+    let addressbar = /** @type {?UrlbarInput} */ (
+      this.document.getElementById("urlbar")
+    );
+    let searchbar = /** @type {?UrlbarInput} */ (
+      this.document.getElementById("searchbar-new")
+    );
+    if (
+      !searchbar?.matches(":popover-open") ||
+      !addressbar?.matches(":popover-open")
+    ) {
+      return;
+    }
+
+    let searchbarArea =
+      lazy.CustomizableUI.getPlacementOfWidget("search-container")?.area;
+    if (!searchbarArea) {
+      return;
+    }
+
+    const areasAboveNavbar = [
+      lazy.CustomizableUI.AREA_MENUBAR,
+      lazy.CustomizableUI.AREA_TABSTRIP,
+    ];
+    const areasBelowNavbar = [lazy.CustomizableUI.AREA_BOOKMARKS];
+
+    // If `this` is higher than the other bar, we don't need to do anything since
+    // showPopover was just called (hence we're already on top of the other one).
+    if (areasAboveNavbar.includes(searchbarArea) && this != searchbar) {
+      searchbar.hidePopover();
+      searchbar.showPopover();
+    } else if (areasBelowNavbar.includes(searchbarArea) && this != addressbar) {
+      addressbar.hidePopover();
+      addressbar.showPopover();
+    }
   }
 
   _updateUrlTooltip() {
@@ -5040,15 +5102,11 @@ export class UrlbarInput extends HTMLElement {
     }
 
     if (this.view.isOpen) {
-      if (lazy.UrlbarPrefs.get("closeOtherPanelsOnOpen")) {
-        // UrlbarView rolls up all popups when it opens, but we should
-        // do the same for UrlbarInput when it's already open in case
-        // a tab preview was opened
-        this.window.docShell.treeOwner
-          .QueryInterface(Ci.nsIInterfaceRequestor)
-          .getInterface(Ci.nsIAppWindow)
-          .rollupAllPopups();
-      }
+      // UrlbarView rolls up all popups when it opens, but we should
+      // do the same for UrlbarInput when it's already open in case
+      // a tab preview was opened
+      this.view.maybeRollupPopups();
+
       if (!value && !lazy.UrlbarPrefs.get("suggest.topsites")) {
         this.view.clear();
         if (!this.searchMode || !this.view.oneOffSearchButtons?.hasView) {

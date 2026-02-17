@@ -13,20 +13,16 @@
 
 #define NS_DECL_DOMARENA_DESTROY void Destroy(void);
 
-#define NS_IMPL_DOMARENA_DESTROY(class)                              \
-  void class ::Destroy(void) {                                       \
-    if (StaticPrefs::dom_arena_allocator_enabled_AtStartup()) {      \
-      RefPtr<nsNodeInfoManager> nim = OwnerDoc()->NodeInfoManager(); \
-      RefPtr<DOMArena> arena =                                       \
-          HasFlag(NODE_KEEPS_DOMARENA)                               \
-              ? nsContentUtils::TakeEntryFromDOMArenaTable(this)     \
-              : nullptr;                                             \
-      this->~class();                                                \
-      MOZ_ASSERT(nim, "nsNodeInfoManager needs to be initialized");  \
-      nim->Free(this);                                               \
-    } else {                                                         \
-      delete this;                                                   \
-    }                                                                \
+#define NS_IMPL_DOMARENA_DESTROY(class)                           \
+  void class ::Destroy(void) {                                    \
+    RefPtr<nsNodeInfoManager> nim = mNodeInfo->NodeInfoManager(); \
+    RefPtr<DOMArena> arena =                                      \
+        HasFlag(NODE_KEEPS_DOMARENA)                              \
+            ? nsContentUtils::TakeEntryFromDOMArenaTable(this)    \
+            : nullptr;                                            \
+    this->~class();                                               \
+    MOZ_ASSERT(nim, "nsNodeInfoManager needs to be initialized"); \
+    nim->Free(this);                                              \
   }
 
 namespace mozilla::dom {

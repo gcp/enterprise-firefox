@@ -390,7 +390,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 bool nsRange::MaybeInterruptLastRelease() {
   bool interrupt = AbstractRange::MaybeCacheToReuse(*this);
-  ResetCrossShadowBoundaryRange();
+  ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::No);
   MOZ_ASSERT(!interrupt || IsCleared());
   return interrupt;
 }
@@ -495,6 +495,11 @@ void nsRange::CharacterDataChanged(nsIContent* aContent,
 
   if (aInfo.mDetails &&
       aInfo.mDetails->mType == CharacterDataChangeInfo::Details::eSplit) {
+    if (mCrossShadowBoundaryRange &&
+        (aContent == mCrossShadowBoundaryRange->GetStartContainer() ||
+         aContent == mCrossShadowBoundaryRange->GetEndContainer())) {
+      ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::Yes);
+    }
     AdjustNextRefsOnCharacterDataSplit(*aContent, aInfo);
   }
 
@@ -1099,7 +1104,7 @@ void nsRange::
 
   if (aRangeBehaviour ==
       RangeBehaviour::CollapseDefaultRangeAndCrossShadowBoundaryRanges) {
-    ResetCrossShadowBoundaryRange();
+    ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::No);
   }
 
   if (checkCommonAncestor) {
@@ -3744,6 +3749,23 @@ void nsRange::GetInnerTextNoFlush(DOMString& aValue, ErrorResult& aError,
   // are suppressed.
 }
 
+void nsRange::ResetCrossShadowBoundaryRange(
+    mozilla::dom::ResetCommonAncestorIfInAnySelection aResetCommonAncestor) {
+  mCrossShadowBoundaryRange = nullptr;
+  if (aResetCommonAncestor ==
+          mozilla::dom::ResetCommonAncestorIfInAnySelection::Yes &&
+      IsInAnySelection() && mRegisteredClosestCommonInclusiveAncestor) {
+    nsINode* ancestor =
+        GetClosestCommonInclusiveAncestor(AllowRangeCrossShadowBoundary::Yes);
+    if (ancestor != mRegisteredClosestCommonInclusiveAncestor) {
+      UnregisterClosestCommonInclusiveAncestor();
+      if (ancestor) {
+        RegisterClosestCommonInclusiveAncestor(ancestor);
+      }
+    }
+  }
+}
+
 template <typename SPT, typename SRT, typename EPT, typename ERT>
 void nsRange::CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
     const mozilla::RangeBoundaryBase<SPT, SRT>& aStartBoundary,
@@ -3760,14 +3782,14 @@ void nsRange::CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
   nsINode* endNode = aEndBoundary.GetContainer();
 
   if (!startNode && !endNode) {
-    ResetCrossShadowBoundaryRange();
+    ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::No);
     return;
   }
 
   // Nodes at least needs to be in the same document.
   if (startNode && endNode &&
       startNode->GetComposedDoc() != endNode->GetComposedDoc()) {
-    ResetCrossShadowBoundaryRange();
+    ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::No);
     return;
   }
 
@@ -3796,7 +3818,7 @@ void nsRange::CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
 
   if (!CanBecomeCrossShadowBoundaryPoint(startNode) ||
       !CanBecomeCrossShadowBoundaryPoint(endNode)) {
-    ResetCrossShadowBoundaryRange();
+    ResetCrossShadowBoundaryRange(ResetCommonAncestorIfInAnySelection::No);
     return;
   }
 

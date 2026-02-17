@@ -8475,6 +8475,19 @@ public class GeckoSession {
     mExperimentHandler.setDelegate(delegate, this);
   }
 
+  /**
+   * Handle back key pressed on Web content to dismiss some HTML elements such as &lt;dialog&gt;.
+   *
+   * <p>See <a
+   * href="https://developer.mozilla.org/en-US/docs/Web/API/CloseWatcher">CloseWatcher</a>.
+   *
+   * @return true if the back key is processed.
+   */
+  @UiThread
+  public @NonNull GeckoResult<Boolean> processBackPressed() {
+    return mEventDispatcher.queryBoolean("GeckoView:ProcessBackPressed");
+  }
+
   /** Thrown when failure occurs when printing from a website. */
   @WrapForJNI
   public static class GeckoPrintException extends Exception {

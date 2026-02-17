@@ -23,8 +23,11 @@ Services.scriptloader.loadSubScript(
 );
 
 let gCUITestUtils = new CustomizableUITestUtils(window);
-gCUITestUtils.addSearchBar();
+
+add_setup(async () => {
+  await gCUITestUtils.addSearchBar();
+});
 
 registerCleanupFunction(async () => {
-  gCUITestUtils.removeSearchBar();
+  await gCUITestUtils.removeSearchBar();
 });

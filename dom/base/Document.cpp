@@ -3638,8 +3638,8 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
 
   mChannel = aChannel;
   RecomputeResistFingerprinting();
-  nsCOMPtr<nsIInputStreamChannel> inStrmChan = do_QueryInterface(mChannel);
-  if (inStrmChan) {
+  if (nsCOMPtr<nsIInputStreamChannel> inStrmChan =
+          do_QueryInterface(mChannel)) {
     bool isSrcdocChannel;
     inStrmChan->GetIsSrcdocChannel(&isSrcdocChannel);
     if (isSrcdocChannel) {
@@ -3708,11 +3708,9 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
   // sub-resources and sub-documents.
   mHttpsOnlyStatus = loadInfo->GetHttpsOnlyStatus();
 
-  nsresult rv = InitReferrerInfo(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitReferrerInfo(aChannel));
 
-  rv = InitCOEP(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitCOEP(aChannel));
 
   // HACK: Calling EnsureIPCPoliciesRead() here will parse the CSP using the
   // context's current mSelfURI (which is still the previous mSelfURI),
@@ -3728,27 +3726,20 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
     cspToInherit->EnsureIPCPoliciesRead();
   }
 
-  rv = InitPolicyContainer(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitPolicyContainer(aChannel));
 
-  rv = InitCSP(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitCSP(aChannel));
 
-  rv = InitIntegrityPolicy(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitIntegrityPolicy(aChannel));
 
-  rv = InitDocPolicy(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitDocPolicy(aChannel));
 
   // Initialize FeaturePolicy
-  rv = InitFeaturePolicy(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitFeaturePolicy(aChannel));
 
-  rv = InitTLSCertificateBinding(aChannel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(InitTLSCertificateBinding(aChannel));
 
-  rv = loadInfo->GetCookieJarSettings(getter_AddRefs(mCookieJarSettings));
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(loadInfo->GetCookieJarSettings(getter_AddRefs(mCookieJarSettings)));
 
   MaybeRecomputePartitionKey();
 
