@@ -14,15 +14,25 @@ add_setup(async function setup() {
 });
 
 add_task(async function open_settings() {
-  await UrlbarTestUtils.openSearchModeSwitcher(window);
+  const popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
 
   let settingsLoaded = BrowserTestUtils.browserLoaded(
     window,
     false,
     "about:preferences#search"
   );
-  EventUtils.synthesizeKey("KEY_ArrowUp");
-  EventUtils.synthesizeKey("KEY_Enter");
+  if (
+    AppConstants.platform == "macosx" &&
+    Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false)
+  ) {
+    // Native menus do not support synthesizing key events
+    popup.activateItem(
+      popup.querySelector(".searchmode-switcher-popup-search-settings-button")
+    );
+  } else {
+    EventUtils.synthesizeKey("KEY_ArrowUp");
+    EventUtils.synthesizeKey("KEY_Enter");
+  }
   await settingsLoaded;
 
   Assert.ok(true, "Opened settings page");
@@ -46,14 +56,24 @@ add_task(async function open_settings_with_there_is_already_opened_settings() {
 
   info("Open new window");
   let newWin = await BrowserTestUtils.openNewBrowserWindow();
-  await UrlbarTestUtils.openSearchModeSwitcher(newWin);
+  const popup = await UrlbarTestUtils.openSearchModeSwitcher(newWin);
 
   info(
     "Choose open settings item and wait until the window having perference page will get focus"
   );
   let onFocus = BrowserTestUtils.waitForEvent(window, "focus", true);
-  EventUtils.synthesizeKey("KEY_ArrowUp", {}, newWin);
-  EventUtils.synthesizeKey("KEY_Enter", {}, newWin);
+  if (
+    AppConstants.platform == "macosx" &&
+    Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false)
+  ) {
+    // Native menus do not support synthesizing key events
+    popup.activateItem(
+      popup.querySelector(".searchmode-switcher-popup-search-settings-button")
+    );
+  } else {
+    EventUtils.synthesizeKey("KEY_ArrowUp", {}, newWin);
+    EventUtils.synthesizeKey("KEY_Enter", {}, newWin);
+  }
   await onFocus;
   Assert.ok(true, "The window that has perference page got focus");
 
@@ -182,9 +202,17 @@ add_task(async function select_with_single_click() {
   await new Promise(r => setTimeout(r, 500));
 
   let target = popup.querySelector("menuitem[label=Bing]");
-  EventUtils.synthesizeMouseAtCenter(target, { type: "mousemove" });
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  EventUtils.synthesizeMouseAtCenter(target, { type: "mouseup" });
+  if (
+    AppConstants.platform == "macosx" &&
+    Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false)
+  ) {
+    // Native menus do not support synthesizing mouse events
+    popup.activateItem(target);
+  } else {
+    EventUtils.synthesizeMouseAtCenter(target, { type: "mousemove" });
+    EventUtils.synthesizeMouseAtCenter(target, { type: "mouseup" });
+  }
   await popupHidden;
 
   await UrlbarTestUtils.assertSearchMode(window, {
@@ -435,6 +463,16 @@ add_task(async function open_engine_page_directly() {
   ];
 
   for (let { action, input, expected } of TEST_DATA) {
+    if (
+      action != "click" &&
+      AppConstants.platform == "macosx" &&
+      Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false)
+    ) {
+      // Native menus do not support synthesizing key events
+      info(`Skipping test for ${JSON.stringify({ action, input, expected })}`);
+      continue;
+    }
+
     info(`Test for ${JSON.stringify({ action, input, expected })}`);
 
     info("Open a window");
@@ -467,13 +505,9 @@ add_task(async function open_engine_page_directly() {
     );
 
     if (action == "click") {
-      EventUtils.synthesizeMouseAtCenter(
-        popup.querySelector("menuitem[label=MozSearch]"),
-        {
-          shiftKey: true,
-        },
-        newWin
-      );
+      popup.activateItem(popup.querySelector("menuitem[label=MozSearch]"), {
+        shiftKey: true,
+      });
     } else {
       await UrlbarTestUtils.selectMenuItem(popup, "menuitem[label=MozSearch]");
       EventUtils.synthesizeKey("KEY_Enter", { shiftKey: true }, newWin);
@@ -901,7 +935,8 @@ add_task(async function open_with_alt_option_with_open_view() {
   await promiseMenuOpen;
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  EventUtils.synthesizeKey("KEY_Escape");
+  const popup = UrlbarTestUtils.searchModeSwitcherPopup(window);
+  popup.hidePopup();
   await popupHidden;
 });
 
@@ -917,6 +952,7 @@ add_task(async function open_with_alt_option_with_closed_view() {
   await promiseMenuOpen;
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  EventUtils.synthesizeKey("KEY_Escape");
+  const popup = UrlbarTestUtils.searchModeSwitcherPopup(window);
+  popup.hidePopup();
   await popupHidden;
 });

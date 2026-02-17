@@ -413,6 +413,7 @@ class PlacesViewBase {
 
         if (!this._nativeView) {
           popup.setAttribute("placespopup", "true");
+          popup.setAttribute("native", "false");
         }
 
         element.appendChild(popup);
@@ -1109,6 +1110,7 @@ class PlacesToolbar extends PlacesViewBase {
           is: "places-popup",
         });
         popup.setAttribute("placespopup", "true");
+        popup.setAttribute("native", "false");
         popup.classList.add("toolbar-menupopup");
         button.appendChild(popup);
         popup._placesNode = PlacesUtils.asContainer(aChild);

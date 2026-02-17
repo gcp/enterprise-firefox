@@ -422,6 +422,7 @@ nsresult nsMenuX::RemoveAll() {
 
   mMenuChildren.Clear();
   mVisibleItemsCount = 0;
+  mIsPullDownPlaceholderPresent = false;
 
   return NS_OK;
 
@@ -633,6 +634,8 @@ void nsMenuX::MenuClosedAsync() {
                                WidgetMouseEvent::eReal);
   EventDispatcher::Dispatch(dispatchTo, nullptr, &popupHiding, nullptr,
                             &status);
+  // The status is ignored because the native menu has already closed; default
+  // behavior cannot be prevented for native menus.
 
   mIsOpenForGecko = false;
 
@@ -716,7 +719,13 @@ bool nsMenuX::Close() {
 
 void nsMenuX::OnHighlightedItemChanged(
     const Maybe<uint32_t>& aNewHighlightedIndex) {
-  if (mHighlightedItemIndex == aNewHighlightedIndex) {
+  Maybe<uint32_t> newIndex = aNewHighlightedIndex;
+  if (mIsPullDownPlaceholderPresent && newIndex && newIndex.ref() > 0) {
+    // Account for the pulldown placeholder item.
+    newIndex.ref()--;
+  }
+
+  if (mHighlightedItemIndex == newIndex) {
     return;
   }
 
@@ -728,15 +737,15 @@ void nsMenuX::OnHighlightedItemChanged(
           u"DOMMenuItemInactive"_ns, &handlerCalledPreventDefault);
     }
   }
-  if (aNewHighlightedIndex) {
-    Maybe<nsMenuX::MenuChild> target = GetVisibleItemAt(*aNewHighlightedIndex);
+  if (newIndex) {
+    Maybe<nsMenuX::MenuChild> target = GetVisibleItemAt(*newIndex);
     if (target && target->is<RefPtr<nsMenuItemX>>()) {
       bool handlerCalledPreventDefault;  // but we don't actually care
       target->as<RefPtr<nsMenuItemX>>()->DispatchDOMEvent(
           u"DOMMenuItemActive"_ns, &handlerCalledPreventDefault);
     }
   }
-  mHighlightedItemIndex = aNewHighlightedIndex;
+  mHighlightedItemIndex = newIndex;
 }
 
 void nsMenuX::OnWillActivateItem(NSMenuItem* aItem) {
@@ -806,17 +815,64 @@ void nsMenuX::RebuildMenu() {
   mNeedsRebuild = false;
 }
 
+void nsMenuX::RefreshMenuChildren(const MenuChild& aChildInserted) {
+  if (gConstructingMenu) {
+    return;
+  }
+
+  gConstructingMenu = true;
+
+  // Retrieve our menupopup.
+  nsCOMPtr<nsIContent> menuPopup = GetMenuPopupContent();
+  if (!menuPopup) {
+    gConstructingMenu = false;
+    return;
+  }
+
+  // We want to recreate the items for the content inserted and everything after
+  // it.
+  NSInteger current = -1;
+  NSInteger startIndex = CalculateNativeInsertionPoint(aChildInserted);
+
+  // Iterate over the menu items
+  for (nsIContent* child = menuPopup->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    current = current + 1;
+    if (current < startIndex) {
+      continue;
+    }
+    if (Maybe<MenuChild> menuChild = GetItemForElement(child->AsElement())) {
+      RemoveMenuChild(*menuChild);
+    }
+    if (Maybe<MenuChild> menuChild = CreateMenuChild(child)) {
+      InsertMenuChild(std::move(*menuChild));
+    }
+  }
+
+  gConstructingMenu = false;
+}
+
 void nsMenuX::InsertPlaceholderIfNeeded() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  if ([mNativeMenu numberOfItems] == 0) {
+  if (mIsAnchoredPullDown && !mIsPullDownPlaceholderPresent) {
+    // Create the placeholder item used by NSPopUpButtonCell with
+    // pullsDown=true.
+    NSMenuItem* item = [[GeckoNSMenuItem alloc] initWithTitle:@""
+                                                       action:nil
+                                                keyEquivalent:@""];
+    item.enabled = false;
+    [mNativeMenu insertItem:item atIndex:0];
+    [item release];
+    mIsPullDownPlaceholderPresent = true;
+  } else if ([mNativeMenu numberOfItems] == 0) {
     MOZ_RELEASE_ASSERT(mVisibleItemsCount == 0);
     NSMenuItem* item = [[GeckoNSMenuItem alloc] initWithTitle:@""
                                                        action:nil
                                                 keyEquivalent:@""];
     item.enabled = NO;
     item.view =
-        [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 150, 1)] autorelease];
+        [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 20, 1)] autorelease];
     [mNativeMenu addItem:item];
     [item release];
   }
@@ -827,7 +883,8 @@ void nsMenuX::InsertPlaceholderIfNeeded() {
 void nsMenuX::RemovePlaceholderIfPresent() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  if (mVisibleItemsCount == 0 && [mNativeMenu numberOfItems] == 1) {
+  if (mVisibleItemsCount == 0 && [mNativeMenu numberOfItems] == 1 &&
+      !mIsPullDownPlaceholderPresent) {
     // Remove the placeholder.
     [mNativeMenu removeItemAtIndex:0];
   }
@@ -887,7 +944,7 @@ GeckoNSMenu* nsMenuX::CreateMenuWithGeckoString(const nsString& aMenuTitle,
 }
 
 Maybe<nsMenuX::MenuChild> nsMenuX::CreateMenuChild(nsIContent* aContent) {
-  if (aContent->IsAnyOfXULElements(nsGkAtoms::menuitem,
+  if (aContent->IsAnyOfXULElements(nsGkAtoms::menucaption, nsGkAtoms::menuitem,
                                    nsGkAtoms::menuseparator)) {
     return Some(MenuChild(CreateMenuItem(aContent)));
   }
@@ -1132,6 +1189,12 @@ void nsMenuX::ObserveContentInserted(dom::Document* aDocument,
   if (popupContent && aContainer == popupContent) {
     if (Maybe<MenuChild> child = CreateMenuChild(aChild)) {
       InsertMenuChild(std::move(*child));
+      // NSMenu does not properly handle menu items being inserted while a menu
+      // is open. On some versions of macOS (at least macOS 15 and 26), doing so
+      // will clobber the item added and the existing items after it. Recreating
+      // the menu item after insertion, and every menu item after it, works
+      // around this issue.
+      RefreshMenuChildren(*child);
     }
   }
 }
@@ -1180,9 +1243,8 @@ void nsMenuX::MenuChildChangedVisibility(const MenuChild& aChild,
 NSInteger nsMenuX::CalculateNativeInsertionPoint(const MenuChild& aChild) {
   NSInteger insertionPoint = 0;
   for (auto& currItem : mMenuChildren) {
-    // Using GetItemAt instead of GetVisibleItemAt to avoid O(N^2)
     if (currItem == aChild) {
-      return insertionPoint;
+      break;
     }
     NSMenuItem* nativeItem = currItem.match(
         [](const RefPtr<nsMenuX>& aMenu) { return aMenu->NativeNSMenuItem(); },
@@ -1193,6 +1255,10 @@ NSInteger nsMenuX::CalculateNativeInsertionPoint(const MenuChild& aChild) {
     if (nativeItem.menu) {
       insertionPoint++;
     }
+  }
+  if (mIsPullDownPlaceholderPresent) {
+    // Account for the pulldown placeholder item.
+    insertionPoint++;
   }
   return insertionPoint;
 }

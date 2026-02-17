@@ -25,11 +25,13 @@
         <menu id="menu">
           <menupopup id="popup" style="appearance: none; margin:0; border: 0; padding: 0;"
                                 onpopupshown="menuOpened()"
-                                onpopuphidden="if (event.target == this) SimpleTest.finish()">
+                                onpopuphidden="if (event.target == this) SimpleTest.finish()"
+                                native="false">
             <menuitem label="One"/>
             <menu id="submenu" label="Three">
               <menupopup id="subpopup" style="appearance: none; margin:0; border: 0; padding: 0;"
-                         onpopupshown="submenuOpened()">
+                         onpopupshown="submenuOpened()"
+                         native="false">
                 <menuitem label="Four"/>
               </menupopup>
             </menu>

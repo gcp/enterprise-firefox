@@ -17,7 +17,8 @@
            onpopupshowing="popupShowingEventOccurred(event);"
            onpopupshown="eventOccurred(event); openThePopup('inner')"
            onpopuphiding="eventOccurred(event);"
-           onpopuphidden="eventOccurred(event); SimpleTest.finish();">
+           onpopuphidden="eventOccurred(event); SimpleTest.finish();"
+           native="false">
   <button id="item1" label="First"/>
   <label id="inner" value="Second" popup="innerpopup"/>
   <button id="item2" label="Third"/>
@@ -27,7 +28,8 @@
            onpopupshowing="popupShowingEventOccurred(event);"
            onpopupshown="eventOccurred(event); event.target.hidePopup();"
            onpopuphiding="eventOccurred(event);"
-           onpopuphidden="eventOccurred(event); document.getElementById('outerpopup').hidePopup();">
+           onpopuphidden="eventOccurred(event); document.getElementById('outerpopup').hidePopup();"
+           native="false">
   <menuitem id="inner1" label="Inner First"/>
   <menuitem id="inner2" label="Inner Second"/>
 </menupopup>
