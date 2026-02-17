@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -10,6 +12,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarTokenizer:
     "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
 });
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "maxResults",
+  "browser.urlbar.mentions.maxResults"
+);
 
 export const MENTION_TYPE = /** @type {const} */ ({
   TAB_OPEN: "TAB_OPEN",
@@ -48,9 +56,9 @@ export class SmartbarMentionsPanelSearch {
    * @returns {TabResult[]}
    */
   startQuery(searchString) {
-    return this.#filterTabs(searchString).sort(
-      (a, b) => b.timestamp - a.timestamp
-    );
+    return this.#filterTabs(searchString)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, lazy.maxResults);
   }
 
   #filterTabs(searchString) {
@@ -62,13 +70,10 @@ export class SmartbarMentionsPanelSearch {
       return this.#tabs;
     }
 
-    const truncatedSearch = searchString.substring(
-      0,
-      lazy.UrlbarUtils.MAX_TEXT_LENGTH
-    );
+    // Tokenize the search string
     const tokens = lazy.UrlbarTokenizer.tokenize({
-      searchString: truncatedSearch,
-      trimmedSearchString: truncatedSearch.trim(),
+      searchString: searchString.substring(0, lazy.UrlbarUtils.MAX_TEXT_LENGTH),
+      trimmedSearchString: searchString.trim(),
     });
 
     if (!tokens.length) {
@@ -77,19 +82,20 @@ export class SmartbarMentionsPanelSearch {
 
     return this.#tabs.filter(tab => {
       const normalizedUrl = this.#normalizeUrl(tab.url);
-      const searchText = `${tab.title} ${normalizedUrl}`
-        .substring(0, lazy.UrlbarUtils.MAX_TEXT_LENGTH)
-        .toLowerCase();
-
-      // Check if ALL tokens appear in the search text
-      return tokens.every(token =>
-        searchText.includes(token.value.toLowerCase())
+      const matches = lazy.UrlbarUtils.getTokenMatches(
+        tokens,
+        `${tab.title} ${normalizedUrl}`.substring(
+          0,
+          lazy.UrlbarUtils.MAX_TEXT_LENGTH
+        ),
+        lazy.UrlbarUtils.HIGHLIGHT.TYPED
       );
+      return !!matches.length;
     });
   }
 
   #getOpenAndClosedTabs(browserWindow) {
-    const results = [];
+    const tabsMap = new Map();
 
     // Open tabs
     for (const tab of browserWindow.gBrowser.tabs) {
@@ -98,10 +104,15 @@ export class SmartbarMentionsPanelSearch {
         continue;
       }
 
-      results.push({
+      // Use the first occurrence of the URL
+      if (tabsMap.has(url)) {
+        continue;
+      }
+
+      tabsMap.set(url, {
         url,
         title: tab.label || url,
-        icon: `page-icon:${url}`,
+        icon: tab.getAttribute("image") || "",
         type: MENTION_TYPE.TAB_OPEN,
         timestamp: tab.lastAccessed,
       });
@@ -128,10 +139,15 @@ export class SmartbarMentionsPanelSearch {
           continue;
         }
 
-        results.push({
+        // Use the first occurrence of the URL
+        if (tabsMap.has(url)) {
+          continue;
+        }
+
+        tabsMap.set(url, {
           url,
           title: entry.title || url,
-          icon: `page-icon:${url}`,
+          icon: closedTab.image || "",
           type: MENTION_TYPE.TAB_RECENTLY_CLOSED,
           timestamp: closedTab.closedAt,
         });
@@ -140,7 +156,7 @@ export class SmartbarMentionsPanelSearch {
       console.error("Error getting recently closed tabs:", e);
     }
 
-    return results;
+    return Array.from(tabsMap.values());
   }
 
   #normalizeUrl(url) {

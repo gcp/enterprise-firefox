@@ -13,14 +13,6 @@ ChromeUtils.defineESModuleGetters(this, {
   sinon: "resource://testing-common/Sinon.sys.mjs",
 });
 
-ChromeUtils.defineLazyGetter(this, "SearchTestUtils", () => {
-  const { SearchTestUtils: module } = ChromeUtils.importESModule(
-    "resource://testing-common/SearchTestUtils.sys.mjs"
-  );
-  module.init(this);
-  return module;
-});
-
 const AIWINDOW_URL = "chrome://browser/content/aiwindow/aiWindow.html";
 
 add_setup(async function () {
