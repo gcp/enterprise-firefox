@@ -30,12 +30,6 @@ class BaseBrowserSignout(FeltTests):
         self._child_driver.set_context("content")
         return rv
 
-    def force_window(self):
-        self._driver.set_context("chrome")
-        assert len(self._driver.chrome_window_handles) == 1, "One window exists"
-        self._driver.switch_to_window(self._driver.chrome_window_handles[0])
-        self._driver.set_context("content")
-
     def get_private_cookies(self):
         self._driver.set_context("chrome")
         private_cookies = self._driver.execute_script(

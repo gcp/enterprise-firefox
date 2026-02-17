@@ -7,6 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
 });
 
 /**
@@ -611,7 +612,6 @@ export const ConsoleClient = {
    * Clears persisted and in-memory token data.
    */
   clearTokenData() {
-    this.tokenData = null;
     Services.felt.setTokens("", "", 0);
   },
 
@@ -656,6 +656,22 @@ export const ConsoleClient = {
    */
   init() {
     Services.obs.addObserver(this, "xpcom-shutdown");
+
+    if (Services.felt.isFeltBrowser()) {
+      lazy.AsyncShutdown.appShutdownConfirmed.addBlocker(
+        `ConsoleClient: Sending back tokens to felt on shutdown`,
+        () => {
+          try {
+            Services.felt.sendTokens();
+          } catch (ex) {
+            console.error(
+              `ConsoleClient: Failed to send back tokens to felt on shutdown: ${ex}`
+            );
+          }
+        }
+      );
+    }
+
     return this;
   },
 
@@ -665,6 +681,7 @@ export const ConsoleClient = {
         Services.obs.removeObserver(this, "xpcom-shutdown");
         this.clearTokenData();
         this._refreshPromise = null;
+        break;
       }
     }
   },

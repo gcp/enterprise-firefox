@@ -15,7 +15,7 @@ use xpcom::interfaces::{
 };
 use xpcom::RefPtr;
 
-use log::trace;
+use log::{error, trace};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
@@ -53,9 +53,16 @@ impl FeltXPCOM {
         trace!("FeltXPCOM:SendMessage: {:?}", msg);
         if let Some(tx) = self.tx.borrow_mut().as_mut() {
             trace!("FeltXPCOM:SendMessage: acquired tx");
-            tx.send(msg).unwrap();
-            trace!("FeltXPCOM:SendMessage: message sent");
-            NS_OK
+            match tx.send(msg) {
+                Ok(_) => {
+                    trace!("FeltXPCOM:SendMessage: message sent");
+                    NS_OK
+                }
+                Err(err) => {
+                    error!("FeltXPCOM:SendMessage: error: {}", err);
+                    NS_ERROR_FAILURE
+                }
+            }
         } else {
             NS_ERROR_FAILURE
         }
@@ -111,23 +118,33 @@ impl FeltXPCOM {
     }
 
     fn SendTokens(&self) -> nserror::nsresult {
-        match TOKENS.read() {
-            Ok(tokens) => {
-                trace!(
-                    "FeltXPCOM::SendTokens ({} {} {})",
-                    tokens.access_token,
-                    tokens.refresh_token,
-                    tokens.expires_at
-                );
-                self.send(FeltMessage::Tokens((
-                    tokens.access_token.clone(),
-                    tokens.refresh_token.clone(),
-                    tokens.expires_at,
-                )))
+        if self.is_felt_browser {
+            let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+            match &*guard {
+                Some(client) => {
+                    trace!("FeltXPCOM::SendTokens(): sending back to client");
+                    client.send_back_tokens();
+                    NS_OK
+                }
+                None => {
+                    trace!("FeltXPCOM::SendTokens(): missing client");
+                    NS_ERROR_FAILURE
+                }
             }
-            Err(_) => {
-                trace!("FeltXPCOM::SendTokens failed: couldn't acquire lock",);
-                NS_ERROR_FAILURE
+        } else {
+            match TOKENS.read() {
+                Ok(tokens) => {
+                    trace!("FeltXPCOM::SendTokens()");
+                    self.send(FeltMessage::Tokens((
+                        tokens.access_token.clone(),
+                        tokens.refresh_token.clone(),
+                        tokens.expires_at,
+                    )))
+                }
+                Err(_) => {
+                    trace!("FeltXPCOM::SendTokens failed: couldn't acquire lock",);
+                    NS_ERROR_FAILURE
+                }
             }
         }
     }
@@ -312,6 +329,15 @@ impl FeltXPCOM {
                             Ok(FeltMessage::LogoutShutdown) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
                                 crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            },
+                            Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Update tokens from browser");
+                                let payload = serde_json::json!({
+                                    "access_token": access_token,
+                                    "refresh_token": refresh_token,
+                                    "expires_at": expires_at,
+                                }).to_string();
+                                crate::utils::notify_observers_with_payload("felt-firefox-tokens".to_string(), Some(payload));
                             },
                             Err(ipc_channel::ipc::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");

@@ -108,7 +108,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.abnormalExitFirstTime = 0;
 
     this.browserObserver = {
-      observe(aSubject, aTopic) {
+      observe(aSubject, aTopic, aData) {
         console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
           case "felt-firefox-exiting": {
@@ -171,9 +171,23 @@ export class FeltProcessParent extends JSProcessActorParent {
             }
             break;
           }
+
           case "felt-firefox-logout":
             gFeltProcessParentInstance.logoutFirefox();
             break;
+
+          case "felt-firefox-tokens": {
+            console.debug(
+              `FeltExtension: ParentProcess: Update tokens from browser to FELT`
+            );
+            const data = JSON.parse(aData);
+            Services.felt.setTokens(
+              data.access_token,
+              data.refresh_token,
+              data.expires_in
+            );
+            break;
+          }
 
           default:
             console.debug(`FeltExtension: ParentProcess: Unhandled ${aTopic}`);
@@ -262,14 +276,30 @@ export class FeltProcessParent extends JSProcessActorParent {
     gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
 
+    /*
+     * Those topics are notified by our XPCOM on the FELT side when Browser
+     * sends some IPC message to us, so they are indeed bound to the process
+     * lifecycle of the launched browser (see this.firefox /
+     * this.startFirefoxProcess()).  Hence we register them when we start the
+     * process and remove them when the process exists.
+     *
+     * Therefore we avoid using 'actorCreated' and 'didDestroy' in this parent
+     * for the (de-)registration. Also using didDestroy is executed too early,
+     * namely when the paired JSActor communication dies, which is when the
+     * felt window is closed. The process itself and with it the
+     * FeltProcessParent lives on to handle the receiving IPC messages.
+     */
     const observerTopics = [
-      "felt-firefox-exiting",
-      "felt-firefox-restarting",
       "felt-extension-ready",
+      "felt-firefox-exiting",
       "felt-firefox-logout",
+      "felt-firefox-restarting",
+      "felt-firefox-tokens",
     ];
 
     observerTopics.forEach(aTopic => {
+      // This is purely defense to make sure there is no silent regression where
+      // we would miss a removal of observers.
       const num = Array.from(Services.obs.enumerateObservers(aTopic)).length;
       if (num !== 0) {
         console.debug(
