@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "builtin/intl/Packed.h"
 #include "js/Class.h"
 #include "js/Value.h"
 #include "vm/NativeObject.h"
@@ -36,6 +37,48 @@ struct CollatorOptions {
 
   enum class CaseFirst : int8_t { Upper, Lower, False };
   mozilla::Maybe<CaseFirst> caseFirst{};
+};
+
+struct PackedCollatorOptions {
+  using RawValue = uint32_t;
+
+  using UsageField = packed::EnumField<RawValue, CollatorOptions::Usage::Sort,
+                                       CollatorOptions::Usage::Search>;
+
+  using SensitivityField =
+      packed::OptionalEnumField<UsageField, CollatorOptions::Sensitivity::Base,
+                                CollatorOptions::Sensitivity::Variant>;
+
+  using IgnorePunctuationField = packed::OptionalBooleanField<SensitivityField>;
+
+  using NumericField = packed::OptionalBooleanField<IgnorePunctuationField>;
+
+  using CaseFirstField =
+      packed::OptionalEnumField<NumericField, CollatorOptions::CaseFirst::Upper,
+                                CollatorOptions::CaseFirst::False>;
+
+  using PackedValue = packed::PackedValue<CaseFirstField>;
+
+  static auto pack(const CollatorOptions& options) {
+    RawValue rawValue =
+        UsageField::pack(options.usage) |
+        SensitivityField::pack(options.sensitivity) |
+        IgnorePunctuationField::pack(options.ignorePunctuation) |
+        NumericField::pack(options.numeric) |
+        CaseFirstField::pack(options.caseFirst);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return CollatorOptions{
+        .usage = UsageField::unpack(rawValue),
+        .sensitivity = SensitivityField::unpack(rawValue),
+        .ignorePunctuation = IgnorePunctuationField::unpack(rawValue),
+        .numeric = NumericField::unpack(rawValue),
+        .caseFirst = CaseFirstField::unpack(rawValue),
+    };
+  }
 };
 
 class CollatorObject : public NativeObject {
@@ -91,16 +134,16 @@ class CollatorObject : public NativeObject {
     setFixedSlot(COLLATION_SLOT, JS::StringValue(collation));
   }
 
-  CollatorOptions* getOptions() const {
+  CollatorOptions getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
-      return nullptr;
+      return {};
     }
-    return static_cast<CollatorOptions*>(slot.toPrivate());
+    return PackedCollatorOptions::unpack(slot);
   }
 
-  void setOptions(CollatorOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
+  void setOptions(const CollatorOptions& options) {
+    setFixedSlot(OPTIONS_SLOT, PackedCollatorOptions::pack(options));
   }
 
   mozilla::intl::Collator* getCollator() const {
