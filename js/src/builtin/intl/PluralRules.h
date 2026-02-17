@@ -10,7 +10,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "builtin/intl/NumberFormatOptions.h"
 #include "js/Class.h"
 #include "js/TypeDecls.h"
 #include "js/Value.h"
@@ -22,6 +21,7 @@ class PluralRules;
 
 namespace js::intl {
 
+struct PluralRulesOptions;
 
 class PluralRulesObject : public NativeObject {
  public:
@@ -65,17 +65,9 @@ class PluralRulesObject : public NativeObject {
     setFixedSlot(LOCALE_SLOT, JS::StringValue(locale));
   }
 
-  PluralRulesOptions getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    if (slot.isUndefined()) {
-      return {};
-    }
-    return PackedPluralRulesOptions::unpack(slot);
-  }
+  PluralRulesOptions getOptions() const;
 
-  void setOptions(const PluralRulesOptions& options) {
-    setFixedSlot(OPTIONS_SLOT, PackedPluralRulesOptions::pack(options));
-  }
+  void setOptions(const PluralRulesOptions& options);
 
   mozilla::intl::PluralRules* getPluralRules() const {
     const auto& slot = getFixedSlot(PLURAL_RULES_SLOT);

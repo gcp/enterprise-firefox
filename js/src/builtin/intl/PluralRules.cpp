@@ -101,6 +101,19 @@ const ClassSpec PluralRulesObject::classSpec_ = {
     ClassSpec::DontDefineConstructor,
 };
 
+PluralRulesOptions js::intl::PluralRulesObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS_SLOT);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedPluralRulesOptions::unpack(slot);
+}
+
+void js::intl::PluralRulesObject::setOptions(
+    const PluralRulesOptions& options) {
+  setFixedSlot(OPTIONS_SLOT, PackedPluralRulesOptions::pack(options));
+}
+
 static constexpr std::string_view PluralRulesTypeToString(
     PluralRulesOptions::Type type) {
 #ifndef USING_ENUM

@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <string_view>
 
-#include "builtin/intl/NumberFormatOptions.h"
 #include "js/Class.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
@@ -26,6 +25,8 @@ class ArrayObject;
 }
 
 namespace js::intl {
+
+struct NumberFormatOptions;
 
 class NumberFormatObject : public NativeObject {
  public:
@@ -87,20 +88,9 @@ class NumberFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM_SLOT, JS::StringValue(numberingSystem));
   }
 
-  NumberFormatOptions getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    const auto& digitsSlot = getFixedSlot(DIGITS_OPTIONS_SLOT);
-    if (slot.isUndefined() || digitsSlot.isUndefined()) {
-      return {};
-    }
-    return PackedNumberFormatOptions::unpack(slot, digitsSlot);
-  }
+  NumberFormatOptions getOptions() const;
 
-  void setOptions(const NumberFormatOptions& options) {
-    auto [packed, packedDigits] = PackedNumberFormatOptions::pack(options);
-    setFixedSlot(OPTIONS_SLOT, packed);
-    setFixedSlot(DIGITS_OPTIONS_SLOT, packedDigits);
-  }
+  void setOptions(const NumberFormatOptions& options);
 
   mozilla::intl::NumberFormat* getNumberFormatter() const {
     const auto& slot = getFixedSlot(UNUMBER_FORMATTER_SLOT);
