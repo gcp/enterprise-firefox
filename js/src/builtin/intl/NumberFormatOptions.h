@@ -8,6 +8,7 @@
 #define builtin_intl_NumberFormatOptions_h
 
 #include "mozilla/intl/NumberFormat.h"
+#include "mozilla/intl/PluralRules.h"
 
 #include <array>
 #include <stdint.h>
@@ -338,7 +339,7 @@ struct PackedNumberFormatOptions {
 struct PluralRulesOptions {
   NumberFormatDigitOptions digitOptions{};
 
-  enum class Type : int8_t { Cardinal, Ordinal };
+  using Type = mozilla::intl::PluralRules::Type;
   Type type = Type::Cardinal;
 
   using Notation = NumberFormatOptions::Notation;
