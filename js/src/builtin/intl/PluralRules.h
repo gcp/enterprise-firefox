@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "builtin/intl/NumberFormat.h"
+#include "builtin/intl/Packed.h"
 #include "js/Class.h"
 #include "js/TypeDecls.h"
 #include "js/Value.h"
@@ -33,6 +34,43 @@ struct PluralRulesOptions {
 
   using CompactDisplay = NumberFormatOptions::CompactDisplay;
   CompactDisplay compactDisplay = CompactDisplay::Short;
+};
+
+struct PackedPluralRulesOptions {
+  using RawValue = PackedNumberFormatDigitOptions::RawValue;
+
+  using TypeField = packed::EnumField<PackedNumberFormatDigitOptions::LastField,
+                                      PluralRulesOptions::Type::Cardinal,
+                                      PluralRulesOptions::Type::Ordinal>;
+
+  using NotationField =
+      packed::EnumField<TypeField, PluralRulesOptions::Notation::Standard,
+                        PluralRulesOptions::Notation::Compact>;
+
+  using CompactDisplayField =
+      packed::EnumField<NotationField,
+                        PluralRulesOptions::CompactDisplay::Short,
+                        PluralRulesOptions::CompactDisplay::Long>;
+
+  using PackedValue = packed::PackedValue<CompactDisplayField>;
+
+  static auto pack(const PluralRulesOptions& options) {
+    RawValue rawValue =
+        PackedNumberFormatDigitOptions::pack(options.digitOptions) |
+        TypeField::pack(options.type) | NotationField::pack(options.notation) |
+        CompactDisplayField::pack(options.compactDisplay);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return PluralRulesOptions{
+        .digitOptions = PackedNumberFormatDigitOptions::unpack(rawValue),
+        .type = TypeField::unpack(rawValue),
+        .notation = NotationField::unpack(rawValue),
+        .compactDisplay = CompactDisplayField::unpack(rawValue),
+    };
+  }
 };
 
 class PluralRulesObject : public NativeObject {
@@ -77,16 +115,16 @@ class PluralRulesObject : public NativeObject {
     setFixedSlot(LOCALE_SLOT, JS::StringValue(locale));
   }
 
-  PluralRulesOptions* getOptions() const {
+  PluralRulesOptions getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
-      return nullptr;
+      return {};
     }
-    return static_cast<PluralRulesOptions*>(slot.toPrivate());
+    return PackedPluralRulesOptions::unpack(slot);
   }
 
-  void setOptions(PluralRulesOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
+  void setOptions(const PluralRulesOptions& options) {
+    setFixedSlot(OPTIONS_SLOT, PackedPluralRulesOptions::pack(options));
   }
 
   mozilla::intl::PluralRules* getPluralRules() const {
