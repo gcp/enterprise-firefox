@@ -720,7 +720,15 @@ export class AIWindow extends MozLitElement {
       const stream = lazy.Chat.fetchWithHistory(
         this.#conversation,
         engineInstance,
-        { win: window.browsingContext.topChromeWindow }
+        {
+          // Use the adjacent tab's browsing context for sidebar or current for
+          // fullpage for tools that need context.
+          browsingContext:
+            this.mode === SIDEBAR
+              ? window.browsingContext.topChromeWindow.gBrowser.selectedBrowser
+                  .browsingContext
+              : window.browsingContext,
+        }
       );
 
       this.#updateConversation();
