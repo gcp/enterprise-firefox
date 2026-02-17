@@ -757,7 +757,7 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
 
         fun expandCollection(title: String, interact: CollectionRobot.() -> Unit): CollectionRobot.Transition {
             Log.i(TAG, "expandCollection: Trying to click collection with title: $title")
-            composeTestRule.onNodeWithText(title).performClick()
+            itemContainingText(title).click()
             Log.i(TAG, "expandCollection: Clicked collection with title: $title")
 
             CollectionRobot(composeTestRule).interact()
