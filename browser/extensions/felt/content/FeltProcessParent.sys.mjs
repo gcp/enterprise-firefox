@@ -67,6 +67,26 @@ function notifyFirefoxReady() {
   Services.obs.notifyObservers(null, "felt-firefox-window-ready");
 }
 
+// These observer topics relay IPC events from the Firefox subprocess back
+// through XPCOM. Their lifetime is tied to the Firefox process, not the
+// JSActor pair (which can be destroyed and re-created independently when the
+// content process hosting the SSO page is recycled). We register them once on
+// first use via gObserversRegistered and never remove them: the browserObserver
+// dispatches through gFeltProcessParentInstance (module-level), so a single
+// registration remains valid across actor re-creations and Firefox restart
+// cycles. They are cleaned up implicitly when the Felt UI process exits.
+// See browserObserver.observe() which routes all events via the singleton:
+// https://github.com/mozilla/enterprise-firefox/blob/3caad8cb1f33/browser/extensions/felt/content/FeltProcessParent.sys.mjs#L111-L183
+const kBrowserObserverTopics = [
+  "felt-firefox-exiting",
+  "felt-firefox-restarting",
+  "felt-extension-ready",
+  "felt-firefox-logout",
+  "felt-firefox-tokens",
+];
+
+let gObserversRegistered = false;
+
 /**
  * Manages the SSO login and launching Firefox
  */
@@ -273,39 +293,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
 
-    /*
-     * Those topics are notified by our XPCOM on the FELT side when Browser
-     * sends some IPC message to us, so they are indeed bound to the process
-     * lifecycle of the launched browser (see this.firefox /
-     * this.startFirefoxProcess()).  Hence we register them when we start the
-     * process and remove them when the process exists.
-     *
-     * Therefore we avoid using 'actorCreated' and 'didDestroy' in this parent
-     * for the (de-)registration. Also using didDestroy is executed too early,
-     * namely when the paired JSActor communication dies, which is when the
-     * felt window is closed. The process itself and with it the
-     * FeltProcessParent lives on to handle the receiving IPC messages.
-     */
-    const observerTopics = [
-      "felt-extension-ready",
-      "felt-firefox-exiting",
-      "felt-firefox-logout",
-      "felt-firefox-restarting",
-      "felt-firefox-tokens",
-    ];
-
-    observerTopics.forEach(aTopic => {
-      // This is purely defense to make sure there is no silent regression where
-      // we would miss a removal of observers.
-      const num = Array.from(Services.obs.enumerateObservers(aTopic)).length;
-      if (num !== 0) {
-        console.debug(
-          `FeltExtension: ParentProcess: observerTopics[${aTopic}]: ${num} INCORRECT TOO MANY`
-        );
-        throw new Error(`Too many observers: ${aTopic}:${num}`);
-      }
-      Services.obs.addObserver(this.browserObserver, aTopic);
-    });
+    if (!gObserversRegistered) {
+      kBrowserObserverTopics.forEach(aTopic => {
+        Services.obs.addObserver(this.browserObserver, aTopic);
+      });
+      gObserversRegistered = true;
+    }
 
     this.firefox = this.startFirefoxProcess();
     this.firefox
@@ -355,10 +348,6 @@ export class FeltProcessParent extends JSProcessActorParent {
           console.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
           );
-
-          observerTopics.forEach(aTopic => {
-            Services.obs.removeObserver(this.browserObserver, aTopic);
-          });
 
           if (!this.restartReported && !this.logoutReported) {
             if (this.proc.exitCode === 0) {
