@@ -42,7 +42,7 @@ const EVENTS = {
  * render Accessibility Tree of the current debugger target and the sidebar that
  * displays current relevant accessible details.
  */
-class AccessibilityPanel {
+class AccessibilityPanel extends EventEmitter {
   #toolbox;
   #commands;
   #opening;
@@ -51,6 +51,8 @@ class AccessibilityPanel {
   #destroyed;
 
   constructor(iframeWindow, toolbox, commands) {
+    super();
+
     this.panelWin = iframeWindow;
     this.#toolbox = toolbox;
     this.#commands = commands;
@@ -64,8 +66,6 @@ class AccessibilityPanel {
       this.updateA11YServiceDurationTimer.bind(this);
     this.forceUpdatePickerButton = this.forceUpdatePickerButton.bind(this);
     this.onLifecycleEvent = this.onLifecycleEvent.bind(this);
-
-    EventEmitter.decorate(this);
   }
   /**
    * Open is effectively an asynchronous constructor.

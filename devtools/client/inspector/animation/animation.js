@@ -34,8 +34,10 @@ const {
   hasRunningAnimation,
 } = require("resource://devtools/client/inspector/animation/utils/utils.js");
 
-class AnimationInspector {
+class AnimationInspector extends EventEmitter {
   constructor(inspector, win) {
+    super();
+
     this.inspector = inspector;
     this.win = win;
 
@@ -78,7 +80,6 @@ class AnimationInspector {
     this.onSidebarResized = this.onSidebarResized.bind(this);
     this.onSidebarSelectionChanged = this.onSidebarSelectionChanged.bind(this);
 
-    EventEmitter.decorate(this);
     this.emitForTests = this.emitForTests.bind(this);
 
     this.initComponents();
