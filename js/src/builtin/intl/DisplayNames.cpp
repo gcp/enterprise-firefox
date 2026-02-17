@@ -250,11 +250,8 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   }
   displayNames->setRequestedLocales(requestedLocalesArray);
 
-  auto dnOptions = cx->make_unique<DisplayNamesOptions>();
-  if (!dnOptions) {
-    return false;
-  }
-  dnOptions->mozExtensions = kind == DisplayNamesKind::EnableMozExtensions;
+  DisplayNamesOptions dnOptions{};
+  dnOptions.mozExtensions = kind == DisplayNamesKind::EnableMozExtensions;
 
   // ResolveOptions, steps 2-3.
   Rooted<JSObject*> options(
@@ -302,7 +299,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
         DisplayNamesOptions::Style::Long, DisplayNamesOptions::Style::Short,
         DisplayNamesOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
-                         DisplayNamesOptions::Style::Long, &dnOptions->style)) {
+                         DisplayNamesOptions::Style::Long, &dnOptions.style)) {
       return false;
     }
   } else {
@@ -311,7 +308,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
         DisplayNamesOptions::Style::Narrow,
         DisplayNamesOptions::Style::Abbreviated);
     if (!GetStringOption(cx, options, cx->names().style, styles,
-                         DisplayNamesOptions::Style::Long, &dnOptions->style)) {
+                         DisplayNamesOptions::Style::Long, &dnOptions.style)) {
       return false;
     }
   }
@@ -349,14 +346,14 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   }
 
   // Step 10
-  dnOptions->type = *type;
+  dnOptions.type = *type;
 
   // Steps 11-12.
   static constexpr auto fallbacks = MapOptions<FallbackToString>(
       DisplayNamesOptions::Fallback::Code, DisplayNamesOptions::Fallback::None);
   if (!GetStringOption(cx, options, cx->names().fallback, fallbacks,
                        DisplayNamesOptions::Fallback::Code,
-                       &dnOptions->fallback)) {
+                       &dnOptions.fallback)) {
     return false;
   }
 
@@ -369,14 +366,12 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   if (!GetStringOption(cx, options, cx->names().languageDisplay,
                        languageDisplays,
                        DisplayNamesOptions::LanguageDisplay::Dialect,
-                       &dnOptions->languageDisplay)) {
+                       &dnOptions.languageDisplay)) {
     return false;
   }
 
   // Assign the options to |displayNames|.
-  displayNames->setOptions(dnOptions.release());
-  AddCellMemory(displayNames, sizeof(DisplayNamesOptions),
-                MemoryUse::IntlOptions);
+  displayNames->setOptions(dnOptions);
 
   // Steps 15-16, 18-19, 20.b-c, and 21-23. (Not applicable)
 
@@ -397,10 +392,6 @@ static bool MozDisplayNames(JSContext* cx, unsigned argc, Value* vp) {
 
 void js::intl::DisplayNamesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* dn = &obj->as<DisplayNamesObject>();
-
-  if (auto* options = dn->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (auto* displayNames = dn->getDisplayNames()) {
     RemoveICUCellMemory(gcx, obj, DisplayNamesObject::EstimatedMemoryUse);
@@ -452,7 +443,7 @@ static bool ResolveLocale(JSContext* cx,
     return true;
   }
 
-  bool mozExtensions = displayNames->getOptions()->mozExtensions;
+  bool mozExtensions = displayNames->getOptions().mozExtensions;
 
   Rooted<ArrayObject*> requestedLocales(
       cx, &displayNames->getRequestedLocales()->as<ArrayObject>());
@@ -558,7 +549,7 @@ static mozilla::intl::DisplayNames* NewDisplayNames(
   if (!ResolveLocale(cx, displayNames)) {
     return nullptr;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
 
   auto locale = EncodeLocale(cx, displayNames->getLocale());
   if (!locale) {
@@ -663,7 +654,7 @@ static bool ComputeDisplayName(JSContext* cx,
   if (!dn) {
     return false;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
   auto type = dnOptions.type;
   auto fallback = ToDisplayNamesFallback(dnOptions.fallback);
 
@@ -915,7 +906,7 @@ static bool displayNames_resolvedOptions(JSContext* cx, const CallArgs& args) {
   if (!ResolveLocale(cx, displayNames)) {
     return false;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);

@@ -13,13 +13,12 @@
 #include "jstypes.h"
 #include "NamespaceImports.h"
 
-#include "js/Class.h"  // JSClass, JSClassOps, js::ClassSpec
+#include "builtin/intl/Packed.h"
+#include "js/Class.h"
 #include "js/TypeDecls.h"
 #include "js/Value.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
-
-struct JS_PUBLIC_API JSContext;
 
 namespace mozilla::intl {
 class DisplayNames;
@@ -58,6 +57,51 @@ struct DisplayNamesOptions {
   LanguageDisplay languageDisplay = LanguageDisplay::Dialect;
 
   bool mozExtensions = false;
+};
+
+struct PackedDisplayNamesOptions {
+  using RawValue = uint32_t;
+
+  using StyleField =
+      packed::EnumField<RawValue, DisplayNamesOptions::Style::Long,
+                        DisplayNamesOptions::Style::Abbreviated>;
+
+  using TypeField =
+      packed::EnumField<StyleField, DisplayNamesOptions::Type::Language,
+                        DisplayNamesOptions::Type::DayPeriod>;
+
+  using FallbackField =
+      packed::EnumField<TypeField, DisplayNamesOptions::Fallback::Code,
+                        DisplayNamesOptions::Fallback::None>;
+
+  using LanguageDisplayField =
+      packed::EnumField<FallbackField,
+                        DisplayNamesOptions::LanguageDisplay::Dialect,
+                        DisplayNamesOptions::LanguageDisplay::Standard>;
+
+  using MozExtensionsField = packed::BooleanField<LanguageDisplayField>;
+
+  using PackedValue = packed::PackedValue<MozExtensionsField>;
+
+  static auto pack(const DisplayNamesOptions& options) {
+    RawValue rawValue = StyleField::pack(options.style) |
+                        TypeField::pack(options.type) |
+                        FallbackField::pack(options.fallback) |
+                        LanguageDisplayField::pack(options.languageDisplay) |
+                        MozExtensionsField::pack(options.mozExtensions);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return DisplayNamesOptions{
+        .style = StyleField::unpack(rawValue),
+        .type = TypeField::unpack(rawValue),
+        .fallback = FallbackField::unpack(rawValue),
+        .languageDisplay = LanguageDisplayField::unpack(rawValue),
+        .mozExtensions = MozExtensionsField::unpack(rawValue),
+    };
+  }
 };
 
 class DisplayNamesObject : public NativeObject {
@@ -112,16 +156,16 @@ class DisplayNamesObject : public NativeObject {
     setFixedSlot(CALENDAR, StringValue(calendar));
   }
 
-  DisplayNamesOptions* getOptions() const {
+  DisplayNamesOptions getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS);
     if (slot.isUndefined()) {
-      return nullptr;
+      return {};
     }
-    return static_cast<DisplayNamesOptions*>(slot.toPrivate());
+    return PackedDisplayNamesOptions::unpack(slot);
   }
 
-  void setOptions(DisplayNamesOptions* options) {
-    setFixedSlot(OPTIONS, PrivateValue(options));
+  void setOptions(const DisplayNamesOptions& options) {
+    setFixedSlot(OPTIONS, PackedDisplayNamesOptions::pack(options));
   }
 
   mozilla::intl::DisplayNames* getDisplayNames() const {
