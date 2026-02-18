@@ -194,23 +194,40 @@ add_task(async function process_switch_in_sidebars_popups() {
     viewType: "popup",
     initialBCGId: extBcgId,
   };
+  let expectedInitialClassName =
+    "webextension-popup-browser webextension-preload-browser";
   const seenForPopup = filterSeenWindowGlobals(gSeenWindowGlobals, extBcgId);
   if (
     seenForPopup[1].url === "about:blank" &&
     seenForPopup[2].url.endsWith("/page.html?popup")
   ) {
-    // The preloaded browser and the real browser are loaded in parallel. It is
-    // possible for the preloaded global to appear earlier; adjust observations
-    // to match the expectations.
-    const [seenPreloadedAboutBlank] = seenForPopup.splice(1, 1);
-    // After removing seenForPopup[1], the former seenForPopup[2] (about:blank)
-    // is now at index 1. seenForPopup[0] and (current) seenForPopup[1] are
-    // coincidentally having the same values, so we can now prepend
-    // seenPreloadedAboutBlank to the list.
+    // The preloaded browser and the real browser are loaded in parallel. The
+    // very first browser is always about:blank of the preloaded browser, from
+    // the BasePopup constructor:
+    // https://searchfox.org/firefox-main/rev/08a5a0de94770126c13dceb661fee2edbdff0329/browser/components/extensions/ExtensionPopups.sys.mjs#78
     //
-    // If the expected descriptions of the two about:blank loads ever change,
-    // we also need to insert at index 1 instead of index 0.
-    seenForPopup.unshift(seenPreloadedAboutBlank);
+    // The moz-extension popup page is expected to be loaded in that browser,
+    // but it is also possible for the load to happen in the second browser, if
+    // the initialization of the first browser did not complete before the
+    // second one is created at:
+    // https://searchfox.org/firefox-main/rev/08a5a0de94770126c13dceb661fee2edbdff0329/browser/components/extensions/ExtensionPopups.sys.mjs#647
+    //
+    // In that case, the observation is as follows:
+    // - expectation: [about:blank, page.html, about:blank, ...]
+    // - alternative: [about:blank, about:blank, page.html, ...]
+    //   with page.html in the second browser instead of the preloaded one.
+    // Swap the order in the alternative observation to match the expected
+    // order for the isDeeply check below.
+    const seenPreloadedAboutBlank = seenForPopup[1];
+    const seenExtensionPopupPage = seenForPopup[2];
+    seenForPopup[1] = seenExtensionPopupPage;
+    seenForPopup[2] = seenPreloadedAboutBlank;
+    if (seenExtensionPopupPage.className === commonDescriptionPopup.className) {
+      expectedInitialClassName = commonDescriptionPopup.className;
+      info("Changed expectation: popup loads in non-preloaded browser");
+    } else {
+      info("Changed expectation: popup loads after non-preloaded browser");
+    }
   }
   SimpleTest.isDeeply(
     seenForPopup,
@@ -220,10 +237,10 @@ add_task(async function process_switch_in_sidebars_popups() {
         osPid: extPid,
         currentRemoteType: "extension",
         ...commonDescriptionPopup,
-        // Although the very browser is considered to be preloaded, the
+        // Although the very first browser is considered to be preloaded, the
         // "webextension-preload-browser" class name is only added after full
         // load, so when we see the initial about:blank, the class name is
-        // still at the default.
+        // still at the default instead of `expectedInitialClassName`.
       },
       {
         url: `moz-extension://${extension.uuid}/page.html?popup`,
@@ -231,7 +248,7 @@ add_task(async function process_switch_in_sidebars_popups() {
         currentRemoteType: "extension",
         ...commonDescriptionPopup,
         // The very first popup browser is considered to be preloaded.
-        className: "webextension-popup-browser webextension-preload-browser",
+        className: expectedInitialClassName,
       },
       {
         // When the extension popup is shown (attached), we start loading the
