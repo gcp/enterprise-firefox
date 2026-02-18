@@ -343,7 +343,10 @@ async function testCreateBackupHelper(sandbox, taskFn) {
   );
   Assert.deepEqual(
     restoreStartedEvents[0].extra,
-    { restore_id: restoreID },
+    {
+      restore_id: restoreID,
+      replace: "true",
+    },
     "Restore start event should have the right data"
   );
 

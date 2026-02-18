@@ -37,6 +37,8 @@ async function createBackupAndRecover(
   recoveryIsLegacy,
   options = {}
 ) {
+  Services.fog.testResetFOG();
+
   let fakeProfilePath = await IOUtils.createUniqueDirectory(
     PathUtils.tempDir,
     "crossProfileTest"
@@ -175,6 +177,22 @@ async function createBackupAndRecover(
     .stub(lazy.SelectableProfileService, "currentProfile")
     .get(() => (staysLegacy ? null : currentSelectableProfile));
 
+  await bs.getBackupFileInfo(archivePath);
+  const restoreID = bs.state.restoreID;
+
+  let restoreStartedEvents;
+  let restoreCompleteCallback = () => {
+    Services.obs.removeObserver(
+      restoreCompleteCallback,
+      "browser-backup-restore-complete"
+    );
+    restoreStartedEvents = Glean.browserBackup.restoreStarted.testGetValue();
+  };
+  Services.obs.addObserver(
+    restoreCompleteCallback,
+    "browser-backup-restore-complete"
+  );
+
   await bs.recoverFromBackupArchive(
     archivePath,
     null,
@@ -206,6 +224,8 @@ async function createBackupAndRecover(
     newSelectableProfile,
     currentSelectableProfile,
     setAvatarStub,
+    restoreStartedEvents,
+    restoreID,
   };
 }
 
@@ -450,16 +470,25 @@ add_task(
   async function test_replaceCurrentProfile_selectable_to_selectable_triggers_delete_and_quit() {
     let sandbox = sinon.createSandbox();
 
-    let { deleteAndQuitStub } = await createBackupAndRecover(
-      sandbox,
-      false,
-      false,
-      { replaceCurrentProfile: true }
-    );
+    let { deleteAndQuitStub, restoreStartedEvents, restoreID } =
+      await createBackupAndRecover(sandbox, false, false, {
+        replaceCurrentProfile: true,
+      });
 
     Assert.ok(
       deleteAndQuitStub.calledOnce,
       "deleteAndQuitCurrentSelectableProfile should be called when replaceCurrentProfile=true"
+    );
+
+    Assert.equal(
+      restoreStartedEvents.length,
+      1,
+      "Should have a single restore started event"
+    );
+    Assert.deepEqual(
+      restoreStartedEvents[0].extra,
+      { restore_id: restoreID, replace: "true" },
+      "Restore started event should have replace=true"
     );
 
     sandbox.restore();
@@ -474,16 +503,25 @@ add_task(
   async function test_replaceCurrentProfile_false_does_not_trigger_delete_and_quit() {
     let sandbox = sinon.createSandbox();
 
-    let { deleteAndQuitStub } = await createBackupAndRecover(
-      sandbox,
-      false,
-      false,
-      { replaceCurrentProfile: false }
-    );
+    let { deleteAndQuitStub, restoreStartedEvents, restoreID } =
+      await createBackupAndRecover(sandbox, false, false, {
+        replaceCurrentProfile: false,
+      });
 
     Assert.ok(
       !deleteAndQuitStub.called,
       "deleteAndQuitCurrentSelectableProfile should NOT be called when replaceCurrentProfile=false"
+    );
+
+    Assert.equal(
+      restoreStartedEvents.length,
+      1,
+      "Should have a single restore started event"
+    );
+    Assert.deepEqual(
+      restoreStartedEvents[0].extra,
+      { restore_id: restoreID, replace: "false" },
+      "Restore started event should have replace=false"
     );
 
     sandbox.restore();
