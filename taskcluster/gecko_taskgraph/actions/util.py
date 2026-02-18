@@ -194,6 +194,15 @@ def fetch_graph_and_labels(parameters, graph_config):
         for task_id in list_tasks(namespace):
             fetches.append(e.submit(fetch_action, task_id))
 
+        if not fetches:
+            pr_namespace = "{}.v2.{}-pr.revision.{}.taskgraph.actions".format(
+                graph_config["trust-domain"],
+                parameters["project"],
+                parameters[head_rev_param],
+            )
+            for task_id in list_tasks(pr_namespace):
+                fetches.append(e.submit(fetch_action, task_id))
+
         # Similarly for cron tasks..
         def fetch_cron(task_id):
             logger.info(f"fetching label-to-taskid.json for cron task {task_id}")
