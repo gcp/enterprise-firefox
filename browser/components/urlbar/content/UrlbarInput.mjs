@@ -201,7 +201,8 @@ export class UrlbarInput extends HTMLElement {
   #gBrowserListenersAdded = false;
   #breakoutBlockerCount = 0;
   #isAddressbar = false;
-  #sapName = "";
+  /** @type {"searchbar"|"smartbar"|"urlbar"} */
+  #sapName;
   _userTypedValue = "";
   _actionOverrideKeyCount = 0;
   _lastValidURLStr = "";
@@ -276,7 +277,9 @@ export class UrlbarInput extends HTMLElement {
    * Initialization that happens once on the first connect.
    */
   #init() {
-    this.#sapName = this.getAttribute("sap-name");
+    this.#sapName = /** @type {"searchbar"|"smartbar"|"urlbar"} */ (
+      this.getAttribute("sap-name")
+    );
     this.#isAddressbar = this.#sapName == "urlbar";
 
     // This listener must be added before connecting the fragment
@@ -2827,13 +2830,13 @@ export class UrlbarInput extends HTMLElement {
    *
    * @param {Event} event
    *   The event that triggered this query.
-   * @returns {string}
+   * @returns {keyof typeof lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES}
    *   The source name.
    */
   getSearchSource(event) {
     if (this.#isAddressbar) {
       if (this._isHandoffSession) {
-        return "urlbar-handoff";
+        return "urlbar_handoff";
       }
 
       const isOneOff =
@@ -2844,7 +2847,7 @@ export class UrlbarInput extends HTMLElement {
         // oneoff_urlbar and oneoff_searchbar). The extra information is not
         // necessary; the intent is the same regardless of whether the user is
         // in search mode when they do a key-modified click/enter on a one-off.
-        return "urlbar-searchmode";
+        return "urlbar_searchmode";
       }
 
       let state = this.getBrowserState(this.window.gBrowser.selectedBrowser);
@@ -2853,7 +2856,7 @@ export class UrlbarInput extends HTMLElement {
         // persisted. However when the user modifies the search term, the boolean
         // will become false. Thus, we check the presence of the search terms to
         // know whether or not search terms ever persisted in the address bar.
-        return "urlbar-persisted";
+        return "urlbar_persisted";
       }
     }
     return this.#sapName;

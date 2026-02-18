@@ -24,31 +24,47 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 class BrowserSearchTelemetryHandler {
   /**
-   * A map of known search origins. The values of this map should be used for all
-   * current telemetry, except for sap.deprecatedCounts.
+   * A map of known search origins. The keys of this map are the current valid
+   * search access point sources for search telemetry. The values of this map are
+   * used for deprecated telemetry probes.
    *
-   * The keys of this map are used in the calling code to recordSearch, and in
-   * the sap.deprecatedCounts labelled counter (and the mirrored SEARCH_COUNTS
-   * histogram).
+   * If adding to this set of sources, the probes listed below should also be
+   * updated for what they report, including the list of bug ids.
    *
-   * When legacy telemetry stops being reported, we should remove this map, and
-   * update the callers to use the values directly. We might still want to keep
-   * a list of valid sources, to help ensure that telemetry reporting is updated
-   * correctly if new sources are added.
+   * The current list of probes that use these sources are (note: these are listed
+   * in the Glean snake_case format that the yaml files use):
+   *
+   * - sap.counts
+   * - sap.deprecated_counts (deprecated), and associated SEARCH_COUNTS histogram
+   * - sap.search_form_counts
+   * - sap.impression_counts (currently only used for context menu items)
+   * - serp.impression
+   * - browser.engagement.navigation.*
+   * - browser.search.content.* (deprecated, some may need to be mirrored)
+   * - browser.search.withads.* (deprecated, some may need to be mirrored)
+   * - browser.search.adclicks.* (deprecated, some may need to be mirrored)
+   *
+   * When legacy telemetry stops being reported, we should replace this map with
+   * an array of strings - We still want to keep a list of valid sources, to
+   * help ensure that telemetry reporting is updated correctly if new sources
+   * are added.
+   *
+   * To aid searching for where the sources are used, the sources are maintained
+   * in snake_case which is how they are reported via telemetry.
    */
   KNOWN_SEARCH_SOURCES = Object.freeze({
-    abouthome: "about_home",
+    about_home: "abouthome",
     contextmenu: "contextmenu",
     contextmenu_visual: "contextmenu_visual",
-    newtab: "about_newtab",
+    about_newtab: "newtab",
     searchbar: "searchbar",
     smartbar: "smartbar",
     smartwindow_assistant: "smartwindow_assistant",
     system: "system",
     urlbar: "urlbar",
-    "urlbar-handoff": "urlbar_handoff",
-    "urlbar-persisted": "urlbar_persisted",
-    "urlbar-searchmode": "urlbar_searchmode",
+    urlbar_handoff: "urlbar-handoff",
+    urlbar_persisted: "urlbar-persisted",
+    urlbar_searchmode: "urlbar-searchmode",
     webextension: "webextension",
   });
 
@@ -173,7 +189,7 @@ class BrowserSearchTelemetryHandler {
 
       if (source != "contextmenu_visual") {
         const countIdPrefix = `${engine.telemetryId}.`;
-        const countIdSource = countIdPrefix + source;
+        const countIdSource = countIdPrefix + this.KNOWN_SEARCH_SOURCES[source];
 
         // NOTE: When removing the sap.deprecatedCounts telemetry, see the note
         // above KNOWN_SEARCH_SOURCES.
@@ -208,7 +224,7 @@ class BrowserSearchTelemetryHandler {
         !engine.getURLOfType(searchUrlType)?.excludePartnerCodeFromTelemetry;
 
       Glean.sap.counts.record({
-        source: this.KNOWN_SEARCH_SOURCES[source],
+        source,
         provider_id: engine.isConfigEngine ? engine.id : "other",
         provider_name: engine.name,
         // If no code is reported, we must returned undefined, Glean will then
@@ -222,23 +238,23 @@ class BrowserSearchTelemetryHandler {
         case "urlbar":
         case "searchbar":
         case "smartbar":
-        case "urlbar-searchmode":
-        case "urlbar-persisted":
-        case "urlbar-handoff":
+        case "urlbar_searchmode":
+        case "urlbar_persisted":
+        case "urlbar_handoff":
           this._handleSearchAndUrlbar(browser, engine, source, details);
           break;
-        case "abouthome":
-        case "newtab":
-          this._recordSearch(browser, engine, source, "enter");
+        case "about_home":
+        case "about_newtab":
+          this.#recordSearch(browser, source, "enter");
           break;
         default:
-          this._recordSearch(browser, engine, source);
+          this.#recordSearch(browser, source);
           break;
       }
-      if (["urlbar-handoff", "abouthome", "newtab"].includes(source)) {
+      if (["urlbar_handoff", "about_home", "about_newtab"].includes(source)) {
         Glean.newtabSearch.issued.record({
           newtab_visit_id: details.newtabSessionId,
-          search_access_point: this.KNOWN_SEARCH_SOURCES[source],
+          search_access_point: source,
           telemetry_id: engine.telemetryId,
         });
         lazy.SearchSERPTelemetry.recordBrowserNewtabSession(
@@ -258,9 +274,9 @@ class BrowserSearchTelemetryHandler {
    *
    * @param {SearchEngine} engine
    *   The engine whose search form is being visited.
-   * @param {string} source
-   *   Where the search form was opened from.
-   *   This can be "urlbar" or "searchbar".
+   * @param {"searchbar"|"smartbar"|"urlbar"} source
+   *   Where the search form was opened from. This is a sub-set of the
+   *   KNOWN_SEARCH_SOURCES.
    */
   recordSearchForm(engine, source) {
     Glean.sap.searchFormCounts.record({
@@ -291,8 +307,7 @@ class BrowserSearchTelemetryHandler {
       return;
     }
 
-    let scalarSource = this.KNOWN_SEARCH_SOURCES[source];
-    let name = scalarSource.replace(/_([a-z])/g, (m, p) => p.toUpperCase());
+    let name = source.replace(/_([a-z])/g, (m, p) => p.toUpperCase());
     let label = engine?.isConfigEngine ? engine.id : "none";
     Glean.sapImpressionCounts[name][label].add(1);
   }
@@ -305,7 +320,7 @@ class BrowserSearchTelemetryHandler {
    *   The browser where the search originated.
    * @param {SearchEngine} engine
    *   The engine handling the search.
-   * @param {string} source
+   * @param {keyof typeof BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES} source
    *   Where the search originated from.
    * @param {object} details
    *   See {@link BrowserSearchTelemetryHandler.recordSearch}
@@ -323,15 +338,22 @@ class BrowserSearchTelemetryHandler {
       action = "alias";
     }
 
-    this._recordSearch(browser, engine, source, action);
+    this.#recordSearch(browser, source, action);
   }
 
-  _recordSearch(browser, engine, source, action = null) {
-    let scalarSource = this.KNOWN_SEARCH_SOURCES[source];
-    lazy.SearchSERPTelemetry.recordBrowserSource(browser, scalarSource);
+  /**
+   * Records source information to the SERP telemetry, and records
+   * the browser engagement navigation data.
+   *
+   * @param {MozBrowser} browser
+   * @param {keyof typeof BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES} source
+   * @param {string} [action]
+   */
+  #recordSearch(browser, source, action = null) {
+    lazy.SearchSERPTelemetry.recordBrowserSource(browser, source);
 
     let label = action ? "search_" + action : "search";
-    let name = scalarSource.replace(/_([a-z])/g, (m, p) => p.toUpperCase());
+    let name = source.replace(/_([a-z])/g, (m, p) => p.toUpperCase());
     Glean.browserEngagementNavigation[name][label].add(1);
   }
 
