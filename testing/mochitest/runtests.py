@@ -47,6 +47,9 @@ import mozprocess
 import mozrunner
 from manifestparser import TestManifest
 from manifestparser.filters import (
+    chunk_by_dir,
+    chunk_by_runtime,
+    chunk_by_slice,
     failures,
     pathprefix,
     subsuite,
@@ -1721,6 +1724,49 @@ toolbar#nav-bar {
                 options.test_paths = self.normalize_paths(options.test_paths)
                 path_filter = pathprefix(options.test_paths)
                 filters.append(path_filter)
+
+            # Add chunking filters if specified
+            if options.totalChunks:
+                if options.chunkByDir:
+                    filters.append(
+                        chunk_by_dir(
+                            options.thisChunk, options.totalChunks, options.chunkByDir
+                        )
+                    )
+                elif options.chunkByRuntime:
+                    if mozinfo.info["os"] == "android":
+                        platkey = "android"
+                    elif mozinfo.isWin:
+                        platkey = "windows"
+                    else:
+                        platkey = "unix"
+
+                    runtime_file = os.path.join(
+                        SCRIPT_DIR,
+                        "runtimes",
+                        f"manifest-runtimes-{platkey}.json",
+                    )
+                    if not os.path.exists(runtime_file):
+                        self.log.error("runtime file %s not found!" % runtime_file)
+                        sys.exit(1)
+
+                    # Given the mochitest flavor, load the runtimes information
+                    # for only that flavor due to manifest runtime format change in Bug 1637463.
+                    with open(runtime_file) as f:
+                        if "suite_name" in options:
+                            runtimes = json.load(f).get(options.suite_name, {})
+                        else:
+                            runtimes = {}
+
+                    filters.append(
+                        chunk_by_runtime(
+                            options.thisChunk, options.totalChunks, runtimes
+                        )
+                    )
+                else:
+                    filters.append(
+                        chunk_by_slice(options.thisChunk, options.totalChunks)
+                    )
 
             noDefaultFilters = False
             if options.runFailures:
