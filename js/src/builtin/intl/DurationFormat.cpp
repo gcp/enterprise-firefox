@@ -1024,30 +1024,18 @@ static mozilla::intl::NumberFormat* NewDurationNumberFormat(
 }
 
 /**
- * Return the singular name for |unit|.
+ * Return the number format unit for |unit|.
  */
-static auto PartUnitName(TemporalUnit unit) {
+static auto ToNumberFormatUnit(TemporalUnit unit) {
   switch (unit) {
-    case TemporalUnit::Year:
-      return &JSAtomState::year;
-    case TemporalUnit::Month:
-      return &JSAtomState::month;
-    case TemporalUnit::Week:
-      return &JSAtomState::week;
-    case TemporalUnit::Day:
-      return &JSAtomState::day;
-    case TemporalUnit::Hour:
-      return &JSAtomState::hour;
-    case TemporalUnit::Minute:
-      return &JSAtomState::minute;
-    case TemporalUnit::Second:
-      return &JSAtomState::second;
-    case TemporalUnit::Millisecond:
-      return &JSAtomState::millisecond;
-    case TemporalUnit::Microsecond:
-      return &JSAtomState::microsecond;
-    case TemporalUnit::Nanosecond:
-      return &JSAtomState::nanosecond;
+#define TO_NUMBER_FORMAT_UNIT(UPPER, LOWER) \
+  case TemporalUnit::UPPER:                 \
+    return NumberFormatUnit::UPPER;
+
+    FOR_EACH_DURATION_UNIT(TO_NUMBER_FORMAT_UNIT)
+
+#undef TO_NUMBER_FORMAT_UNIT
+
     case TemporalUnit::Unset:
     case TemporalUnit::Auto:
       break;
@@ -1371,9 +1359,9 @@ static ArrayObject* FormatDurationValueToParts(JSContext* cx,
                                                TemporalUnit unit) {
   if (value.isDecimal()) {
     return FormatNumberToParts(cx, nf, std::string_view{value},
-                               PartUnitName(unit));
+                               ToNumberFormatUnit(unit));
   }
-  return FormatNumberToParts(cx, nf, value.number, PartUnitName(unit));
+  return FormatNumberToParts(cx, nf, value.number, ToNumberFormatUnit(unit));
 }
 
 static bool FormatDurationValue(JSContext* cx, mozilla::intl::NumberFormat* nf,

@@ -100,13 +100,12 @@ class RelativeTimeFormatObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-using RelativeTimeFormatUnit =
-    js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
+enum class NumberFormatUnit;
 
 [[nodiscard]] bool FormattedRelativeTimeToParts(
     JSContext* cx, Handle<JSString*> str,
     const mozilla::intl::NumberPartVector& parts,
-    RelativeTimeFormatUnit relativeTimeUnit, MutableHandle<JS::Value> result);
+    NumberFormatUnit numberFormatUnit, MutableHandle<JS::Value> result);
 
 }  // namespace js::intl
 

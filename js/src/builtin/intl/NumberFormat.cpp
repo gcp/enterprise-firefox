@@ -1813,45 +1813,43 @@ static mozilla::intl::NumberRangeFormat* GetOrCreateNumberRangeFormat(
   return nrf;
 }
 
-using FieldType = js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
-
-static FieldType GetFieldTypeForNumberPartType(
-    mozilla::intl::NumberPartType type) {
+static JSString* NumberPartTypeToString(JSContext* cx,
+                                        mozilla::intl::NumberPartType type) {
   switch (type) {
     case mozilla::intl::NumberPartType::ApproximatelySign:
-      return &JSAtomState::approximatelySign;
+      return cx->names().approximatelySign;
     case mozilla::intl::NumberPartType::Compact:
-      return &JSAtomState::compact;
+      return cx->names().compact;
     case mozilla::intl::NumberPartType::Currency:
-      return &JSAtomState::currency;
+      return cx->names().currency;
     case mozilla::intl::NumberPartType::Decimal:
-      return &JSAtomState::decimal;
+      return cx->names().decimal;
     case mozilla::intl::NumberPartType::ExponentInteger:
-      return &JSAtomState::exponentInteger;
+      return cx->names().exponentInteger;
     case mozilla::intl::NumberPartType::ExponentMinusSign:
-      return &JSAtomState::exponentMinusSign;
+      return cx->names().exponentMinusSign;
     case mozilla::intl::NumberPartType::ExponentSeparator:
-      return &JSAtomState::exponentSeparator;
+      return cx->names().exponentSeparator;
     case mozilla::intl::NumberPartType::Fraction:
-      return &JSAtomState::fraction;
+      return cx->names().fraction;
     case mozilla::intl::NumberPartType::Group:
-      return &JSAtomState::group;
+      return cx->names().group;
     case mozilla::intl::NumberPartType::Infinity:
-      return &JSAtomState::infinity;
+      return cx->names().infinity;
     case mozilla::intl::NumberPartType::Integer:
-      return &JSAtomState::integer;
+      return cx->names().integer;
     case mozilla::intl::NumberPartType::Literal:
-      return &JSAtomState::literal;
+      return cx->names().literal;
     case mozilla::intl::NumberPartType::MinusSign:
-      return &JSAtomState::minusSign;
+      return cx->names().minusSign;
     case mozilla::intl::NumberPartType::Nan:
-      return &JSAtomState::nan;
+      return cx->names().nan;
     case mozilla::intl::NumberPartType::Percent:
-      return &JSAtomState::percentSign;
+      return cx->names().percentSign;
     case mozilla::intl::NumberPartType::PlusSign:
-      return &JSAtomState::plusSign;
+      return cx->names().plusSign;
     case mozilla::intl::NumberPartType::Unit:
-      return &JSAtomState::unit;
+      return cx->names().unit;
   }
 
   MOZ_ASSERT_UNREACHABLE(
@@ -1859,18 +1857,47 @@ static FieldType GetFieldTypeForNumberPartType(
   return nullptr;
 }
 
-static FieldType GetFieldTypeForNumberPartSource(
-    mozilla::intl::NumberPartSource source) {
+static JSString* NumberPartSourceToString(
+    JSContext* cx, mozilla::intl::NumberPartSource source) {
   switch (source) {
     case mozilla::intl::NumberPartSource::Shared:
-      return &JSAtomState::shared;
+      return cx->names().shared;
     case mozilla::intl::NumberPartSource::Start:
-      return &JSAtomState::startRange;
+      return cx->names().startRange;
     case mozilla::intl::NumberPartSource::End:
-      return &JSAtomState::endRange;
+      return cx->names().endRange;
   }
 
   MOZ_CRASH("unexpected number part source");
+}
+
+static JSString* NumberFormatUnitToString(JSContext* cx,
+                                          NumberFormatUnit unit) {
+  switch (unit) {
+    case NumberFormatUnit::Year:
+      return cx->names().year;
+    case NumberFormatUnit::Quarter:
+      return cx->names().quarter;
+    case NumberFormatUnit::Month:
+      return cx->names().month;
+    case NumberFormatUnit::Week:
+      return cx->names().week;
+    case NumberFormatUnit::Day:
+      return cx->names().day;
+    case NumberFormatUnit::Hour:
+      return cx->names().hour;
+    case NumberFormatUnit::Minute:
+      return cx->names().minute;
+    case NumberFormatUnit::Second:
+      return cx->names().second;
+    case NumberFormatUnit::Millisecond:
+      return cx->names().millisecond;
+    case NumberFormatUnit::Microsecond:
+      return cx->names().microsecond;
+    case NumberFormatUnit::Nanosecond:
+      return cx->names().nanosecond;
+  }
+  MOZ_CRASH("invalid number format unit");
 }
 
 enum class DisplayNumberPartSource : bool { No, Yes };
@@ -1882,17 +1909,15 @@ enum class DisplayLiteralUnit : bool { No, Yes };
  *
  * Create the part object for FormatNumeric{Range}ToParts.
  */
-static PlainObject* CreateNumberPart(JSContext* cx,
-                                     const mozilla::intl::NumberPart& part,
-                                     Handle<JSString*> value,
-                                     DisplayNumberPartSource displaySource,
-                                     DisplayLiteralUnit displayLiteralUnit,
-                                     FieldType unitType) {
+static PlainObject* CreateNumberPart(
+    JSContext* cx, const mozilla::intl::NumberPart& part,
+    Handle<JSString*> value, DisplayNumberPartSource displaySource,
+    DisplayLiteralUnit displayLiteralUnit,
+    mozilla::Maybe<NumberFormatUnit> numberFormatUnit) {
   Rooted<IdValueVector> properties(cx, cx);
 
-  FieldType type = GetFieldTypeForNumberPartType(part.type);
-  if (!properties.emplaceBack(NameToId(cx->names().type),
-                              StringValue(cx->names().*type))) {
+  auto* type = NumberPartTypeToString(cx, part.type);
+  if (!properties.emplaceBack(NameToId(cx->names().type), StringValue(type))) {
     return nullptr;
   }
 
@@ -1902,17 +1927,19 @@ static PlainObject* CreateNumberPart(JSContext* cx,
   }
 
   if (displaySource == DisplayNumberPartSource::Yes) {
-    FieldType source = GetFieldTypeForNumberPartSource(part.source);
+    auto* source = NumberPartSourceToString(cx, part.source);
     if (!properties.emplaceBack(NameToId(cx->names().source),
-                                StringValue(cx->names().*source))) {
+                                StringValue(source))) {
       return nullptr;
     }
   }
 
-  if (unitType != nullptr && (type != &JSAtomState::literal ||
-                              displayLiteralUnit == DisplayLiteralUnit::Yes)) {
+  if (numberFormatUnit.isSome() &&
+      (part.type != mozilla::intl::NumberPartType::Literal ||
+       displayLiteralUnit == DisplayLiteralUnit::Yes)) {
+    auto* unit = NumberFormatUnitToString(cx, *numberFormatUnit);
     if (!properties.emplaceBack(NameToId(cx->names().unit),
-                                StringValue(cx->names().*unitType))) {
+                                StringValue(unit))) {
       return nullptr;
     }
   }
@@ -1924,7 +1951,8 @@ static ArrayObject* FormattedNumberToParts(
     JSContext* cx, Handle<JSString*> string,
     const mozilla::intl::NumberPartVector& parts,
     DisplayNumberPartSource displaySource,
-    DisplayLiteralUnit displayLiteralUnit, FieldType unitType) {
+    DisplayLiteralUnit displayLiteralUnit,
+    mozilla::Maybe<NumberFormatUnit> numberFormatUnit) {
   Rooted<ArrayObject*> partsArray(
       cx, NewDenseFullyAllocatedArray(cx, parts.length()));
   if (!partsArray) {
@@ -1946,7 +1974,7 @@ static ArrayObject* FormattedNumberToParts(
     beginIndex = part.endIndex;
 
     auto* obj = CreateNumberPart(cx, part, value, displaySource,
-                                 displayLiteralUnit, unitType);
+                                 displayLiteralUnit, numberFormatUnit);
     if (!obj) {
       return nullptr;
     }
@@ -1962,10 +1990,10 @@ static ArrayObject* FormattedNumberToParts(
 bool js::intl::FormattedRelativeTimeToParts(
     JSContext* cx, Handle<JSString*> str,
     const mozilla::intl::NumberPartVector& parts,
-    RelativeTimeFormatUnit relativeTimeUnit, MutableHandle<JS::Value> result) {
-  auto* array =
-      FormattedNumberToParts(cx, str, parts, DisplayNumberPartSource::No,
-                             DisplayLiteralUnit::No, relativeTimeUnit);
+    NumberFormatUnit numberFormatUnit, MutableHandle<JS::Value> result) {
+  auto* array = FormattedNumberToParts(
+      cx, str, parts, DisplayNumberPartSource::No, DisplayLiteralUnit::No,
+      mozilla::Some(numberFormatUnit));
   if (!array) {
     return false;
   }
@@ -2082,7 +2110,7 @@ static ArrayObject* FormatNumericToParts(
   }
 
   return FormattedNumberToParts(cx, str, parts, DisplayNumberPartSource::No,
-                                DisplayLiteralUnit::No, nullptr);
+                                DisplayLiteralUnit::No, mozilla::Nothing());
 }
 
 JSString* js::intl::FormatNumber(JSContext* cx,
@@ -2248,7 +2276,7 @@ static ArrayObject* FormatNumericRangeToParts(
   }
 
   return FormattedNumberToParts(cx, str, parts, DisplayNumberPartSource::Yes,
-                                DisplayLiteralUnit::No, nullptr);
+                                DisplayLiteralUnit::No, mozilla::Nothing());
 }
 
 JSLinearString* js::intl::FormatNumber(
@@ -2266,7 +2294,7 @@ JSLinearString* js::intl::FormatNumber(
 
 ArrayObject* js::intl::FormatNumberToParts(
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat, double x,
-    NumberFormatUnit unit) {
+    NumberFormatUnit numberFormatUnit) {
   mozilla::intl::NumberPartVector parts;
   auto result = numberFormat->formatToParts(x, parts);
   Rooted<JSLinearString*> str(cx, FormattedResultToString(cx, result));
@@ -2274,12 +2302,13 @@ ArrayObject* js::intl::FormatNumberToParts(
     return nullptr;
   }
   return FormattedNumberToParts(cx, str, parts, DisplayNumberPartSource::No,
-                                DisplayLiteralUnit::Yes, unit);
+                                DisplayLiteralUnit::Yes,
+                                mozilla::Some(numberFormatUnit));
 }
 
 ArrayObject* js::intl::FormatNumberToParts(
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat,
-    std::string_view x, NumberFormatUnit unit) {
+    std::string_view x, NumberFormatUnit numberFormatUnit) {
   mozilla::intl::NumberPartVector parts;
   auto result = numberFormat->formatToParts(x, parts);
   Rooted<JSLinearString*> str(cx, FormattedResultToString(cx, result));
@@ -2287,7 +2316,8 @@ ArrayObject* js::intl::FormatNumberToParts(
     return nullptr;
   }
   return FormattedNumberToParts(cx, str, parts, DisplayNumberPartSource::No,
-                                DisplayLiteralUnit::Yes, unit);
+                                DisplayLiteralUnit::Yes,
+                                mozilla::Some(numberFormatUnit));
 }
 
 template <class Options>
