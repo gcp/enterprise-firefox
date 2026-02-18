@@ -43,3 +43,6 @@ tasks:
         description-suffix: 'mar signing'
         required_signoffs:
             - mar-signing
+        index:
+            # type and job-name filled in by transforms
+            product: firefox
