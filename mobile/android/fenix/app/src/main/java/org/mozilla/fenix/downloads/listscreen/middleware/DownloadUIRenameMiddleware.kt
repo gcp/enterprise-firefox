@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.downloads.listscreen.middleware
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,10 +24,12 @@ import java.io.File
  *
  * @param browserStore [BrowserStore] instance to get the download items from.
  * @param scope The [CoroutineScope] that will be used to launch coroutines.
+ * @param mainDispatcher The [CoroutineDispatcher] used for dispatching actions back to the stores.
  */
 class DownloadUIRenameMiddleware(
     private val browserStore: BrowserStore,
     private val scope: CoroutineScope,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : Middleware<DownloadUIState, DownloadUIAction> {
 
     override fun invoke(
@@ -59,7 +62,7 @@ class DownloadUIRenameMiddleware(
     private suspend fun dispatchAction(
         uiStore: Store<DownloadUIState, DownloadUIAction>,
         action: DownloadUIAction,
-    ) = withContext(Dispatchers.Main) { uiStore.dispatch(action) }
+    ) = withContext(mainDispatcher) { uiStore.dispatch(action) }
 
     private fun processFileRenaming(
         uiStore: Store<DownloadUIState, DownloadUIAction>,
@@ -94,7 +97,7 @@ class DownloadUIRenameMiddleware(
                 return@launch
             }
 
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 val updated = download.copy(fileName = newNameTrimmed)
                 browserStore.dispatch(DownloadAction.UpdateDownloadAction(updated))
                 uiStore.dispatch(DownloadUIAction.RenameFileDismissed)
