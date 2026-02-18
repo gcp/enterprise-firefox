@@ -8487,6 +8487,11 @@ class Parser(Tokenizer):
                     "stringifier has wrong number of arguments",
                     [self.getLocation(p, 2)],
                 )
+            if returnType.isDOMString() and not identifier:
+                raise WebIDLError(
+                    "Use `stringifier;` for DOMString unnamed stringifiers",
+                    [self.getLocation(p, 2)],
+                )
             if (
                 not returnType.isDOMString()
                 and not returnType.isUTF8String()
