@@ -250,6 +250,7 @@ void NativeMenuMac::ShowMenuAnchored(nsIFrame* aClickedFrame,
   const bool pullsDown =
       !aPosition.Equals(u"overlap"_ns) && !aPosition.Equals(u"selection"_ns);
 
+  mMenu->SetIsAnchoredPopUp(!pullsDown);
   mMenu->SetIsAnchoredPullDown(pullsDown);
   mMenu->PopupShowingEventWasSentAndApprovedExternally();
 

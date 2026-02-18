@@ -135,6 +135,7 @@ nsMenuX::nsMenuX(nsMenuParentX* aParent, nsMenuGroupOwnerX* aMenuGroupOwner,
     mNativeMenuItem.submenu = nil;
   }
 
+  SetAttributedTitle();
   SetEnabled(!mContent->IsElement() ||
              !mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled));
 
@@ -901,6 +902,38 @@ void nsMenuX::SetRebuild(bool aNeedsRebuild) {
   }
 }
 
+void nsMenuX::SetTitle() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  mContent->AsElement()->GetAttr(nsGkAtoms::label, mLabel);
+  NSString* newCocoaLabelString = nsMenuUtilsX::GetTruncatedCocoaLabel(mLabel);
+  mNativeMenu.title = newCocoaLabelString;
+  mNativeMenuItem.title = newCocoaLabelString;
+
+  SetAttributedTitle();
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+void nsMenuX::SetAttributedTitle() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  if (!IsAnchoredPopUp()) {
+    // Use attributed titles only on anchored popups so that pulldowns and
+    // context menus always use native default sizing.
+    return;
+  }
+
+  if (NSAttributedString* attrString = nsMenuUtilsX::AttributedStringForContent(
+          mContent, mNativeMenuItem.title)) {
+    mNativeMenuItem.attributedTitle = attrString;
+  } else {
+    mNativeMenuItem.attributedTitle = nil;
+  }
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
 nsresult nsMenuX::SetEnabled(bool aIsEnabled) {
   if (aIsEnabled != mIsEnabled) {
     // we always want to rebuild when this changes
@@ -1111,11 +1144,7 @@ void nsMenuX::ObserveAttributeChanged(dom::Document* aDocument,
   if (aAttribute == nsGkAtoms::disabled) {
     SetEnabled(!mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled));
   } else if (aAttribute == nsGkAtoms::label) {
-    mContent->AsElement()->GetAttr(nsGkAtoms::label, mLabel);
-    NSString* newCocoaLabelString =
-        nsMenuUtilsX::GetTruncatedCocoaLabel(mLabel);
-    mNativeMenu.title = newCocoaLabelString;
-    mNativeMenuItem.title = newCocoaLabelString;
+    SetTitle();
   } else if (aAttribute == nsGkAtoms::hidden ||
              aAttribute == nsGkAtoms::collapsed) {
     SetRebuild(true);

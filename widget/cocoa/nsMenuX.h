@@ -91,6 +91,10 @@ class nsMenuX final : public nsMenuParentX,
 
   bool IsVisible() const { return mVisible; }
 
+  bool IsAnchoredPopUp() { return mIsAnchoredPopUp; }
+  void SetIsAnchoredPopUp(bool aIsAnchoredPopUp) {
+    mIsAnchoredPopUp = aIsAnchoredPopUp;
+  }
   void SetIsAnchoredPullDown(bool aIsAnchoredPullDown) {
     mIsAnchoredPullDown = aIsAnchoredPullDown;
   }
@@ -200,6 +204,8 @@ class nsMenuX final : public nsMenuParentX,
 
   void RebuildMenu();
   nsresult RemoveAll();
+  void SetTitle();
+  void SetAttributedTitle();
   nsresult SetEnabled(bool aIsEnabled);
   nsresult GetEnabled(bool* aIsEnabled);
   already_AddRefed<nsIContent> GetMenuPopupContent();
@@ -313,6 +319,7 @@ class nsMenuX final : public nsMenuParentX,
 
   bool mVisible = true;
 
+  bool mIsAnchoredPopUp = false;
   bool mIsAnchoredPullDown = false;
 
   // NSPopUpButtonCell with pullsDown=true always assumes the first menu item is

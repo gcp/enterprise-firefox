@@ -88,6 +88,8 @@ class nsMenuItemX final : public nsChangeObserver,
   void UncheckRadioSiblings(nsIContent* aCheckedElement);
   void SetKeyEquiv();
   void SetBadge();
+  void SetTitle();
+  void SetAttributedTitle();
   void SetChecked();
   void SetEnabled();
   void SetIndentationLevel();

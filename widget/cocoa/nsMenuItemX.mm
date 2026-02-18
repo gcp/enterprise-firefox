@@ -81,6 +81,7 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
     SetChecked();
     SetKeyEquiv();
     SetBadge();
+    SetAttributedTitle();
     SetIndentationLevel();
     SetTooltip();
   }
@@ -314,6 +315,37 @@ void nsMenuItemX::SetBadge() {
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
+void nsMenuItemX::SetTitle() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  nsAutoString newLabel;
+  mContent->AsElement()->GetAttr(nsGkAtoms::label, newLabel);
+  mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
+
+  SetAttributedTitle();
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+void nsMenuItemX::SetAttributedTitle() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  if (!mMenuParent->IsAnchoredPopUp()) {
+    // Use attributed titles only on anchored popups so that pulldowns and
+    // context menus always use native default sizing.
+    return;
+  }
+
+  if (NSAttributedString* attrString = nsMenuUtilsX::AttributedStringForContent(
+          mContent, mNativeMenuItem.title)) {
+    mNativeMenuItem.attributedTitle = attrString;
+  } else {
+    mNativeMenuItem.attributedTitle = nil;
+  }
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
 void nsMenuItemX::SetChecked() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
@@ -417,9 +449,7 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
       mMenuParent->SetRebuild(true);
     } else if (aAttribute == nsGkAtoms::label) {
       if (mType != eSeparatorMenuItemType) {
-        nsAutoString newLabel;
-        mContent->AsElement()->GetAttr(nsGkAtoms::label, newLabel);
-        mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
+        SetTitle();
       }
     } else if (aAttribute == nsGkAtoms::badge) {
       SetBadge();
