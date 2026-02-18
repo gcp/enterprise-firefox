@@ -36,13 +36,16 @@ register($1, ``);
 let $2 = instantiate(`(module binary
   "\\00asm" "\\01\\00\\00\\00"
   "\\01\\05\\01\\60\\00\\01\\7f"     ;; Type section: (type (func (result i32)))
-  "\\02\\0e"                    ;; Import section
-  "\\01"                       ;;   1 group
+  "\\02\\13"                    ;; Import section
+  "\\02"                       ;;   2 groups
+  "\\01x"                      ;;     "x"
+  "\\00" "\\7f"                 ;;       "" + 0x7f (compact encoding 1)
+  "\\00"                       ;;       0 items
   "\\01a"                      ;;     "a"
-  "\\00" "\\7f"                 ;;     "" + 0x7f (compact encoding)
-  "\\02"                       ;;     2 items
-  "\\01b" "\\00\\00"             ;;       "b" (func (type 0))
-  "\\01c" "\\00\\00"             ;;       "c" (func (type 0))
+  "\\00" "\\7f"                 ;;       "" + 0x7f (compact encoding 1)
+  "\\02"                       ;;       2 items
+  "\\01b" "\\00\\00"             ;;         "b" (func (type 0))
+  "\\01c" "\\00\\00"             ;;         "c" (func (type 0))
   "\\03\\02" "\\01"              ;; Function section, 1 func
   "\\00"                       ;;   func 2: type 0
   "\\07\\08" "\\01"              ;; Export section, 1 export
@@ -55,21 +58,25 @@ let $2 = instantiate(`(module binary
   "\\0b"                       ;;   end
 )`);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:37
+// ./test/core/compact-import-section/binary-compact-imports.wast:40
 assert_return(() => invoke($2, `test`, []), [value("i32", 255)]);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:39
+// ./test/core/compact-import-section/binary-compact-imports.wast:42
 let $3 = instantiate(`(module binary
   "\\00asm" "\\01\\00\\00\\00"
   "\\01\\05\\01\\60\\00\\01\\7f"     ;; Type section: (type (func (result i32)))
-  "\\02\\0c"                    ;; Import section
-  "\\01"                       ;;   1 group
+  "\\02\\13"                    ;; Import section
+  "\\02"                       ;;   2 groups
+  "\\01x"                      ;;     "x"
+  "\\00" "\\7e"                 ;;       "" + 0x7e (compact encoding 2)
+  "\\00\\00"                    ;;       (func (type 0))
+  "\\00"                       ;;       0 items
   "\\01a"                      ;;     "a"
-  "\\00" "\\7e"                 ;;     "" + 0x7e (compact encoding)
-  "\\00\\00"                    ;;     (func (type 0))
-  "\\02"                       ;;     2 items
-  "\\01b"                      ;;       "b"
-  "\\01c"                      ;;       "c"
+  "\\00" "\\7e"                 ;;       "" + 0x7e (compact encoding 2)
+  "\\00\\00"                    ;;       (func (type 0))
+  "\\02"                       ;;       2 items
+  "\\01b"                      ;;         "b"
+  "\\01c"                      ;;         "c"
   "\\03\\02" "\\01"              ;; Function section, 1 func
   "\\00"                       ;;   func 2: type 0
   "\\07\\08" "\\01"              ;; Export section, 1 export
@@ -82,10 +89,10 @@ let $3 = instantiate(`(module binary
   "\\0b"                       ;;   end
 )`);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:61
+// ./test/core/compact-import-section/binary-compact-imports.wast:68
 assert_return(() => invoke($3, `test`, []), [value("i32", 255)]);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:66
+// ./test/core/compact-import-section/binary-compact-imports.wast:73
 let $4 = instantiate(`(module binary
   "\\00asm" "\\01\\00\\00\\00"
   "\\01\\05\\01\\60\\00\\01\\7f"     ;; Type section: (type (func (result i32)))
@@ -98,7 +105,7 @@ let $4 = instantiate(`(module binary
   "\\01c" "\\00\\00"             ;;       "c" (func (type 0))
 )`);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:77
+// ./test/core/compact-import-section/binary-compact-imports.wast:84
 let $5 = instantiate(`(module binary
   "\\00asm" "\\01\\00\\00\\00"
   "\\01\\05\\01\\60\\00\\01\\7f"     ;; Type section: (type (func (result i32)))
@@ -112,7 +119,7 @@ let $5 = instantiate(`(module binary
   "\\01c"                      ;;       "c"
 )`);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:93
+// ./test/core/compact-import-section/binary-compact-imports.wast:100
 assert_malformed(
   () => instantiate(`(module binary
     "\\00asm" "\\01\\00\\00\\00"
@@ -128,7 +135,7 @@ assert_malformed(
   `malformed import kind`,
 );
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:107
+// ./test/core/compact-import-section/binary-compact-imports.wast:114
 assert_malformed(
   () => instantiate(`(module binary
     "\\00asm" "\\01\\00\\00\\00"
@@ -145,7 +152,7 @@ assert_malformed(
   `malformed import kind`,
 );
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:126
+// ./test/core/compact-import-section/binary-compact-imports.wast:133
 assert_malformed(
   () => instantiate(`(module binary
     "\\00asm" "\\01\\00\\00\\00"
@@ -161,7 +168,7 @@ assert_malformed(
   `malformed import kind`,
 );
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:140
+// ./test/core/compact-import-section/binary-compact-imports.wast:147
 assert_malformed(
   () => instantiate(`(module binary
     "\\00asm" "\\01\\00\\00\\00"
@@ -178,7 +185,7 @@ assert_malformed(
   `malformed import kind`,
 );
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:159
+// ./test/core/compact-import-section/binary-compact-imports.wast:166
 let $6 = instantiate(`(module binary
   "\\00asm" "\\01\\00\\00\\00"
   "\\01\\05\\01\\60\\00\\01\\7f"     ;; Type section: (type (func (result i32)))
@@ -195,5 +202,5 @@ let $6 = instantiate(`(module binary
   "\\0b"                       ;;   end
 )`);
 
-// ./test/core/compact-import-section/binary-compact-imports.wast:174
+// ./test/core/compact-import-section/binary-compact-imports.wast:181
 assert_return(() => invoke($6, `test`, []), [value("i32", 171)]);
