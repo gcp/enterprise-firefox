@@ -2773,6 +2773,7 @@ SettingGroupManager.registerGroups({
       {
         id: "homepageRestoreDefaults",
         control: "moz-button",
+        iconSrc: "chrome://global/skin/icons/arrow-counterclockwise-16.svg",
         l10nId: "home-restore-defaults",
         controlAttrs: { id: "restoreDefaultHomePageBtn" },
       },
