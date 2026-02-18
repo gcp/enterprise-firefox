@@ -3905,12 +3905,12 @@ nscoord FlexLine::ExtractBaselineOffset(
     return offset != nscoord_MIN ? LineCrossSize() - offset : offset;
   };
 
-  auto PrimaryBaseline = [=]() {
+  auto PrimaryBaseline = [=, this]() {
     return aBaselineGroup == BaselineSharingGroup::First
                ? FirstBaselineOffset()
                : LastBaselineOffsetFromStartEdge();
   };
-  auto SecondaryBaseline = [=]() {
+  auto SecondaryBaseline = [=, this]() {
     return aBaselineGroup == BaselineSharingGroup::First
                ? LastBaselineOffsetFromStartEdge()
                : FirstBaselineOffset();
