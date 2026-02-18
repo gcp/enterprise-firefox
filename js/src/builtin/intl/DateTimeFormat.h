@@ -7,12 +7,9 @@
 #ifndef builtin_intl_DateTimeFormat_h
 #define builtin_intl_DateTimeFormat_h
 
-#include "mozilla/Maybe.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
-#include "builtin/SelfHostingDefines.h"
 #include "builtin/temporal/Calendar.h"
 #include "js/Class.h"
 #include "vm/NativeObject.h"
@@ -25,67 +22,7 @@ class DateIntervalFormat;
 
 namespace js::intl {
 
-struct DateTimeFormatOptions {
-  enum class Required : int8_t { Any, Date, Time };
-  Required required = Required::Any;
-
-  enum class Defaults : int8_t { Date, Time, All };
-  Defaults defaults = Defaults::Date;
-
-  enum class HourCycle : int8_t { H11, H12, H23, H24 };
-  mozilla::Maybe<HourCycle> hourCycle{};
-
-  mozilla::Maybe<bool> hour12{};
-
-  enum class DateStyle : int8_t { Full, Long, Medium, Short };
-  mozilla::Maybe<DateStyle> dateStyle{};
-
-  enum class TimeStyle : int8_t { Full, Long, Medium, Short };
-  mozilla::Maybe<TimeStyle> timeStyle{};
-
-  // Components of date and time formats
-  //
-  // https://tc39.es/ecma402/#table-datetimeformat-components
-
-  enum class Weekday : int8_t { Narrow, Short, Long };
-  mozilla::Maybe<Weekday> weekday{};
-
-  enum class Era : int8_t { Narrow, Short, Long };
-  mozilla::Maybe<Era> era{};
-
-  enum class Year : int8_t { TwoDigit, Numeric };
-  mozilla::Maybe<Year> year{};
-
-  enum class Month : int8_t { TwoDigit, Numeric, Narrow, Short, Long };
-  mozilla::Maybe<Month> month{};
-
-  enum class Day : int8_t { TwoDigit, Numeric };
-  mozilla::Maybe<Day> day{};
-
-  enum class DayPeriod : int8_t { Narrow, Short, Long };
-  mozilla::Maybe<DayPeriod> dayPeriod{};
-
-  enum class Hour : int8_t { TwoDigit, Numeric };
-  mozilla::Maybe<Hour> hour{};
-
-  enum class Minute : int8_t { TwoDigit, Numeric };
-  mozilla::Maybe<Minute> minute{};
-
-  enum class Second : int8_t { TwoDigit, Numeric };
-  mozilla::Maybe<Second> second{};
-
-  mozilla::Maybe<int8_t> fractionalSecondDigits{};
-
-  enum class TimeZoneName : int8_t {
-    Short,
-    Long,
-    ShortOffset,
-    LongOffset,
-    ShortGeneric,
-    LongGeneric
-  };
-  mozilla::Maybe<TimeZoneName> timeZoneName{};
-};
+struct DateTimeFormatOptions;
 
 enum class DateTimeValueKind {
   Number,
@@ -184,17 +121,9 @@ class DateTimeFormatObject : public NativeObject {
     setFixedSlot(TIMEZONE_SLOT, JS::StringValue(timeZone));
   }
 
-  DateTimeFormatOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<DateTimeFormatOptions*>(slot.toPrivate());
-  }
+  DateTimeFormatOptions getOptions() const;
 
-  void setOptions(DateTimeFormatOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
-  }
+  void setOptions(const DateTimeFormatOptions& options);
 
   JSString* getPattern() const {
     const auto& slot = getFixedSlot(PATTERN_SLOT);

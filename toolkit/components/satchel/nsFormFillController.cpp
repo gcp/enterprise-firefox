@@ -257,8 +257,6 @@ nsFormFillController::MarkAsAutoCompletableField(Element* aElement) {
   mAutoCompleteInputs.InsertOrUpdate(aElement, true);
   aElement->AddMutationObserverUnlessExists(this);
 
-  EnablePreview(aElement);
-
   if (nsFocusManager::GetFocusedElementStatic() == aElement) {
     if (!mControlledElement) {
       MaybeStartControllingInput(aElement);
@@ -1342,13 +1340,4 @@ void nsFormFillController::SetUserInput(mozilla::dom::Element* aElement,
   } else if (auto* textarea = HTMLTextAreaElement::FromNodeOrNull(aElement)) {
     textarea->SetUserInput(aValue, aSubjectPrincipal);
   }
-}
-
-void nsFormFillController::EnablePreview(mozilla::dom::Element* aElement) {
-  if (auto* input = HTMLInputElement::FromNodeOrNull(aElement)) {
-    input->EnablePreview();
-  } else if (auto* textarea = HTMLTextAreaElement::FromNodeOrNull(aElement)) {
-    textarea->EnablePreview();
-  }
-  return;
 }

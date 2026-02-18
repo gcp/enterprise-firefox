@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <string_view>
 
-#include "ds/IdValuePair.h"
 #include "js/Class.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
@@ -19,7 +18,6 @@
 namespace mozilla::intl {
 class NumberFormat;
 class NumberRangeFormat;
-struct PluralRulesOptions;
 }  // namespace mozilla::intl
 
 namespace js {
@@ -28,82 +26,7 @@ class ArrayObject;
 
 namespace js::intl {
 
-struct NumberFormatDigitOptions {
-  // integer ∈ (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500,
-  // 5000)
-  int16_t roundingIncrement = 0;
-
-  int8_t minimumIntegerDigits = 0;  // integer ∈ [1, 21]
-
-  // optional, mutually exclusive with the significant-digits option
-  int8_t minimumFractionDigits = 0;  // integer ∈ [0, 100]
-  int8_t maximumFractionDigits = 0;  // integer ∈ [0, 100]
-
-  // optional, mutually exclusive with the fraction-digits option
-  int8_t minimumSignificantDigits = 0;  // integer ∈ [1, 21]
-  int8_t maximumSignificantDigits = 0;  // integer ∈ [1, 21]
-
-  enum class RoundingMode : int8_t {
-    Ceil,
-    Floor,
-    Expand,
-    Trunc,
-    HalfCeil,
-    HalfFloor,
-    HalfExpand,
-    HalfTrunc,
-    HalfEven
-  };
-  RoundingMode roundingMode = RoundingMode::HalfExpand;
-
-  enum class RoundingPriority : int8_t { Auto, MorePrecision, LessPrecision };
-  RoundingPriority roundingPriority = RoundingPriority::Auto;
-
-  enum class TrailingZeroDisplay : int8_t { Auto, StripIfInteger };
-  TrailingZeroDisplay trailingZeroDisplay = TrailingZeroDisplay::Auto;
-};
-
-struct NumberFormatUnitOptions {
-  enum class Style : int8_t { Decimal, Percent, Currency, Unit };
-  Style style = Style::Decimal;
-
-  enum class CurrencyDisplay : int8_t { Symbol, NarrowSymbol, Code, Name };
-  CurrencyDisplay currencyDisplay = CurrencyDisplay::Symbol;
-
-  enum class CurrencySign : int8_t { Standard, Accounting };
-  CurrencySign currencySign = CurrencySign::Standard;
-
-  enum class UnitDisplay : int8_t { Short, Narrow, Long };
-  UnitDisplay unitDisplay = UnitDisplay::Short;
-
-  struct Currency {
-    char code[3] = {};
-  };
-  Currency currency{};
-
-  struct Unit {
-    char name[40] = {};
-  };
-  Unit unit{};
-};
-
-struct NumberFormatOptions {
-  NumberFormatDigitOptions digitOptions{};
-
-  NumberFormatUnitOptions unitOptions{};
-
-  enum class Notation : int8_t { Standard, Scientific, Engineering, Compact };
-  Notation notation = Notation::Standard;
-
-  enum class CompactDisplay : int8_t { Short, Long };
-  CompactDisplay compactDisplay = CompactDisplay::Short;
-
-  enum class UseGrouping : int8_t { Auto, Min2, Always, Never };
-  UseGrouping useGrouping = UseGrouping::Auto;
-
-  enum class SignDisplay : int8_t { Auto, Never, Always, ExceptZero, Negative };
-  SignDisplay signDisplay = SignDisplay::Auto;
-};
+struct NumberFormatOptions;
 
 class NumberFormatObject : public NativeObject {
  public:
@@ -113,10 +36,11 @@ class NumberFormatObject : public NativeObject {
   static constexpr uint32_t LOCALE_SLOT = 0;
   static constexpr uint32_t NUMBERING_SYSTEM_SLOT = 1;
   static constexpr uint32_t OPTIONS_SLOT = 2;
-  static constexpr uint32_t UNUMBER_FORMATTER_SLOT = 3;
-  static constexpr uint32_t UNUMBER_RANGE_FORMATTER_SLOT = 4;
-  static constexpr uint32_t BOUND_FORMAT_SLOT = 5;
-  static constexpr uint32_t SLOT_COUNT = 6;
+  static constexpr uint32_t DIGITS_OPTIONS_SLOT = 3;
+  static constexpr uint32_t UNUMBER_FORMATTER_SLOT = 4;
+  static constexpr uint32_t UNUMBER_RANGE_FORMATTER_SLOT = 5;
+  static constexpr uint32_t BOUND_FORMAT_SLOT = 6;
+  static constexpr uint32_t SLOT_COUNT = 7;
 
   // Estimated memory use for UNumberFormatter and UFormattedNumber
   // (see IcuMemoryUsage).
@@ -164,17 +88,9 @@ class NumberFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM_SLOT, JS::StringValue(numberingSystem));
   }
 
-  NumberFormatOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<NumberFormatOptions*>(slot.toPrivate());
-  }
+  NumberFormatOptions getOptions() const;
 
-  void setOptions(NumberFormatOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
-  }
+  void setOptions(const NumberFormatOptions& options);
 
   mozilla::intl::NumberFormat* getNumberFormatter() const {
     const auto& slot = getFixedSlot(UNUMBER_FORMATTER_SLOT);
@@ -218,31 +134,6 @@ class NumberFormatObject : public NativeObject {
 
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
-
-struct PluralRulesOptions;
-
-/**
- * SetNumberFormatDigitOptions ( intlObj, options, mnfdDefault, mxfdDefault,
- * notation )
- */
-bool SetNumberFormatDigitOptions(JSContext* cx, NumberFormatDigitOptions& obj,
-                                 JS::Handle<JSObject*> options,
-                                 int32_t mnfdDefault, int32_t mxfdDefault,
-                                 NumberFormatOptions::Notation notation);
-
-/**
- * Set the plural rules options.
- */
-void SetPluralRulesOptions(const PluralRulesOptions& plOptions,
-                           mozilla::intl::PluralRulesOptions& options);
-
-/**
- * Resolve plural rules options.
- */
-bool ResolvePluralRulesOptions(JSContext* cx,
-                               const PluralRulesOptions& plOptions,
-                               JS::Handle<ArrayObject*> pluralCategories,
-                               JS::MutableHandle<IdValueVector> options);
 
 /**
  * Returns a new instance of the standard built-in NumberFormat constructor.

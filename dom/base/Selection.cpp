@@ -1145,20 +1145,14 @@ static void UserSelectRangesToAdd(nsRange* aItem,
   }
 }
 
-static nsINode* DetermineSelectstartEventTarget(
-    const bool aSelectionEventsOnTextControlsEnabled, const nsRange& aRange) {
+static nsINode* DetermineSelectstartEventTarget(const nsRange& aRange) {
   nsINode* target = aRange.GetStartContainer();
-  if (aSelectionEventsOnTextControlsEnabled) {
-    // Get the first element which isn't in a native anonymous subtree
-    while (target && target->IsInNativeAnonymousSubtree()) {
-      target = target->GetParent();
-    }
-  } else {
-    if (target->IsInNativeAnonymousSubtree()) {
-      // This is a selection under a text control, so don't dispatch the
-      // event.
-      target = nullptr;
-    }
+  if (target && target->IsInNativeAnonymousSubtree()) {
+    // This is a selection under a text control, selectstart target depends on
+    // the pref.
+    target = StaticPrefs::dom_select_events_textcontrols_selectstart_enabled()
+                 ? target->GetClosestNativeAnonymousSubtreeRootParentOrHost()
+                 : nullptr;
   }
   return target;
 }
@@ -1166,11 +1160,10 @@ static nsINode* DetermineSelectstartEventTarget(
 /**
  * @return true, iff the default action should be executed.
  */
-static bool MaybeDispatchSelectstartEvent(
-    const nsRange& aRange, const bool aSelectionEventsOnTextControlsEnabled,
-    Document* aDocument) {
-  nsCOMPtr<nsINode> selectstartEventTarget = DetermineSelectstartEventTarget(
-      aSelectionEventsOnTextControlsEnabled, aRange);
+static bool MaybeDispatchSelectstartEvent(const nsRange& aRange,
+                                          Document* aDocument) {
+  nsCOMPtr<nsINode> selectstartEventTarget =
+      DetermineSelectstartEventTarget(aRange);
 
   bool executeDefaultAction = true;
 
@@ -1241,10 +1234,8 @@ nsresult Selection::AddRangesForUserSelectableNodes(
       // on text controls, so for now we only support doing that under a
       // pref, disabled by default.
       // See https://github.com/w3c/selection-api/issues/53.
-      const bool executeDefaultAction = MaybeDispatchSelectstartEvent(
-          *aRange,
-          StaticPrefs::dom_select_events_textcontrols_selectstart_enabled(),
-          doc);
+      const bool executeDefaultAction =
+          MaybeDispatchSelectstartEvent(*aRange, doc);
 
       if (!executeDefaultAction) {
         return NS_OK;

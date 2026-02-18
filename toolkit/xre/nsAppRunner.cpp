@@ -379,7 +379,7 @@ void XRE_LibFuzzerSetDriver(LibFuzzerDriver aDriver) {
 #undef None
 
 namespace mozilla {
-int (*RunGTest)(int*, char**) = 0;
+int (*RunGTest)(int*, char**) = nullptr;
 
 bool RunningGTest() { return RunGTest; }
 }  // namespace mozilla
@@ -5611,8 +5611,8 @@ nsresult XREMain::XRE_mainRun() {
     CrashReporter::SetIncludeContextHeap(includeContextHeap);
 
 #if defined(XP_LINUX) && !defined(ANDROID)
-    PR_CreateThread(PR_USER_THREAD, AnnotateLSBRelease, 0, PR_PRIORITY_LOW,
-                    PR_GLOBAL_THREAD, PR_UNJOINABLE_THREAD, 0);
+    PR_CreateThread(PR_USER_THREAD, AnnotateLSBRelease, nullptr,
+                    PR_PRIORITY_LOW, PR_GLOBAL_THREAD, PR_UNJOINABLE_THREAD, 0);
 #endif
 
     if (mStartOffline) {
@@ -6618,7 +6618,7 @@ void SetupErrorHandling(const char* progname) {
   InstallSignalHandlers(progname);
 
   // Unbuffer stdout, needed for tinderbox tests.
-  setbuf(stdout, 0);
+  setbuf(stdout, nullptr);
 }
 
 static bool gRunSelfAsContentProc = false;

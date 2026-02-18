@@ -893,15 +893,19 @@ public class GeckoAppShell {
     sUseMaxScreenDepth = enable;
   }
 
-  /** Returns the colour depth of the default screen. This will either be 32, 24 or 16. */
+  /**
+   * Returns the colour depth of the default screen. This will typically be 24 as by default it only
+   * includes the bits used for color values, not alpha. However, if useMaxScreenDepth() has been
+   * enabled this will return the full depth.
+   */
   @WrapForJNI(calledFrom = "gecko")
   public static synchronized int getScreenDepth() {
     if (sScreenDepth == 0) {
-      sScreenDepth = 16;
+      sScreenDepth = 24;
       final Context applicationContext = getApplicationContext();
       final PixelFormat info = new PixelFormat();
       PixelFormat.getPixelFormatInfo(sScreenCompat.getDisplay(sDisplayId).getPixelFormat(), info);
-      if (info.bitsPerPixel >= 24 && isHighMemoryDevice(applicationContext)) {
+      if (info.bitsPerPixel >= 24) {
         sScreenDepth = sUseMaxScreenDepth ? info.bitsPerPixel : 24;
       }
     }

@@ -169,7 +169,6 @@ import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.permissions.FenixSitePermissionLearnMoreUrlProvider
 import org.mozilla.fenix.browser.readermode.DefaultReaderModeController
 import org.mozilla.fenix.browser.readermode.ReaderModeController
-import org.mozilla.fenix.browser.relay.RelayFeatureIntegration
 import org.mozilla.fenix.browser.store.BrowserScreenMiddleware
 import org.mozilla.fenix.browser.store.BrowserScreenState
 import org.mozilla.fenix.browser.store.BrowserScreenStore
@@ -211,6 +210,7 @@ import org.mozilla.fenix.customtabs.ExternalAppBrowserActivity
 import org.mozilla.fenix.databinding.FragmentBrowserBinding
 import org.mozilla.fenix.downloads.DownloadService
 import org.mozilla.fenix.downloads.dialog.createDownloadAppDialog
+import org.mozilla.fenix.experiments.NimbusGeckoPrefHandler
 import org.mozilla.fenix.ext.accessibilityManager
 import org.mozilla.fenix.ext.breadcrumb
 import org.mozilla.fenix.ext.components
@@ -333,7 +333,6 @@ abstract class BaseBrowserFragment :
     private val shareResourceFeature = ViewBoundFeatureWrapper<ShareResourceFeature>()
     private val copyDownloadsFeature = ViewBoundFeatureWrapper<CopyDownloadFeature>()
     private val promptsFeature = ViewBoundFeatureWrapper<PromptFeature>()
-    private val relayFeature = ViewBoundFeatureWrapper<RelayFeatureIntegration>()
 
     @VisibleForTesting
     internal val findInPageIntegration = ViewBoundFeatureWrapper<FindInPageIntegration>()
@@ -1184,9 +1183,16 @@ abstract class BaseBrowserFragment :
                         get() = emailMaskBar
 
                     override suspend fun onEmailMaskClick(generatedFor: String) = withContext(IO) {
-                        val relay = relayFeature.get() ?: return@withContext null
-                        val created =
-                            relay.getOrCreateNewMask(generatedFor) ?: return@withContext null
+                        val relay = requireComponents.relayFeatureIntegration
+                        val created = relay.getOrCreateNewMask(generatedFor)
+
+                        if (created == null) {
+                            val errorMessage =
+                                getString(R.string.email_masks_error_retrieving_masks)
+                            appStore.dispatch(AppAction.SnackbarAction.ShowSnackbar(errorMessage))
+                            return@withContext null
+                        }
+
                         created.fullAddress
                     }
                 },
@@ -1237,20 +1243,6 @@ abstract class BaseBrowserFragment :
             owner = this,
             view = view,
         )
-
-        if (context.settings().isEmailMaskFeatureEnabled && context.settings().isEmailMaskSuggestionEnabled) {
-            relayFeature.set(
-                feature = RelayFeatureIntegration(
-                    context = requireContext(),
-                    engine = requireComponents.core.engine,
-                    accountManager = requireComponents.backgroundServices.accountManager,
-                    store = requireComponents.relayEligibilityStore,
-                    appStore = requireComponents.appStore,
-                ),
-                owner = this,
-                view = view,
-            )
-        }
 
         sessionFeature.set(
             feature = SessionFeature(
@@ -1393,6 +1385,11 @@ abstract class BaseBrowserFragment :
             owner = this,
             view = view,
         )
+        @org.mozilla.geckoview.ExperimentalGeckoViewApi
+        browserPrefObserverIntegration.get()?.let<BrowserPrefObserverIntegration, Unit> { integration ->
+            NimbusGeckoPrefHandler.browserPrefObserverIntegration = integration
+            integration.register(NimbusGeckoPrefHandler)
+        }
 
         context.settings().setSitePermissionSettingListener(viewLifecycleOwner) {
             // If the user connects to WIFI while on the BrowserFragment, this will update the

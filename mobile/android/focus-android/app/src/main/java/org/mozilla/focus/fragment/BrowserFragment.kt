@@ -1010,16 +1010,19 @@ class BrowserFragment :
         activity?.finishAndRemoveTask()
     }
 
-    internal fun edit() {
+    internal fun edit(tabId: String = tab.id) {
         requireComponents.appStore.dispatch(
-            AppAction.EditAction(tab.id),
+            AppAction.EditAction(tabId),
         )
     }
 
     private fun tabCounterListener() {
         val openedTabs = requireComponents.store.state.tabs.size
 
-        tabsPopup = TabsPopup(binding.browserToolbar, requireComponents).also { currentTabsPopup ->
+        tabsPopup = TabsPopup(
+            binding.browserToolbar,
+            requireComponents,
+        ).also { currentTabsPopup ->
             currentTabsPopup.showAsDropDown(
                 binding.browserToolbar,
                 0,

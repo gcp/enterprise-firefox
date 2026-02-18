@@ -15,6 +15,7 @@
 #include "mozilla/intl/DateTimePart.h"
 #include "mozilla/intl/Locale.h"
 #include "mozilla/intl/TimeZone.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/Span.h"
 
 #include "builtin/Array.h"
@@ -23,6 +24,7 @@
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/Packed.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/SharedIntlData.h"
 #include "builtin/intl/UsingEnum.h"
@@ -141,6 +143,201 @@ const ClassSpec DateTimeFormatObject::classSpec_ = {
     nullptr,
     ClassSpec::DontDefineConstructor,
 };
+
+struct js::intl::DateTimeFormatOptions {
+  enum class Required : int8_t { Any, Date, Time };
+  Required required = Required::Any;
+
+  enum class Defaults : int8_t { Date, Time, All };
+  Defaults defaults = Defaults::Date;
+
+  using HourCycle = mozilla::intl::DateTimeFormat::HourCycle;
+  mozilla::Maybe<HourCycle> hourCycle{};
+
+  mozilla::Maybe<bool> hour12{};
+
+  using DateStyle = mozilla::intl::DateTimeFormat::Style;
+  mozilla::Maybe<DateStyle> dateStyle{};
+
+  using TimeStyle = mozilla::intl::DateTimeFormat::Style;
+  mozilla::Maybe<TimeStyle> timeStyle{};
+
+  // Components of date and time formats
+  //
+  // https://tc39.es/ecma402/#table-datetimeformat-components
+
+  using Weekday = mozilla::intl::DateTimeFormat::Text;
+  mozilla::Maybe<Weekday> weekday{};
+
+  using Era = mozilla::intl::DateTimeFormat::Text;
+  mozilla::Maybe<Era> era{};
+
+  using Year = mozilla::intl::DateTimeFormat::Numeric;
+  mozilla::Maybe<Year> year{};
+
+  using Month = mozilla::intl::DateTimeFormat::Month;
+  mozilla::Maybe<Month> month{};
+
+  using Day = mozilla::intl::DateTimeFormat::Numeric;
+  mozilla::Maybe<Day> day{};
+
+  using DayPeriod = mozilla::intl::DateTimeFormat::Text;
+  mozilla::Maybe<DayPeriod> dayPeriod{};
+
+  using Hour = mozilla::intl::DateTimeFormat::Numeric;
+  mozilla::Maybe<Hour> hour{};
+
+  using Minute = mozilla::intl::DateTimeFormat::Numeric;
+  mozilla::Maybe<Minute> minute{};
+
+  using Second = mozilla::intl::DateTimeFormat::Numeric;
+  mozilla::Maybe<Second> second{};
+
+  mozilla::Maybe<int8_t> fractionalSecondDigits{};
+
+  using TimeZoneName = mozilla::intl::DateTimeFormat::TimeZoneName;
+  mozilla::Maybe<TimeZoneName> timeZoneName{};
+};
+
+struct PackedDateTimeFormatOptions {
+  using RawValue = uint64_t;
+
+  using RequiredField =
+      packed::EnumField<RawValue, DateTimeFormatOptions::Required::Any,
+                        DateTimeFormatOptions::Required::Time>;
+
+  using DefaultsField =
+      packed::EnumField<RequiredField, DateTimeFormatOptions::Defaults::Date,
+                        DateTimeFormatOptions::Defaults::All>;
+
+  using HourCycleField =
+      packed::OptionalEnumField<DefaultsField,
+                                DateTimeFormatOptions::HourCycle::H11,
+                                DateTimeFormatOptions::HourCycle::H24>;
+
+  using Hour12Field = packed::OptionalBooleanField<HourCycleField>;
+
+  using DateStyleField =
+      packed::OptionalEnumField<Hour12Field,
+                                DateTimeFormatOptions::DateStyle::Full,
+                                DateTimeFormatOptions::DateStyle::Short>;
+
+  using TimeStyleField =
+      packed::OptionalEnumField<DateStyleField,
+                                DateTimeFormatOptions::TimeStyle::Full,
+                                DateTimeFormatOptions::TimeStyle::Short>;
+
+  using WeekdayField =
+      packed::OptionalEnumField<TimeStyleField,
+                                DateTimeFormatOptions::Weekday::Long,
+                                DateTimeFormatOptions::Weekday::Narrow>;
+
+  using EraField =
+      packed::OptionalEnumField<WeekdayField, DateTimeFormatOptions::Era::Long,
+                                DateTimeFormatOptions::Era::Narrow>;
+
+  using YearField =
+      packed::OptionalEnumField<EraField, DateTimeFormatOptions::Year::Numeric,
+                                DateTimeFormatOptions::Year::TwoDigit>;
+
+  using MonthField =
+      packed::OptionalEnumField<YearField,
+                                DateTimeFormatOptions::Month::Numeric,
+                                DateTimeFormatOptions::Month::Narrow>;
+
+  using DayField =
+      packed::OptionalEnumField<MonthField, DateTimeFormatOptions::Day::Numeric,
+                                DateTimeFormatOptions::Day::TwoDigit>;
+
+  using DayPeriodField =
+      packed::OptionalEnumField<DayField,
+                                DateTimeFormatOptions::DayPeriod::Long,
+                                DateTimeFormatOptions::DayPeriod::Narrow>;
+
+  using HourField =
+      packed::OptionalEnumField<DayPeriodField,
+                                DateTimeFormatOptions::Hour::Numeric,
+                                DateTimeFormatOptions::Hour::TwoDigit>;
+
+  using MinuteField =
+      packed::OptionalEnumField<HourField,
+                                DateTimeFormatOptions::Minute::Numeric,
+                                DateTimeFormatOptions::Minute::TwoDigit>;
+
+  using SecondField =
+      packed::OptionalEnumField<MinuteField,
+                                DateTimeFormatOptions::Second::Numeric,
+                                DateTimeFormatOptions::Second::TwoDigit>;
+
+  using FractionalSecondDigitsField =
+      packed::RangeField<SecondField, int8_t, 0, 3>;
+
+  using TimeZoneNameField = packed::OptionalEnumField<
+      FractionalSecondDigitsField, DateTimeFormatOptions::TimeZoneName::Long,
+      DateTimeFormatOptions::TimeZoneName::LongGeneric>;
+
+  using PackedValue = packed::PackedValue<TimeZoneNameField>;
+
+  static auto pack(const DateTimeFormatOptions& options) {
+    RawValue rawValue =
+        RequiredField::pack(options.required) |
+        DefaultsField::pack(options.defaults) |
+        HourCycleField::pack(options.hourCycle) |
+        Hour12Field::pack(options.hour12) |
+        DateStyleField::pack(options.dateStyle) |
+        TimeStyleField::pack(options.timeStyle) |
+        WeekdayField::pack(options.weekday) | EraField::pack(options.era) |
+        YearField::pack(options.year) | MonthField::pack(options.month) |
+        DayField::pack(options.day) | DayPeriodField::pack(options.dayPeriod) |
+        HourField::pack(options.hour) | MinuteField::pack(options.minute) |
+        SecondField::pack(options.second) |
+        FractionalSecondDigitsField::pack(
+            options.fractionalSecondDigits.valueOr(0)) |
+        TimeZoneNameField::pack(options.timeZoneName);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    auto maybeFractionalDigits = [](int8_t digits) -> mozilla::Maybe<int8_t> {
+      return digits > 0 ? mozilla::Some(digits) : mozilla::Nothing();
+    };
+
+    RawValue rawValue = PackedValue::fromValue(value);
+    return DateTimeFormatOptions{
+        .required = RequiredField::unpack(rawValue),
+        .defaults = DefaultsField::unpack(rawValue),
+        .hourCycle = HourCycleField::unpack(rawValue),
+        .hour12 = Hour12Field::unpack(rawValue),
+        .dateStyle = DateStyleField::unpack(rawValue),
+        .timeStyle = TimeStyleField::unpack(rawValue),
+        .weekday = WeekdayField::unpack(rawValue),
+        .era = EraField::unpack(rawValue),
+        .year = YearField::unpack(rawValue),
+        .month = MonthField::unpack(rawValue),
+        .day = DayField::unpack(rawValue),
+        .dayPeriod = DayPeriodField::unpack(rawValue),
+        .hour = HourField::unpack(rawValue),
+        .minute = MinuteField::unpack(rawValue),
+        .second = SecondField::unpack(rawValue),
+        .fractionalSecondDigits = maybeFractionalDigits(
+            FractionalSecondDigitsField::unpack(rawValue)),
+        .timeZoneName = TimeZoneNameField::unpack(rawValue),
+    };
+  }
+};
+
+DateTimeFormatOptions js::intl::DateTimeFormatObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS_SLOT);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedDateTimeFormatOptions::unpack(slot);
+}
+
+void js::intl::DateTimeFormatObject::setOptions(
+    const DateTimeFormatOptions& options) {
+  setFixedSlot(OPTIONS_SLOT, PackedDateTimeFormatOptions::pack(options));
+}
 
 static constexpr std::string_view HourCycleToString(
     DateTimeFormatOptions::HourCycle hourCycle) {
@@ -352,12 +549,10 @@ static bool CreateDateTimeFormat(
   }
   dateTimeFormat->setRequestedLocales(requestedLocalesArray);
 
-  auto dtfOptions = cx->make_unique<DateTimeFormatOptions>();
-  if (!dtfOptions) {
-    return false;
-  }
-  dtfOptions->required = required;
-  dtfOptions->defaults = defaults;
+  auto dtfOptions = DateTimeFormatOptions{
+      .required = required,
+      .defaults = defaults,
+  };
 
   if (!optionsValue.isUndefined()) {
     // ResolveOptions, steps 2-3.
@@ -398,7 +593,7 @@ static bool CreateDateTimeFormat(
     }
 
     if (!GetBooleanOption(cx, options, cx->names().hour12,
-                          &dtfOptions->hour12)) {
+                          &dtfOptions.hour12)) {
       return false;
     }
 
@@ -408,14 +603,14 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::HourCycle::H23,
                                       DateTimeFormatOptions::HourCycle::H24);
     if (!GetStringOption(cx, options, cx->names().hourCycle, hourCycles,
-                         &dtfOptions->hourCycle)) {
+                         &dtfOptions.hourCycle)) {
       return false;
     }
 
     // ResolveOptions, step 7.
-    if (dtfOptions->hour12.isSome()) {
+    if (dtfOptions.hour12.isSome()) {
       // The "hourCycle" option is ignored if "hour12" is also present.
-      dtfOptions->hourCycle = mozilla::Nothing();
+      dtfOptions.hourCycle = mozilla::Nothing();
     }
 
     // ResolveOptions, step 8. (Performed in ResolveLocale)
@@ -497,15 +692,14 @@ static bool CreateDateTimeFormat(
                                     DateTimeFormatOptions::Weekday::Short,
                                     DateTimeFormatOptions::Weekday::Long);
     if (!GetStringOption(cx, options, cx->names().weekday, weekdays,
-                         &dtfOptions->weekday)) {
+                         &dtfOptions.weekday)) {
       return false;
     }
 
     static constexpr auto eras = MapOptions<EraToString>(
         DateTimeFormatOptions::Era::Narrow, DateTimeFormatOptions::Era::Short,
         DateTimeFormatOptions::Era::Long);
-    if (!GetStringOption(cx, options, cx->names().era, eras,
-                         &dtfOptions->era)) {
+    if (!GetStringOption(cx, options, cx->names().era, eras, &dtfOptions.era)) {
       return false;
     }
 
@@ -513,7 +707,7 @@ static bool CreateDateTimeFormat(
         MapOptions<YearToString>(DateTimeFormatOptions::Year::TwoDigit,
                                  DateTimeFormatOptions::Year::Numeric);
     if (!GetStringOption(cx, options, cx->names().year, years,
-                         &dtfOptions->year)) {
+                         &dtfOptions.year)) {
       return false;
     }
 
@@ -524,15 +718,14 @@ static bool CreateDateTimeFormat(
                                   DateTimeFormatOptions::Month::Short,
                                   DateTimeFormatOptions::Month::Long);
     if (!GetStringOption(cx, options, cx->names().month, months,
-                         &dtfOptions->month)) {
+                         &dtfOptions.month)) {
       return false;
     }
 
     static constexpr auto days =
         MapOptions<DayToString>(DateTimeFormatOptions::Day::TwoDigit,
                                 DateTimeFormatOptions::Day::Numeric);
-    if (!GetStringOption(cx, options, cx->names().day, days,
-                         &dtfOptions->day)) {
+    if (!GetStringOption(cx, options, cx->names().day, days, &dtfOptions.day)) {
       return false;
     }
 
@@ -541,7 +734,7 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::DayPeriod::Short,
                                       DateTimeFormatOptions::DayPeriod::Long);
     if (!GetStringOption(cx, options, cx->names().dayPeriod, dayPeriods,
-                         &dtfOptions->dayPeriod)) {
+                         &dtfOptions.dayPeriod)) {
       return false;
     }
 
@@ -549,7 +742,7 @@ static bool CreateDateTimeFormat(
         MapOptions<HourToString>(DateTimeFormatOptions::Hour::TwoDigit,
                                  DateTimeFormatOptions::Hour::Numeric);
     if (!GetStringOption(cx, options, cx->names().hour, hours,
-                         &dtfOptions->hour)) {
+                         &dtfOptions.hour)) {
       return false;
     }
 
@@ -557,7 +750,7 @@ static bool CreateDateTimeFormat(
         MapOptions<MinuteToString>(DateTimeFormatOptions::Minute::TwoDigit,
                                    DateTimeFormatOptions::Minute::Numeric);
     if (!GetStringOption(cx, options, cx->names().minute, minutes,
-                         &dtfOptions->minute)) {
+                         &dtfOptions.minute)) {
       return false;
     }
 
@@ -565,7 +758,7 @@ static bool CreateDateTimeFormat(
         MapOptions<SecondToString>(DateTimeFormatOptions::Second::TwoDigit,
                                    DateTimeFormatOptions::Second::Numeric);
     if (!GetStringOption(cx, options, cx->names().second, seconds,
-                         &dtfOptions->second)) {
+                         &dtfOptions.second)) {
       return false;
     }
 
@@ -574,7 +767,7 @@ static bool CreateDateTimeFormat(
                          &fractionalSecondDigits)) {
       return false;
     }
-    dtfOptions->fractionalSecondDigits = fractionalSecondDigits;
+    dtfOptions.fractionalSecondDigits = fractionalSecondDigits;
 
     static constexpr auto timeZoneNames = MapOptions<TimeZoneNameToString>(
         DateTimeFormatOptions::TimeZoneName::Short,
@@ -584,7 +777,7 @@ static bool CreateDateTimeFormat(
         DateTimeFormatOptions::TimeZoneName::ShortGeneric,
         DateTimeFormatOptions::TimeZoneName::LongGeneric);
     if (!GetStringOption(cx, options, cx->names().timeZoneName, timeZoneNames,
-                         &dtfOptions->timeZoneName)) {
+                         &dtfOptions.timeZoneName)) {
       return false;
     }
 
@@ -609,7 +802,7 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::DateStyle::Medium,
                                       DateTimeFormatOptions::DateStyle::Short);
     if (!GetStringOption(cx, options, cx->names().dateStyle, dateStyles,
-                         &dtfOptions->dateStyle)) {
+                         &dtfOptions.dateStyle)) {
       return false;
     }
 
@@ -620,45 +813,45 @@ static bool CreateDateTimeFormat(
                                       DateTimeFormatOptions::TimeStyle::Medium,
                                       DateTimeFormatOptions::TimeStyle::Short);
     if (!GetStringOption(cx, options, cx->names().timeStyle, timeStyles,
-                         &dtfOptions->timeStyle)) {
+                         &dtfOptions.timeStyle)) {
       return false;
     }
 
     // Step 30.
-    if (dtfOptions->dateStyle.isSome() || dtfOptions->timeStyle.isSome()) {
+    if (dtfOptions.dateStyle.isSome() || dtfOptions.timeStyle.isSome()) {
       // Step 23.
       const char* explicitFormatComponent = ([&]() -> const char* {
-        if (dtfOptions->weekday.isSome()) {
+        if (dtfOptions.weekday.isSome()) {
           return "weekday";
         }
-        if (dtfOptions->era.isSome()) {
+        if (dtfOptions.era.isSome()) {
           return "era";
         }
-        if (dtfOptions->year.isSome()) {
+        if (dtfOptions.year.isSome()) {
           return "year";
         }
-        if (dtfOptions->month.isSome()) {
+        if (dtfOptions.month.isSome()) {
           return "month";
         }
-        if (dtfOptions->day.isSome()) {
+        if (dtfOptions.day.isSome()) {
           return "day";
         }
-        if (dtfOptions->dayPeriod.isSome()) {
+        if (dtfOptions.dayPeriod.isSome()) {
           return "dayPeriod";
         }
-        if (dtfOptions->hour.isSome()) {
+        if (dtfOptions.hour.isSome()) {
           return "hour";
         }
-        if (dtfOptions->minute.isSome()) {
+        if (dtfOptions.minute.isSome()) {
           return "minute";
         }
-        if (dtfOptions->second.isSome()) {
+        if (dtfOptions.second.isSome()) {
           return "second";
         }
-        if (dtfOptions->fractionalSecondDigits.isSome()) {
+        if (dtfOptions.fractionalSecondDigits.isSome()) {
           return "fractionalSecondDigits";
         }
-        if (dtfOptions->timeZoneName.isSome()) {
+        if (dtfOptions.timeZoneName.isSome()) {
           return "timeZoneName";
         }
         return nullptr;
@@ -669,13 +862,13 @@ static bool CreateDateTimeFormat(
         JS_ReportErrorNumberASCII(
             cx, GetErrorMessage, nullptr, JSMSG_INVALID_DATETIME_OPTION,
             explicitFormatComponent,
-            dtfOptions->dateStyle.isSome() ? "dateStyle" : "timeStyle");
+            dtfOptions.dateStyle.isSome() ? "dateStyle" : "timeStyle");
         return false;
       }
 
       // Step 30.b.
       if (required == DateTimeFormatOptions::Required::Date &&
-          dtfOptions->timeStyle.isSome()) {
+          dtfOptions.timeStyle.isSome()) {
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_INVALID_DATETIME_STYLE, "timeStyle",
                                   "date");
@@ -684,7 +877,7 @@ static bool CreateDateTimeFormat(
 
       // Step 30.c.
       if (required == DateTimeFormatOptions::Required::Time &&
-          dtfOptions->dateStyle.isSome()) {
+          dtfOptions.dateStyle.isSome()) {
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_INVALID_DATETIME_STYLE, "dateStyle",
                                   "time");
@@ -710,9 +903,7 @@ static bool CreateDateTimeFormat(
     // Step 20.
     dateTimeFormat->setTimeZone(timeZone);
   }
-  dateTimeFormat->setOptions(dtfOptions.release());
-  AddCellMemory(dateTimeFormat, sizeof(DateTimeFormatOptions),
-                MemoryUse::IntlOptions);
+  dateTimeFormat->setOptions(dtfOptions);
 
   // Step 34.
   return true;
@@ -877,10 +1068,6 @@ void js::intl::DateTimeFormatObject::finalize(JS::GCContext* gcx,
   auto* df = dateTimeFormat->getDateFormat();
   auto* dif = dateTimeFormat->getDateIntervalFormat();
 
-  if (auto* options = dateTimeFormat->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
-
   if (df) {
     RemoveICUCellMemory(gcx, obj,
                         DateTimeFormatObject::UDateFormatEstimatedMemoryUse);
@@ -941,7 +1128,7 @@ static bool ResolveLocale(JSContext* cx,
   if (dateTimeFormat->isLocaleResolved()) {
     return true;
   }
-  auto* dtfOptions = dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   Rooted<ArrayObject*> requestedLocales(
       cx, &dateTimeFormat->getRequestedLocales()->as<ArrayObject>());
@@ -958,12 +1145,12 @@ static bool ResolveLocale(JSContext* cx,
   if (auto* ca = dateTimeFormat->getCalendar()) {
     localeOptions.setUnicodeExtension(UnicodeExtensionKey::Calendar, ca);
   }
-  if (dtfOptions->hour12.isSome()) {
+  if (dtfOptions.hour12.isSome()) {
     // Explicitly opt-out of hourCycle if the hour12 option is present, because
     // the latter takes precedence over hourCycle.
     localeOptions.setUnicodeExtension(UnicodeExtensionKey::HourCycle, nullptr);
   } else {
-    if (auto hourCycle = dtfOptions->hourCycle) {
+    if (auto hourCycle = dtfOptions.hourCycle) {
 #ifndef USING_ENUM
       using enum DateTimeFormatOptions::HourCycle;
 #else
@@ -1037,7 +1224,7 @@ static bool ResolveLocale(JSContext* cx,
 
   auto hc = resolved.extension(UnicodeExtensionKey::HourCycle);
   if (hc) {
-    MOZ_ASSERT(dtfOptions->hour12.isNothing());
+    MOZ_ASSERT(dtfOptions.hour12.isNothing());
 
 #ifndef USING_ENUM
     using enum DateTimeFormatOptions::HourCycle;
@@ -1045,14 +1232,14 @@ static bool ResolveLocale(JSContext* cx,
     USING_ENUM(DateTimeFormatOptions::HourCycle, H11, H12, H23, H24);
 #endif
     if (StringEqualsLiteral(hc, "h11")) {
-      dtfOptions->hourCycle = mozilla::Some(H11);
+      dtfOptions.hourCycle = mozilla::Some(H11);
     } else if (StringEqualsLiteral(hc, "h12")) {
-      dtfOptions->hourCycle = mozilla::Some(H12);
+      dtfOptions.hourCycle = mozilla::Some(H12);
     } else if (StringEqualsLiteral(hc, "h23")) {
-      dtfOptions->hourCycle = mozilla::Some(H23);
+      dtfOptions.hourCycle = mozilla::Some(H23);
     } else {
       MOZ_ASSERT(StringEqualsLiteral(hc, "h24"));
-      dtfOptions->hourCycle = mozilla::Some(H24);
+      dtfOptions.hourCycle = mozilla::Some(H24);
     }
   }
 
@@ -1065,6 +1252,9 @@ static bool ResolveLocale(JSContext* cx,
     return false;
   }
   dateTimeFormat->setLocale(locale);
+
+  // Set the resolved options.
+  dateTimeFormat->setOptions(dtfOptions);
 
   MOZ_ASSERT(dateTimeFormat->isLocaleResolved(),
              "locale successfully resolved");
@@ -1132,125 +1322,6 @@ static UniqueChars DateTimeFormatLocale(
 
   Rooted<JSLinearString*> localeStr(cx, dateTimeFormat->getLocale());
   return FormatLocale(cx, localeStr, keywords);
-}
-
-template <typename TextComponent>
-static auto ToTextComponent(TextComponent value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::Text;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::Text, Narrow, Short, Long);
-#endif
-  switch (value) {
-    case TextComponent::Narrow:
-      return Narrow;
-    case TextComponent::Short:
-      return Short;
-    case TextComponent::Long:
-      return Long;
-  }
-  MOZ_CRASH("invalid text component");
-}
-
-template <typename NumericComponent>
-static auto ToNumericComponent(NumericComponent value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::Numeric;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::Numeric, TwoDigit, Numeric);
-#endif
-  switch (value) {
-    case NumericComponent::TwoDigit:
-      return TwoDigit;
-    case NumericComponent::Numeric:
-      return Numeric;
-  }
-  MOZ_CRASH("invalid numeric component");
-}
-
-static auto ToMonthComponent(DateTimeFormatOptions::Month value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::Month;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::Month, TwoDigit, Numeric, Narrow,
-             Short, Long);
-#endif
-  switch (value) {
-    case DateTimeFormatOptions::Month::TwoDigit:
-      return TwoDigit;
-    case DateTimeFormatOptions::Month::Numeric:
-      return Numeric;
-    case DateTimeFormatOptions::Month::Narrow:
-      return Narrow;
-    case DateTimeFormatOptions::Month::Short:
-      return Short;
-    case DateTimeFormatOptions::Month::Long:
-      return Long;
-  }
-  MOZ_CRASH("invalid month component");
-}
-
-static auto ToTimeZoneNameComponent(DateTimeFormatOptions::TimeZoneName value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::TimeZoneName;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::TimeZoneName, Short, Long,
-             ShortOffset, LongOffset, ShortGeneric, LongGeneric);
-#endif
-  switch (value) {
-    case DateTimeFormatOptions::TimeZoneName::Short:
-      return Short;
-    case DateTimeFormatOptions::TimeZoneName::Long:
-      return Long;
-    case DateTimeFormatOptions::TimeZoneName::ShortOffset:
-      return ShortOffset;
-    case DateTimeFormatOptions::TimeZoneName::LongOffset:
-      return LongOffset;
-    case DateTimeFormatOptions::TimeZoneName::ShortGeneric:
-      return ShortGeneric;
-    case DateTimeFormatOptions::TimeZoneName::LongGeneric:
-      return LongGeneric;
-  }
-  MOZ_CRASH("invalid time zone name component");
-}
-
-static auto ToHourCycleComponent(DateTimeFormatOptions::HourCycle value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::HourCycle;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::HourCycle, H11, H12, H23, H24);
-#endif
-  switch (value) {
-    case DateTimeFormatOptions::HourCycle::H11:
-      return H11;
-    case DateTimeFormatOptions::HourCycle::H12:
-      return H12;
-    case DateTimeFormatOptions::HourCycle::H23:
-      return H23;
-    case DateTimeFormatOptions::HourCycle::H24:
-      return H24;
-  }
-  MOZ_CRASH("invalid hour cycle component");
-}
-
-template <typename DateTimeStyle>
-static auto ToDateTimeStyle(DateTimeStyle value) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DateTimeFormat::Style;
-#else
-  USING_ENUM(mozilla::intl::DateTimeFormat::Style, Full, Long, Medium, Short);
-#endif
-  switch (value) {
-    case DateTimeStyle::Full:
-      return Full;
-    case DateTimeStyle::Long:
-      return Long;
-    case DateTimeStyle::Medium:
-      return Medium;
-    case DateTimeStyle::Short:
-      return Short;
-  }
-  MOZ_CRASH("invalid date/time style");
 }
 
 enum class Required { Date, Time, YearMonth, MonthDay, Any };
@@ -1803,7 +1874,7 @@ static mozilla::intl::DateTimeFormat* NewDateTimeFormat(
   if (!ResolveLocale(cx, dateTimeFormat)) {
     return nullptr;
   }
-  auto dtfOptions = *dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   auto locale = DateTimeFormatLocale(cx, dateTimeFormat);
   if (!locale) {
@@ -1869,13 +1940,10 @@ static mozilla::intl::DateTimeFormat* NewDateTimeFormat(
         break;
     }
 
-    static auto ToDateStyle = ToDateTimeStyle<DateTimeFormatOptions::DateStyle>;
-    static auto ToTimeStyle = ToDateTimeStyle<DateTimeFormatOptions::TimeStyle>;
-
     mozilla::intl::DateTimeFormat::StyleBag style = {
-        .date = dtfOptions.dateStyle.map(ToDateStyle),
-        .time = dtfOptions.timeStyle.map(ToTimeStyle),
-        .hourCycle = dtfOptions.hourCycle.map(ToHourCycleComponent),
+        .date = dtfOptions.dateStyle,
+        .time = dtfOptions.timeStyle,
+        .hourCycle = dtfOptions.hourCycle,
         .hour12 = dtfOptions.hour12,
     };
 
@@ -1960,29 +2028,20 @@ static mozilla::intl::DateTimeFormat* NewDateTimeFormat(
     return dfAdjustedResult.unwrap().release();
   }
 
-  static auto ToEra = ToTextComponent<DateTimeFormatOptions::Era>;
-  static auto ToYear = ToNumericComponent<DateTimeFormatOptions::Year>;
-  static auto ToDay = ToNumericComponent<DateTimeFormatOptions::Day>;
-  static auto ToWeekday = ToTextComponent<DateTimeFormatOptions::Weekday>;
-  static auto ToHour = ToNumericComponent<DateTimeFormatOptions::Hour>;
-  static auto ToMinute = ToNumericComponent<DateTimeFormatOptions::Minute>;
-  static auto ToSecond = ToNumericComponent<DateTimeFormatOptions::Second>;
-  static auto ToDayPeriod = ToTextComponent<DateTimeFormatOptions::DayPeriod>;
-
   // This is a DateTimeFormat defined by a components bag.
   mozilla::intl::DateTimeFormat::ComponentsBag bag = {
-      .era = dtfOptions.era.map(ToEra),
-      .year = dtfOptions.year.map(ToYear),
-      .month = dtfOptions.month.map(ToMonthComponent),
-      .day = dtfOptions.day.map(ToDay),
-      .weekday = dtfOptions.weekday.map(ToWeekday),
-      .hour = dtfOptions.hour.map(ToHour),
-      .minute = dtfOptions.minute.map(ToMinute),
-      .second = dtfOptions.second.map(ToSecond),
-      .timeZoneName = dtfOptions.timeZoneName.map(ToTimeZoneNameComponent),
+      .era = dtfOptions.era,
+      .year = dtfOptions.year,
+      .month = dtfOptions.month,
+      .day = dtfOptions.day,
+      .weekday = dtfOptions.weekday,
+      .hour = dtfOptions.hour,
+      .minute = dtfOptions.minute,
+      .second = dtfOptions.second,
+      .timeZoneName = dtfOptions.timeZoneName,
       .hour12 = dtfOptions.hour12,
-      .hourCycle = dtfOptions.hourCycle.map(ToHourCycleComponent),
-      .dayPeriod = dtfOptions.dayPeriod.map(ToDayPeriod),
+      .hourCycle = dtfOptions.hourCycle,
+      .dayPeriod = dtfOptions.dayPeriod,
       .fractionalSecondDigits = dtfOptions.fractionalSecondDigits,
   };
 
@@ -2057,6 +2116,27 @@ static mozilla::intl::DateTimeFormat* GetOrCreateDateTimeFormat(
   return df;
 }
 
+static auto OptionToString(mozilla::intl::DateTimeFormat::HourCycle hourCycle) {
+  return HourCycleToString(hourCycle);
+}
+
+static auto OptionToString(mozilla::intl::DateTimeFormat::Text text) {
+  return TextComponentToString(text);
+}
+
+static auto OptionToString(mozilla::intl::DateTimeFormat::Numeric numeric) {
+  return NumericComponentToString(numeric);
+}
+
+static auto OptionToString(mozilla::intl::DateTimeFormat::Month month) {
+  return MonthToString(month);
+}
+
+static auto OptionToString(
+    mozilla::intl::DateTimeFormat::TimeZoneName timeZoneName) {
+  return TimeZoneNameToString(timeZoneName);
+}
+
 template <typename T>
 static bool SetOptionsProperty(JSContext* cx,
                                MutableHandle<IdValueVector> options,
@@ -2065,8 +2145,7 @@ static bool SetOptionsProperty(JSContext* cx,
   if (!intlProp) {
     return true;
   }
-  auto* str = NewStringCopyZ<CanGC>(
-      cx, mozilla::intl::DateTimeFormat::ToString(*intlProp));
+  auto* str = NewStringCopy<CanGC>(cx, OptionToString(*intlProp));
   if (!str) {
     return false;
   }
@@ -3290,7 +3369,7 @@ static bool dateTimeFormat_resolvedOptions(JSContext* cx,
   if (!ResolveLocale(cx, dateTimeFormat)) {
     return false;
   }
-  auto dtfOptions = *dateTimeFormat->getOptions();
+  auto dtfOptions = dateTimeFormat->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);

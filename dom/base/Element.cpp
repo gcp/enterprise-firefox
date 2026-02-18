@@ -1524,7 +1524,7 @@ already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
   return shadowRoot.forget();
 }
 
-void Element::AttachAndSetUAShadowRoot(NotifyUAWidgetSetup aNotify,
+void Element::AttachAndSetUAShadowRoot(NotifyUAWidget aNotify,
                                        DelegatesFocus aDelegatesFocus) {
   MOZ_DIAGNOSTIC_ASSERT(!CanAttachShadowDOM(),
                         "Cannot be used to attach UI shadow DOM");
@@ -1539,7 +1539,7 @@ void Element::AttachAndSetUAShadowRoot(NotifyUAWidgetSetup aNotify,
   }
 
   MOZ_ASSERT(GetShadowRoot()->IsUAWidget());
-  if (aNotify == NotifyUAWidgetSetup::Yes) {
+  if (aNotify == NotifyUAWidget::Yes) {
     NotifyUAWidgetSetupOrChange();
   }
 }
@@ -1565,7 +1565,8 @@ void Element::NotifyUAWidgetSetupOrChange() {
       }));
 }
 
-void Element::NotifyUAWidgetTeardown(UnattachShadowRoot aUnattachShadowRoot) {
+void Element::TeardownUAShadowRoot(NotifyUAWidget aNotify,
+                                   UnattachShadowRoot aUnattachShadowRoot) {
   MOZ_ASSERT(IsInComposedDoc());
   if (!GetShadowRoot()) {
     return;
@@ -1573,6 +1574,10 @@ void Element::NotifyUAWidgetTeardown(UnattachShadowRoot aUnattachShadowRoot) {
   MOZ_ASSERT(GetShadowRoot()->IsUAWidget());
   if (aUnattachShadowRoot == UnattachShadowRoot::Yes) {
     UnattachShadow();
+  }
+
+  if (aNotify == NotifyUAWidget::No) {
+    return;
   }
 
   Document* doc = OwnerDoc();

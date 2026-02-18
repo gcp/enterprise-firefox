@@ -28,6 +28,8 @@ class RelayFeatureIntegration(
         errorRetrievingMasks = context.getString(R.string.email_masks_error_retrieving_masks),
     ),
 ) : LifecycleAwareFeature {
+    private var isStarted = false
+
     private val relayFeature by lazy {
         RelayFeature(
             accountManager = accountManager,
@@ -42,12 +44,22 @@ class RelayFeatureIntegration(
     }
 
     override fun start() {
+        if (isStarted) {
+            return
+        }
+        isStarted = true
+
         relayFeature.start()
         emailMaskEngineUpdater.start()
         emailMaskInfoPrompter.start()
     }
 
     override fun stop() {
+        if (!isStarted) {
+            return
+        }
+        isStarted = false
+
         relayFeature.stop()
         emailMaskEngineUpdater.stop()
         emailMaskInfoPrompter.stop()

@@ -219,10 +219,15 @@ add_task(async function test_TabLedger_seed() {
 
   ledger.seed(urls);
 
-  Assert.ok(ledger.has("https://example.com"), "Should contain first URL");
-  Assert.ok(
-    ledger.has("https://example.com/page"),
-    "Should contain second URL"
+  Assert.equal(
+    ledger.lookup("https://example.com"),
+    "https://example.com/",
+    "Should return normalized URL"
+  );
+  Assert.equal(
+    ledger.lookup("https://example.com/page"),
+    "https://example.com/page",
+    "Should return normalized URL"
   );
   Assert.equal(ledger.size(), 2, "Should have correct size");
 });
@@ -239,7 +244,11 @@ add_task(async function test_TabLedger_add() {
 
   ledger.add("https://example.com");
 
-  Assert.ok(ledger.has("https://example.com"), "Should contain added URL");
+  Assert.equal(
+    ledger.lookup("https://example.com"),
+    "https://example.com/",
+    "Should return normalized URL"
+  );
   Assert.equal(ledger.size(), 1, "Should have size 1");
 });
 
@@ -254,9 +263,10 @@ add_task(async function test_TabLedger_has_missing() {
   const ledger = new TabLedger("tab-123");
   ledger.add("https://example.com");
 
-  Assert.ok(
-    !ledger.has("https://evil.com"),
-    "Should return false for missing URL"
+  Assert.equal(
+    ledger.lookup("https://evil.com"),
+    null,
+    "Should return null for missing URL"
   );
 });
 
@@ -274,9 +284,10 @@ add_task(async function test_TabLedger_clear() {
   ledger.clear();
 
   Assert.equal(ledger.size(), 0, "Should be empty after clear");
-  Assert.ok(
-    !ledger.has("https://example.com"),
-    "Should not contain URLs after clear"
+  Assert.equal(
+    ledger.lookup("https://example.com"),
+    null,
+    "Should return null after clear"
   );
 });
 
@@ -389,13 +400,15 @@ add_task(async function test_SessionLedger_merge() {
 
   const merged = session.merge(["tab-1", "tab-2"]);
 
-  Assert.ok(
-    merged.has("https://example.com/page1"),
-    "Should have URL from tab-1"
+  Assert.equal(
+    merged.lookup("https://example.com/page1"),
+    "https://example.com/page1",
+    "Should return normalized URL from tab-1"
   );
-  Assert.ok(
-    merged.has("https://example.com/page2"),
-    "Should have URL from tab-2"
+  Assert.equal(
+    merged.lookup("https://example.com/page2"),
+    "https://example.com/page2",
+    "Should return normalized URL from tab-2"
   );
   Assert.equal(merged.size(), 2, "Should have 2 URLs");
 });
@@ -459,8 +472,9 @@ add_task(async function test_ledger_normalizes_urls() {
   ledger.add("https://example.com/page#section");
 
   // Check without fragment (should still match after normalization)
-  Assert.ok(
-    ledger.has("https://example.com/page"),
-    "Should match normalized URL without fragment"
+  Assert.equal(
+    ledger.lookup("https://example.com/page"),
+    "https://example.com/page",
+    "Should return normalized URL without fragment"
   );
 });

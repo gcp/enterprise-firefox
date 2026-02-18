@@ -128,7 +128,7 @@ add_task(async function test_per_engine() {
     ],
   });
 
-  defaultEngine = oldEngine;
+  [defaultEngine, oldEngine] = [oldEngine, defaultEngine];
   await SearchService.setDefault(
     defaultEngine,
     SearchService.CHANGE_REASON.ADDON_INSTALL
@@ -151,6 +151,20 @@ add_task(async function test_per_engine() {
       makeRecentSearchResult(context, defaultEngine, "Joy Formidable"),
       makeRecentSearchResult(context, defaultEngine, "Glasgow Weather"),
       makeRecentSearchResult(context, defaultEngine, "Bob Vylan"),
+    ],
+  });
+  info("Use engine from searchmode in searchbar");
+  context = createContext("", {
+    isPrivate: false,
+    sapName: "searchbar",
+    searchMode: { engineName: oldEngine.name },
+  });
+  await check_results({
+    context,
+    matches: [
+      makeRecentSearchResult(context, oldEngine, "Joy Formidable"),
+      makeRecentSearchResult(context, oldEngine, "Glasgow Weather"),
+      makeRecentSearchResult(context, oldEngine, "Bob Vylan"),
     ],
   });
   await UrlbarTestUtils.formHistory.clear();

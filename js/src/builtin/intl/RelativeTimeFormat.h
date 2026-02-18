@@ -23,15 +23,7 @@ class RelativeTimeFormat;
 
 namespace js::intl {
 
-// Similar to mozilla::intl::RelativeTimeFormatOptions, except uses smaller
-// int types to require less memory when allocating on the heap.
-struct RelativeTimeFormatOptions {
-  enum class Style : int8_t { Long, Short, Narrow };
-  Style style = Style::Long;
-
-  enum class Numeric : int8_t { Always, Auto };
-  Numeric numeric = Numeric::Always;
-};
+struct RelativeTimeFormatOptions;
 
 class RelativeTimeFormatObject : public NativeObject {
  public:
@@ -85,17 +77,9 @@ class RelativeTimeFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM, StringValue(numberingSystem));
   }
 
-  RelativeTimeFormatOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<RelativeTimeFormatOptions*>(slot.toPrivate());
-  }
+  RelativeTimeFormatOptions getOptions() const;
 
-  void setOptions(RelativeTimeFormatOptions* options) {
-    setFixedSlot(OPTIONS, PrivateValue(options));
-  }
+  void setOptions(const RelativeTimeFormatOptions& options);
 
   mozilla::intl::RelativeTimeFormat* getRelativeTimeFormatter() const {
     const auto& slot = getFixedSlot(URELATIVE_TIME_FORMAT_SLOT);

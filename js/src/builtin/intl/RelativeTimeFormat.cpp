@@ -15,6 +15,7 @@
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/Packed.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
 #include "gc/GCContext.h"
@@ -106,6 +107,56 @@ const ClassSpec RelativeTimeFormatObject::classSpec_ = {
     ClassSpec::DontDefineConstructor,
 };
 
+struct js::intl::RelativeTimeFormatOptions {
+  using Style = mozilla::intl::RelativeTimeFormatOptions::Style;
+  Style style = Style::Long;
+
+  using Numeric = mozilla::intl::RelativeTimeFormatOptions::Numeric;
+  Numeric numeric = Numeric::Always;
+};
+
+struct PackedRelativeTimeFormatOptions {
+  using RawValue = uint32_t;
+
+  using StyleField =
+      packed::EnumField<RawValue, RelativeTimeFormatOptions::Style::Short,
+                        RelativeTimeFormatOptions::Style::Long>;
+
+  using NumericField =
+      packed::EnumField<StyleField, RelativeTimeFormatOptions::Numeric::Always,
+                        RelativeTimeFormatOptions::Numeric::Auto>;
+
+  using PackedValue = packed::PackedValue<NumericField>;
+
+  static auto pack(const RelativeTimeFormatOptions& options) {
+    RawValue rawValue =
+        StyleField::pack(options.style) | NumericField::pack(options.numeric);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return RelativeTimeFormatOptions{
+        .style = StyleField::unpack(rawValue),
+        .numeric = NumericField::unpack(rawValue),
+    };
+  }
+};
+
+RelativeTimeFormatOptions js::intl::RelativeTimeFormatObject::getOptions()
+    const {
+  const auto& slot = getFixedSlot(OPTIONS);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedRelativeTimeFormatOptions::unpack(slot);
+}
+
+void js::intl::RelativeTimeFormatObject::setOptions(
+    const RelativeTimeFormatOptions& options) {
+  setFixedSlot(OPTIONS, PackedRelativeTimeFormatOptions::pack(options));
+}
+
 static constexpr std::string_view StyleToString(
     RelativeTimeFormatOptions::Style style) {
 #ifndef USING_ENUM
@@ -180,10 +231,7 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
   }
   relativeTimeFormat->setRequestedLocales(requestedLocalesArray);
 
-  auto rtfOptions = cx->make_unique<RelativeTimeFormatOptions>();
-  if (!rtfOptions) {
-    return false;
-  }
+  RelativeTimeFormatOptions rtfOptions{};
 
   if (args.hasDefined(1)) {
     // ResolveOptions, steps 2-3.
@@ -231,7 +279,7 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
                                   RelativeTimeFormatOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
                          RelativeTimeFormatOptions::Style::Long,
-                         &rtfOptions->style)) {
+                         &rtfOptions.style)) {
       return false;
     }
 
@@ -241,13 +289,11 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
                                     RelativeTimeFormatOptions::Numeric::Auto);
     if (!GetStringOption(cx, options, cx->names().numeric, numerics,
                          RelativeTimeFormatOptions::Numeric::Always,
-                         &rtfOptions->numeric)) {
+                         &rtfOptions.numeric)) {
       return false;
     }
   }
-  relativeTimeFormat->setOptions(rtfOptions.release());
-  AddCellMemory(relativeTimeFormat, sizeof(RelativeTimeFormatOptions),
-                MemoryUse::IntlOptions);
+  relativeTimeFormat->setOptions(rtfOptions);
 
   // Steps 14-17. (Not applicable in our implementation.)
 
@@ -259,10 +305,6 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
 void js::intl::RelativeTimeFormatObject::finalize(JS::GCContext* gcx,
                                                   JSObject* obj) {
   auto* rtf = &obj->as<RelativeTimeFormatObject>();
-
-  if (auto* options = rtf->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (auto* formatter = rtf->getRelativeTimeFormatter()) {
     RemoveICUCellMemory(gcx, obj, RelativeTimeFormatObject::EstimatedMemoryUse);
@@ -324,41 +366,6 @@ static bool ResolveLocale(
   return true;
 }
 
-static auto ToRelativeTimeFormatOptionsStyle(
-    RelativeTimeFormatOptions::Style style) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::RelativeTimeFormatOptions::Style;
-#else
-  USING_ENUM(mozilla::intl::RelativeTimeFormatOptions::Style, Long, Short,
-             Narrow);
-#endif
-  switch (style) {
-    case RelativeTimeFormatOptions::Style::Long:
-      return Long;
-    case RelativeTimeFormatOptions::Style::Short:
-      return Short;
-    case RelativeTimeFormatOptions::Style::Narrow:
-      return Narrow;
-  }
-  MOZ_CRASH("invalid relative time format style");
-}
-
-static auto ToRelativeTimeFormatOptionsNumeric(
-    RelativeTimeFormatOptions::Numeric numeric) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::RelativeTimeFormatOptions::Numeric;
-#else
-  USING_ENUM(mozilla::intl::RelativeTimeFormatOptions::Numeric, Always, Auto);
-#endif
-  switch (numeric) {
-    case RelativeTimeFormatOptions::Numeric::Always:
-      return Always;
-    case RelativeTimeFormatOptions::Numeric::Auto:
-      return Auto;
-  }
-  MOZ_CRASH("invalid relative time format numeric");
-}
-
 /**
  * Returns a new URelativeDateTimeFormatter with the locale and options of the
  * given RelativeTimeFormatObject.
@@ -368,7 +375,7 @@ static mozilla::intl::RelativeTimeFormat* NewRelativeTimeFormatter(
   if (!ResolveLocale(cx, relativeTimeFormat)) {
     return nullptr;
   }
-  auto rtfOptions = *relativeTimeFormat->getOptions();
+  auto rtfOptions = relativeTimeFormat->getOptions();
 
   // ICU expects numberingSystem as a Unicode locale extensions on locale.
 
@@ -384,8 +391,8 @@ static mozilla::intl::RelativeTimeFormat* NewRelativeTimeFormatter(
   }
 
   mozilla::intl::RelativeTimeFormatOptions options = {
-      .style = ToRelativeTimeFormatOptionsStyle(rtfOptions.style),
-      .numeric = ToRelativeTimeFormatOptionsNumeric(rtfOptions.numeric),
+      .style = rtfOptions.style,
+      .numeric = rtfOptions.numeric,
   };
 
   auto result =
@@ -648,7 +655,7 @@ static bool relativeTimeFormat_resolvedOptions(JSContext* cx,
   if (!ResolveLocale(cx, relativeTimeFormat)) {
     return false;
   }
-  auto rtfOptions = *relativeTimeFormat->getOptions();
+  auto rtfOptions = relativeTimeFormat->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);

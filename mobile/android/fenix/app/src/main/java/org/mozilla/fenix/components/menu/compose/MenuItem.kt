@@ -498,7 +498,7 @@ private fun WebExtensionMenuItemPreview() {
         ) {
             WebExtensionMenuItem(
                 label = "label",
-                iconPainter = painterResource(iconsR.drawable.mozac_ic_web_extension_default_icon),
+                iconPainter = painterResource(iconsR.drawable.mozac_ic_extension_fill_24),
                 iconTint = MaterialTheme.colorScheme.onSurface,
                 enabled = true,
                 badgeText = "17",

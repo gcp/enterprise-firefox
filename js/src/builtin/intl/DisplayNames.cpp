@@ -17,6 +17,7 @@
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/Packed.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
 #include "builtin/Number.h"
@@ -111,6 +112,91 @@ const ClassSpec DisplayNamesObject::classSpec_ = {
     nullptr,
     ClassSpec::DontDefineConstructor,
 };
+
+struct js::intl::DisplayNamesOptions {
+  using Style = mozilla::intl::DisplayNames::Style;
+  Style style = Style::Long;
+
+  enum class Type : int8_t {
+    Language,
+    Region,
+    Script,
+    Currency,
+    Calendar,
+    DateTimeField,
+    Weekday,
+    Month,
+    Quarter,
+    DayPeriod
+  };
+  Type type = Type::Language;
+
+  using Fallback = mozilla::intl::DisplayNames::Fallback;
+  Fallback fallback = Fallback::Code;
+
+  using LanguageDisplay = mozilla::intl::DisplayNames::LanguageDisplay;
+  LanguageDisplay languageDisplay = LanguageDisplay::Dialect;
+
+  bool mozExtensions = false;
+};
+
+struct PackedDisplayNamesOptions {
+  using RawValue = uint32_t;
+
+  using StyleField =
+      packed::EnumField<RawValue, DisplayNamesOptions::Style::Narrow,
+                        DisplayNamesOptions::Style::Abbreviated>;
+
+  using TypeField =
+      packed::EnumField<StyleField, DisplayNamesOptions::Type::Language,
+                        DisplayNamesOptions::Type::DayPeriod>;
+
+  using FallbackField =
+      packed::EnumField<TypeField, DisplayNamesOptions::Fallback::None,
+                        DisplayNamesOptions::Fallback::Code>;
+
+  using LanguageDisplayField =
+      packed::EnumField<FallbackField,
+                        DisplayNamesOptions::LanguageDisplay::Standard,
+                        DisplayNamesOptions::LanguageDisplay::Dialect>;
+
+  using MozExtensionsField = packed::BooleanField<LanguageDisplayField>;
+
+  using PackedValue = packed::PackedValue<MozExtensionsField>;
+
+  static auto pack(const DisplayNamesOptions& options) {
+    RawValue rawValue = StyleField::pack(options.style) |
+                        TypeField::pack(options.type) |
+                        FallbackField::pack(options.fallback) |
+                        LanguageDisplayField::pack(options.languageDisplay) |
+                        MozExtensionsField::pack(options.mozExtensions);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return DisplayNamesOptions{
+        .style = StyleField::unpack(rawValue),
+        .type = TypeField::unpack(rawValue),
+        .fallback = FallbackField::unpack(rawValue),
+        .languageDisplay = LanguageDisplayField::unpack(rawValue),
+        .mozExtensions = MozExtensionsField::unpack(rawValue),
+    };
+  }
+};
+
+DisplayNamesOptions js::intl::DisplayNamesObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedDisplayNamesOptions::unpack(slot);
+}
+
+void js::intl::DisplayNamesObject::setOptions(
+    const DisplayNamesOptions& options) {
+  setFixedSlot(OPTIONS, PackedDisplayNamesOptions::pack(options));
+}
 
 static constexpr std::string_view StyleToString(
     DisplayNamesOptions::Style style) {
@@ -250,11 +336,8 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   }
   displayNames->setRequestedLocales(requestedLocalesArray);
 
-  auto dnOptions = cx->make_unique<DisplayNamesOptions>();
-  if (!dnOptions) {
-    return false;
-  }
-  dnOptions->mozExtensions = kind == DisplayNamesKind::EnableMozExtensions;
+  DisplayNamesOptions dnOptions{};
+  dnOptions.mozExtensions = kind == DisplayNamesKind::EnableMozExtensions;
 
   // ResolveOptions, steps 2-3.
   Rooted<JSObject*> options(
@@ -302,7 +385,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
         DisplayNamesOptions::Style::Long, DisplayNamesOptions::Style::Short,
         DisplayNamesOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
-                         DisplayNamesOptions::Style::Long, &dnOptions->style)) {
+                         DisplayNamesOptions::Style::Long, &dnOptions.style)) {
       return false;
     }
   } else {
@@ -311,7 +394,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
         DisplayNamesOptions::Style::Narrow,
         DisplayNamesOptions::Style::Abbreviated);
     if (!GetStringOption(cx, options, cx->names().style, styles,
-                         DisplayNamesOptions::Style::Long, &dnOptions->style)) {
+                         DisplayNamesOptions::Style::Long, &dnOptions.style)) {
       return false;
     }
   }
@@ -349,14 +432,14 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   }
 
   // Step 10
-  dnOptions->type = *type;
+  dnOptions.type = *type;
 
   // Steps 11-12.
   static constexpr auto fallbacks = MapOptions<FallbackToString>(
       DisplayNamesOptions::Fallback::Code, DisplayNamesOptions::Fallback::None);
   if (!GetStringOption(cx, options, cx->names().fallback, fallbacks,
                        DisplayNamesOptions::Fallback::Code,
-                       &dnOptions->fallback)) {
+                       &dnOptions.fallback)) {
     return false;
   }
 
@@ -369,14 +452,12 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   if (!GetStringOption(cx, options, cx->names().languageDisplay,
                        languageDisplays,
                        DisplayNamesOptions::LanguageDisplay::Dialect,
-                       &dnOptions->languageDisplay)) {
+                       &dnOptions.languageDisplay)) {
     return false;
   }
 
   // Assign the options to |displayNames|.
-  displayNames->setOptions(dnOptions.release());
-  AddCellMemory(displayNames, sizeof(DisplayNamesOptions),
-                MemoryUse::IntlOptions);
+  displayNames->setOptions(dnOptions);
 
   // Steps 15-16, 18-19, 20.b-c, and 21-23. (Not applicable)
 
@@ -397,10 +478,6 @@ static bool MozDisplayNames(JSContext* cx, unsigned argc, Value* vp) {
 
 void js::intl::DisplayNamesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* dn = &obj->as<DisplayNamesObject>();
-
-  if (auto* options = dn->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (auto* displayNames = dn->getDisplayNames()) {
     RemoveICUCellMemory(gcx, obj, DisplayNamesObject::EstimatedMemoryUse);
@@ -452,7 +529,7 @@ static bool ResolveLocale(JSContext* cx,
     return true;
   }
 
-  bool mozExtensions = displayNames->getOptions()->mozExtensions;
+  bool mozExtensions = displayNames->getOptions().mozExtensions;
 
   Rooted<ArrayObject*> requestedLocales(
       cx, &displayNames->getRequestedLocales()->as<ArrayObject>());
@@ -502,63 +579,12 @@ static bool ResolveLocale(JSContext* cx,
   return true;
 }
 
-static auto ToDisplayNamesStyle(DisplayNamesOptions::Style style) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DisplayNames::Style;
-#else
-  USING_ENUM(mozilla::intl::DisplayNames::Style, Long, Short, Narrow,
-             Abbreviated);
-#endif
-  switch (style) {
-    case DisplayNamesOptions::Style::Long:
-      return Long;
-    case DisplayNamesOptions::Style::Short:
-      return Short;
-    case DisplayNamesOptions::Style::Narrow:
-      return Narrow;
-    case DisplayNamesOptions::Style::Abbreviated:
-      return Abbreviated;
-  }
-  MOZ_CRASH("invalid display names style");
-}
-
-static auto ToDisplayNamesLanguageDisplay(
-    DisplayNamesOptions::LanguageDisplay languageDisplay) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DisplayNames::LanguageDisplay;
-#else
-  USING_ENUM(mozilla::intl::DisplayNames::LanguageDisplay, Dialect, Standard);
-#endif
-  switch (languageDisplay) {
-    case DisplayNamesOptions::LanguageDisplay::Dialect:
-      return Dialect;
-    case DisplayNamesOptions::LanguageDisplay::Standard:
-      return Standard;
-  }
-  MOZ_CRASH("invalid display names language display");
-}
-
-static auto ToDisplayNamesFallback(DisplayNamesOptions::Fallback fallback) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::DisplayNames::Fallback;
-#else
-  USING_ENUM(mozilla::intl::DisplayNames::Fallback, Code, None);
-#endif
-  switch (fallback) {
-    case DisplayNamesOptions::Fallback::Code:
-      return Code;
-    case DisplayNamesOptions::Fallback::None:
-      return None;
-  }
-  MOZ_CRASH("invalid display names fallback");
-}
-
 static mozilla::intl::DisplayNames* NewDisplayNames(
     JSContext* cx, Handle<DisplayNamesObject*> displayNames) {
   if (!ResolveLocale(cx, displayNames)) {
     return nullptr;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
 
   auto locale = EncodeLocale(cx, displayNames->getLocale());
   if (!locale) {
@@ -566,9 +592,8 @@ static mozilla::intl::DisplayNames* NewDisplayNames(
   }
 
   mozilla::intl::DisplayNames::Options options = {
-      .style = ToDisplayNamesStyle(dnOptions.style),
-      .languageDisplay =
-          ToDisplayNamesLanguageDisplay(dnOptions.languageDisplay),
+      .style = dnOptions.style,
+      .languageDisplay = dnOptions.languageDisplay,
   };
 
   auto result = mozilla::intl::DisplayNames::TryCreate(locale.get(), options);
@@ -663,9 +688,9 @@ static bool ComputeDisplayName(JSContext* cx,
   if (!dn) {
     return false;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
   auto type = dnOptions.type;
-  auto fallback = ToDisplayNamesFallback(dnOptions.fallback);
+  auto fallback = dnOptions.fallback;
 
   FormatBuffer<char16_t, INITIAL_CHAR_BUFFER_SIZE> buffer(cx);
   mozilla::Result<mozilla::Ok, mozilla::intl::DisplayNamesError> result =
@@ -915,7 +940,7 @@ static bool displayNames_resolvedOptions(JSContext* cx, const CallArgs& args) {
   if (!ResolveLocale(cx, displayNames)) {
     return false;
   }
-  auto dnOptions = *displayNames->getOptions();
+  auto dnOptions = displayNames->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);

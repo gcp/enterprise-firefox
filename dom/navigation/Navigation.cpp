@@ -1878,9 +1878,9 @@ void Navigation::AbortOngoingNavigation(JSContext* aCx,
 
   // Step 6
   if (event->IsBeingDispatched()) {
-    // Here NonSystem is needed since it needs to be the same as what we
-    // dispatch with.
-    event->PreventDefault(aCx, CallerType::NonSystem);
+    // This is a bit unusual, but we actually need to cancel even uncancelable
+    // events here. This means that we can't just call preventDefault.
+    event->Cancel();
   }
 
   // Step 7

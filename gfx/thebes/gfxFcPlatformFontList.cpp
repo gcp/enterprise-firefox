@@ -2810,7 +2810,7 @@ const MozLangGroupData MozLangGroups[] = {
   {nsGkAtoms::x_tamil, "ta"},
   {nsGkAtoms::x_telu, "te"},
   {nsGkAtoms::x_tibt, "bo"},
-  {nsGkAtoms::Unicode, 0}
+  {nsGkAtoms::Unicode, nullptr}
     // clang-format on
 };
 

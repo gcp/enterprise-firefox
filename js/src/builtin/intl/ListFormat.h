@@ -22,13 +22,7 @@ class ListFormat;
 
 namespace js::intl {
 
-struct ListFormatOptions {
-  enum class Type : int8_t { Conjunction, Disjunction, Unit };
-  Type type = Type::Conjunction;
-
-  enum class Style : int8_t { Long, Short, Narrow };
-  Style style = Style::Long;
-};
+struct ListFormatOptions;
 
 class ListFormatObject : public NativeObject {
  public:
@@ -69,17 +63,9 @@ class ListFormatObject : public NativeObject {
     setFixedSlot(LOCALE, JS::StringValue(locale));
   }
 
-  ListFormatOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<ListFormatOptions*>(slot.toPrivate());
-  }
+  ListFormatOptions getOptions() const;
 
-  void setOptions(ListFormatOptions* options) {
-    setFixedSlot(OPTIONS, JS::PrivateValue(options));
-  }
+  void setOptions(const ListFormatOptions& options);
 
   mozilla::intl::ListFormat* getListFormatSlot() const {
     const auto& slot = getFixedSlot(LIST_FORMAT_SLOT);

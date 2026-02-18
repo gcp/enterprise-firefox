@@ -7,16 +7,19 @@ from mozunit import main
 
 from gecko_taskgraph.test.conftest import FakeParameters, FakeTransformConfig
 from gecko_taskgraph.transforms import job  # noqa: F401
-from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_link
+from gecko_taskgraph.transforms.task import (
+    TREEHERDER_ROOT_URL,
+    get_treeherder_link,
+    get_treeherder_project,
+)
 
 
 @pytest.mark.parametrize(
-    "params,branch_map,expected_repo",
+    "params,branch_map,expected_project",
     [
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
-                "head_rev": "abc123",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -28,7 +31,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
-                "head_rev": "abc123",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -40,7 +42,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "refs/heads/develop",
-                "head_rev": "def456",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -52,7 +53,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
-                "head_rev": "def456",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -69,7 +69,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "refs/heads/develop",
-                "head_rev": "def456",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -86,7 +85,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "",
-                "head_rev": "ghi789",
                 "project": "test-project",
                 "repository_type": "hg",
                 "tasks_for": "hg-push",
@@ -98,7 +96,6 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         pytest.param(
             {
                 "head_ref": "refs/heads/release",
-                "head_rev": "jkl012",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-pull-request",
@@ -109,7 +106,7 @@ from gecko_taskgraph.transforms.task import TREEHERDER_ROOT_URL, get_treeherder_
         ),
     ],
 )
-def test_get_treeherder_link(params, branch_map, expected_repo):
+def test_get_treeherder_project(params, branch_map, expected_project):
     graph_config = {
         "project-repo-param-prefix": "",
         "treeherder": {"group-names": {}},
@@ -122,8 +119,32 @@ def test_get_treeherder_link(params, branch_map, expected_repo):
         graph_config=graph_config,
     )
 
+    project = get_treeherder_project(config)
+    assert project == expected_project
+
+
+def test_get_treeherder_link():
+    branch = "main"
+    repo = "firefox-main"
+    graph_config = {
+        "project-repo-param-prefix": "",
+        "treeherder": {"group-names": {}, "branch-map": {branch: repo}},
+    }
+
+    params = {
+        "head_ref": f"refs/heads/{branch}",
+        "head_rev": "def456",
+        "project": "test-project",
+        "repository_type": "git",
+        "tasks_for": "github-push",
+    }
+    config = FakeTransformConfig(
+        params=FakeParameters(params),
+        graph_config=graph_config,
+    )
+
     link = get_treeherder_link(config)
-    expected_link = f"{TREEHERDER_ROOT_URL}/#/jobs?repo={expected_repo}&revision={params['head_rev']}&selectedTaskRun=<self>"
+    expected_link = f"{TREEHERDER_ROOT_URL}/#/jobs?repo={repo}&revision={params['head_rev']}&selectedTaskRun=<self>"
     assert link == expected_link
 
 

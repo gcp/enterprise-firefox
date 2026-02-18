@@ -1622,22 +1622,19 @@ class Element : public FragmentOrElement {
       const nsAString& aReferenceTarget = VoidString());
 
   // Attach UA Shadow Root if it is not attached.
-  enum class NotifyUAWidgetSetup : bool { No, Yes };
-  void AttachAndSetUAShadowRoot(NotifyUAWidgetSetup = NotifyUAWidgetSetup::Yes,
+  enum class NotifyUAWidget : bool { No, Yes };
+  void AttachAndSetUAShadowRoot(NotifyUAWidget = NotifyUAWidget::Yes,
                                 DelegatesFocus = DelegatesFocus::No);
 
   // Dispatch an event to UAWidgetsChild, triggering construction
   // or onchange callback on the existing widget.
   void NotifyUAWidgetSetupOrChange();
 
-  enum class UnattachShadowRoot {
-    No,
-    Yes,
-  };
-
+  enum class UnattachShadowRoot : bool { No, Yes };
   // Dispatch an event to UAWidgetsChild, triggering UA Widget destruction.
   // and optionally remove the shadow root.
-  void NotifyUAWidgetTeardown(UnattachShadowRoot = UnattachShadowRoot::Yes);
+  void TeardownUAShadowRoot(NotifyUAWidget = NotifyUAWidget::Yes,
+                            UnattachShadowRoot = UnattachShadowRoot::Yes);
 
   void UnattachShadow();
 

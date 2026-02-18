@@ -15,6 +15,7 @@
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/Packed.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
 #include "gc/GCContext.h"
@@ -101,6 +102,54 @@ const ClassSpec ListFormatObject::classSpec_ = {
     ClassSpec::DontDefineConstructor,
 };
 
+struct js::intl::ListFormatOptions {
+  using Type = mozilla::intl::ListFormat::Type;
+  Type type = Type::Conjunction;
+
+  using Style = mozilla::intl::ListFormat::Style;
+  Style style = Style::Long;
+};
+
+struct PackedListFormatOptions {
+  using RawValue = uint32_t;
+
+  using TypeField =
+      packed::EnumField<RawValue, ListFormatOptions::Type::Conjunction,
+                        ListFormatOptions::Type::Unit>;
+
+  using StyleField =
+      packed::EnumField<TypeField, ListFormatOptions::Style::Long,
+                        ListFormatOptions::Style::Narrow>;
+
+  using PackedValue = packed::PackedValue<StyleField>;
+
+  static auto pack(const ListFormatOptions& options) {
+    RawValue rawValue =
+        TypeField::pack(options.type) | StyleField::pack(options.style);
+    return PackedValue::toValue(rawValue);
+  }
+
+  static auto unpack(JS::Value value) {
+    RawValue rawValue = PackedValue::fromValue(value);
+    return ListFormatOptions{
+        .type = TypeField::unpack(rawValue),
+        .style = StyleField::unpack(rawValue),
+    };
+  }
+};
+
+ListFormatOptions js::intl::ListFormatObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedListFormatOptions::unpack(slot);
+}
+
+void js::intl::ListFormatObject::setOptions(const ListFormatOptions& options) {
+  setFixedSlot(OPTIONS, PackedListFormatOptions::pack(options));
+}
+
 static constexpr std::string_view TypeToString(ListFormatOptions::Type type) {
 #ifndef USING_ENUM
   using enum ListFormatOptions::Type;
@@ -175,10 +224,7 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
   }
   listFormat->setRequestedLocales(requestedLocalesArray);
 
-  auto lfOptions = cx->make_unique<ListFormatOptions>();
-  if (!lfOptions) {
-    return false;
-  }
+  ListFormatOptions lfOptions{};
 
   if (args.hasDefined(1)) {
     // ResolveOptions, steps 2-3.
@@ -219,7 +265,7 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
         ListFormatOptions::Type::Disjunction, ListFormatOptions::Type::Unit);
     if (!GetStringOption(cx, options, cx->names().type, types,
                          ListFormatOptions::Type::Conjunction,
-                         &lfOptions->type)) {
+                         &lfOptions.type)) {
       return false;
     }
 
@@ -228,12 +274,11 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
         ListFormatOptions::Style::Long, ListFormatOptions::Style::Short,
         ListFormatOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
-                         ListFormatOptions::Style::Long, &lfOptions->style)) {
+                         ListFormatOptions::Style::Long, &lfOptions.style)) {
       return false;
     }
   }
-  listFormat->setOptions(lfOptions.release());
-  AddCellMemory(listFormat, sizeof(ListFormatOptions), MemoryUse::IntlOptions);
+  listFormat->setOptions(lfOptions);
 
   // Steps 11-13. (Not applicable in our implementation.)
 
@@ -244,10 +289,6 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
 
 void js::intl::ListFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* listFormat = &obj->as<ListFormatObject>();
-
-  if (auto* options = listFormat->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (auto* lf = listFormat->getListFormatSlot()) {
     RemoveICUCellMemory(gcx, obj, ListFormatObject::EstimatedMemoryUse);
@@ -295,40 +336,6 @@ static bool ResolveLocale(JSContext* cx, Handle<ListFormatObject*> listFormat) {
   return true;
 }
 
-static auto ToListFormatType(ListFormatOptions::Type type) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::ListFormat::Type;
-#else
-  USING_ENUM(mozilla::intl::ListFormat::Type, Conjunction, Disjunction, Unit);
-#endif
-  switch (type) {
-    case ListFormatOptions::Type::Conjunction:
-      return Conjunction;
-    case ListFormatOptions::Type::Disjunction:
-      return Disjunction;
-    case ListFormatOptions::Type::Unit:
-      return Unit;
-  }
-  MOZ_CRASH("invalid list format type");
-}
-
-static auto ToListFormatStyle(ListFormatOptions::Style style) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::ListFormat::Style;
-#else
-  USING_ENUM(mozilla::intl::ListFormat::Style, Long, Short, Narrow);
-#endif
-  switch (style) {
-    case ListFormatOptions::Style::Long:
-      return Long;
-    case ListFormatOptions::Style::Short:
-      return Short;
-    case ListFormatOptions::Style::Narrow:
-      return Narrow;
-  }
-  MOZ_CRASH("invalid list format style");
-}
-
 /**
  * Returns a new ListFormat with the locale and list formatting options
  * of the given ListFormat object.
@@ -338,7 +345,7 @@ static mozilla::intl::ListFormat* NewListFormat(
   if (!ResolveLocale(cx, listFormat)) {
     return nullptr;
   }
-  auto lfOptions = *listFormat->getOptions();
+  auto lfOptions = listFormat->getOptions();
 
   auto locale = EncodeLocale(cx, listFormat->getLocale());
   if (!locale) {
@@ -346,8 +353,8 @@ static mozilla::intl::ListFormat* NewListFormat(
   }
 
   mozilla::intl::ListFormat::Options options = {
-      .mType = ToListFormatType(lfOptions.type),
-      .mStyle = ToListFormatStyle(lfOptions.style),
+      .mType = lfOptions.type,
+      .mStyle = lfOptions.style,
   };
 
   auto result = mozilla::intl::ListFormat::TryCreate(
@@ -671,7 +678,7 @@ static bool listFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
   if (!ResolveLocale(cx, listFormat)) {
     return false;
   }
-  auto lfOptions = *listFormat->getOptions();
+  auto lfOptions = listFormat->getOptions();
 
   // Step 3.
   Rooted<IdValueVector> options(cx, cx);

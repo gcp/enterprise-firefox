@@ -2752,6 +2752,16 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
     return false;
   }
 
+  nsCOMPtr<nsIPrincipal> resultPrincipal;
+  nsresult rv = sSecurityManager->GetChannelResultPrincipal(
+      aChannel, getter_AddRefs(resultPrincipal));
+  if (NS_SUCCEEDED(rv) && IsPDFJS(resultPrincipal)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIChannel*)"
+             " PDF.js document exempted"));
+    return false;
+  }
+
   if (ETPSaysShouldNotResistFingerprinting(aChannel, loadInfo)) {
     MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
             ("Inside ShouldResistFingerprinting(nsIChannel*)"
@@ -7801,15 +7811,15 @@ void nsContentUtils::FlushLayoutForTree(nsPIDOMWindowOuter* aWindow) {
   }
 }
 
-void nsContentUtils::RemoveNewlines(nsString& aString) { aString.StripCRLF(); }
+void nsContentUtils::RemoveNewlines(nsAString& aString) { aString.StripCRLF(); }
 
-void nsContentUtils::PlatformToDOMLineBreaks(nsString& aString) {
+void nsContentUtils::PlatformToDOMLineBreaks(nsAString& aString) {
   if (!PlatformToDOMLineBreaks(aString, fallible)) {
     aString.AllocFailed(aString.Length());
   }
 }
 
-bool nsContentUtils::PlatformToDOMLineBreaks(nsString& aString,
+bool nsContentUtils::PlatformToDOMLineBreaks(nsAString& aString,
                                              const fallible_t& aFallible) {
   if (aString.FindChar(char16_t('\r')) != -1) {
     // Windows linebreaks: Map CRLF to LF:
@@ -8181,40 +8191,6 @@ const Document* nsContentUtils::GetInProcessSubtreeRootDocument(
     doc = doc->GetInProcessParentDocument();
   }
   return doc;
-}
-
-// static
-int32_t nsContentUtils::GetAdjustedOffsetInTextControl(nsIFrame* aOffsetFrame,
-                                                       int32_t aOffset) {
-  // The structure of the anonymous frames within a text control frame is
-  // an optional block frame, followed by an optional br frame.
-
-  // If the offset frame has a child, then this frame is the block which
-  // has the text frames (containing the content) as its children. This will
-  // be the case if we click to the right of any of the text frames, or at the
-  // bottom of the text area.
-  nsIFrame* firstChild = aOffsetFrame->PrincipalChildList().FirstChild();
-  if (firstChild) {
-    // In this case, the passed-in offset is incorrect, and we want the length
-    // of the entire content in the text control frame.
-    return firstChild->GetContent()->Length();
-  }
-
-  if (aOffsetFrame->GetPrevSibling() && !aOffsetFrame->GetNextSibling()) {
-    // In this case, we're actually within the last frame, which is a br
-    // frame. Our offset should therefore be the length of the first child of
-    // our parent.
-    int32_t aOutOffset = aOffsetFrame->GetParent()
-                             ->PrincipalChildList()
-                             .FirstChild()
-                             ->GetContent()
-                             ->Length();
-    return aOutOffset;
-  }
-
-  // Otherwise, we're within one of the text frames, in which case our offset
-  // has already been correctly calculated.
-  return aOffset;
 }
 
 // static

@@ -28,16 +28,16 @@ const SHADOW_ROOT_TAGNAME = "#shadow-root";
  * Component to replicate functionality of XUL arrowscrollbox
  * for breadcrumbs
  */
-class ArrowScrollBox {
+class ArrowScrollBox extends EventEmitter {
   /**
    * @param {Window} win The window containing the breadcrumbs
    * @param {Element} container The element in which to put the scroll box
    */
   constructor(win, container) {
+    super();
     this.win = win;
     this.doc = win.document;
     this.container = container;
-    EventEmitter.decorate(this);
     this.init();
   }
   // Scroll behavior, exposed for testing

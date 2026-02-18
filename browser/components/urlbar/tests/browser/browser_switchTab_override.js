@@ -266,6 +266,60 @@ add_task(async function test_move_tab_to_split_view_from_another_window() {
     "One of the split view tabs should have the moved tab's URL"
   );
 
+  info(
+    "Verify split view panels have correct attributes after cross-window move"
+  );
+  const [firstTab, secondTab] = splitView.tabs;
+  const firstPanel = win2.document.getElementById(firstTab.linkedPanel);
+  const secondPanel = win2.document.getElementById(secondTab.linkedPanel);
+
+  await BrowserTestUtils.waitForMutationCondition(
+    firstPanel,
+    { attributes: true },
+    () => firstPanel.classList.contains("split-view-panel-active")
+  );
+  await BrowserTestUtils.waitForMutationCondition(
+    secondPanel,
+    { attributes: true },
+    () => secondPanel.classList.contains("split-view-panel-active")
+  );
+
+  Assert.ok(
+    firstPanel.classList.contains("split-view-panel"),
+    "First panel has split-view-panel class after cross-window move"
+  );
+  Assert.ok(
+    secondPanel.classList.contains("split-view-panel"),
+    "Second panel has split-view-panel class after cross-window move"
+  );
+  Assert.ok(
+    firstPanel.classList.contains("split-view-panel-active"),
+    "First panel has split-view-panel-active class after cross-window move"
+  );
+  Assert.ok(
+    secondPanel.classList.contains("split-view-panel-active"),
+    "Second panel has split-view-panel-active class after cross-window move"
+  );
+
+  info("Verify panels are displayed at roughly half width");
+  const tabpanels = win2.document.getElementById("tabbrowser-tabpanels");
+  const tabpanelsWidth = tabpanels.getBoundingClientRect().width;
+  const firstPanelWidth = firstPanel.getBoundingClientRect().width;
+  const secondPanelWidth = secondPanel.getBoundingClientRect().width;
+  const expectedWidth = tabpanelsWidth / 2;
+  const tolerance = 50;
+
+  Assert.less(
+    Math.abs(firstPanelWidth - expectedWidth),
+    tolerance,
+    `First panel width (${firstPanelWidth}px) is roughly half of tabpanels width (${tabpanelsWidth}px)`
+  );
+  Assert.less(
+    Math.abs(secondPanelWidth - expectedWidth),
+    tolerance,
+    `Second panel width (${secondPanelWidth}px) is roughly half of tabpanels width (${tabpanelsWidth}px)`
+  );
+
   info("Cleanup");
   await BrowserTestUtils.closeWindow(win1);
   await BrowserTestUtils.closeWindow(win2);

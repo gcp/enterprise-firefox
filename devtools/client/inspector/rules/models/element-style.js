@@ -355,12 +355,12 @@ class ElementStyle {
         const isPropInStartingStyle =
           computedProp.textProp.rule?.isInStartingStyle();
 
-        const hasHigherPriority = this.#hasHigherPriorityThanEarlierProp(
+        const hasHigherPriority = this.hasHigherPriorityThanEarlierProp(
           computedProp,
           earlier
         );
         const startingStyleHasHigherPriority =
-          this.#hasHigherPriorityThanEarlierProp(
+          this.hasHigherPriorityThanEarlierProp(
             computedProp,
             earlierInStartingStyle
           );
@@ -543,7 +543,7 @@ class ElementStyle {
    * @param {object} earlierProp: The computed prop to compare against
    * @returns Boolean
    */
-  #hasHigherPriorityThanEarlierProp(computedProp, earlierProp) {
+  hasHigherPriorityThanEarlierProp(computedProp, earlierProp) {
     if (!earlierProp) {
       return false;
     }

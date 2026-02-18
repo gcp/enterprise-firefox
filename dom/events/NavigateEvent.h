@@ -118,6 +118,8 @@ class NavigateEvent final : public Event {
 
   Document* GetAssociatedDocument() const;
 
+  void Cancel();
+
  private:
   MOZ_CAN_RUN_SCRIPT
   void PotentiallyResetFocus();

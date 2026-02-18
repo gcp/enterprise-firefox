@@ -140,8 +140,8 @@ static void moz_app_launch_context_init(MozAppLaunchContext* self) {
 }
 
 MozAppLaunchContext* moz_app_launch_context_new(const char* activation_token) {
-  MozAppLaunchContext* self =
-      MOZ_APP_LAUNCH_CONTEXT(g_object_new(MOZ_TYPE_APP_LAUNCH_CONTEXT, NULL));
+  MozAppLaunchContext* self = MOZ_APP_LAUNCH_CONTEXT(
+      g_object_new(MOZ_TYPE_APP_LAUNCH_CONTEXT, nullptr));
   self->activation_token = g_strdup(activation_token);
   return self;
 }
@@ -496,7 +496,7 @@ gboolean g_app_info_launch_default_for_uri_openbsd(const char* uri,
 
 static NS_IMETHODIMP LaunchWithURIImpl(RefPtr<GAppInfo> aInfo, nsIURI* aUri,
                                        const char* aXDGToken = nullptr) {
-  GList uris = {0};
+  GList uris = {nullptr};
   nsCString spec;
   aUri->GetSpec(spec);
   // nsPromiseFlatCString flatUri(aUri);

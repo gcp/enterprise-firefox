@@ -1275,6 +1275,7 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   mConsole = nullptr;
   mCookieStore = nullptr;
   mDocumentPiP = nullptr;
+  mCloseWatcherManager = nullptr;
 
   mPaintWorklet = nullptr;
 
@@ -1577,6 +1578,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
       !tmp->mWindowGlobalChild || tmp->mWindowGlobalChild->IsClosed(),
       "How are we unlinking a window before its actor has been destroyed?");
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindowGlobalChild)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCloseWatcherManager)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMenubar)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mToolbar)

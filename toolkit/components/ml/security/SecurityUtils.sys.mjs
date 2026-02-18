@@ -204,32 +204,32 @@ export class TabLedger {
   }
 
   /**
-   * Checks if a URL is in the ledger and not expired.
+   * Returns the normalized URL if it is in the ledger and not expired.
    *
    * @param {string} url - URL to check (will be normalized)
    * @param {string} [baseUrl] - Optional base URL for resolving relatives
-   * @returns {boolean} True if URL is in ledger and not expired
+   * @returns {string|null} Normalized URL if valid, otherwise null
    */
-  has(url, baseUrl = null) {
+  lookup(url, baseUrl = null) {
     const startTime = ChromeUtils.now();
-    let result = true;
+    let result = null;
 
     const normalized = normalizeUrl(url, baseUrl);
-
-    const expiresAt = this.urls.get(normalized.url);
-
-    if (!normalized.success || expiresAt === undefined) {
-      result = false;
-    } else if (ChromeUtils.now() > expiresAt) {
-      // Check expiration
-      this.urls.delete(normalized.url);
-      result = false;
+    if (normalized.success) {
+      const expiresAt = this.urls.get(normalized.url);
+      if (expiresAt !== undefined) {
+        if (ChromeUtils.now() > expiresAt) {
+          this.urls.delete(normalized.url);
+        } else {
+          result = normalized.url;
+        }
+      }
     }
 
     ChromeUtils.addProfilerMarker(
-      "ML.Security.TabLedger.has",
+      "ML.Security.TabLedger.lookup",
       { startTime },
-      `TabLedger.has for url ${url} and tabId: ${this.tabId}`
+      `TabLedger.lookup for url ${url} and tabId: ${this.tabId}`
     );
 
     return result;
@@ -351,18 +351,23 @@ export class SessionLedger {
     // Return a temporary read-only ledger
     return {
       /**
-       * Checks if URL is in any of the merged ledgers.
+       * Returns the normalized URL if it is in any of the merged ledgers.
        *
        * @param {string} url - URL to check
        * @param {string} [baseUrl] - Optional base URL
-       * @returns {boolean} True if URL is in any merged ledger
+       * @returns {string|null} Normalized URL if found, otherwise null
        */
-      has(url, baseUrl = null) {
+      lookup(url, baseUrl = null) {
         const normalized = normalizeUrl(url, baseUrl);
         if (!normalized.success) {
-          return false;
+          return null;
         }
-        return mergedUrls.has(normalized.url);
+
+        if (!mergedUrls.has(normalized.url)) {
+          return null;
+        }
+
+        return normalized.url;
       },
 
       /**

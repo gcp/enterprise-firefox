@@ -13,13 +13,11 @@
 #include "jstypes.h"
 #include "NamespaceImports.h"
 
-#include "js/Class.h"  // JSClass, JSClassOps, js::ClassSpec
+#include "js/Class.h"
 #include "js/TypeDecls.h"
 #include "js/Value.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
-
-struct JS_PUBLIC_API JSContext;
 
 namespace mozilla::intl {
 class DisplayNames;
@@ -31,34 +29,7 @@ struct ClassSpec;
 
 namespace js::intl {
 
-// Similar to enums in mozilla::intl::DisplayNames, except uses smaller int
-// types to require less memory when allocating on the heap.
-struct DisplayNamesOptions {
-  enum class Style : int8_t { Long, Short, Narrow, Abbreviated };
-  Style style = Style::Long;
-
-  enum class Type : int8_t {
-    Language,
-    Region,
-    Script,
-    Currency,
-    Calendar,
-    DateTimeField,
-    Weekday,
-    Month,
-    Quarter,
-    DayPeriod
-  };
-  Type type = Type::Language;
-
-  enum class Fallback : int8_t { Code, None };
-  Fallback fallback = Fallback::Code;
-
-  enum class LanguageDisplay : int8_t { Dialect, Standard };
-  LanguageDisplay languageDisplay = LanguageDisplay::Dialect;
-
-  bool mozExtensions = false;
-};
+struct DisplayNamesOptions;
 
 class DisplayNamesObject : public NativeObject {
  public:
@@ -112,17 +83,9 @@ class DisplayNamesObject : public NativeObject {
     setFixedSlot(CALENDAR, StringValue(calendar));
   }
 
-  DisplayNamesOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<DisplayNamesOptions*>(slot.toPrivate());
-  }
+  DisplayNamesOptions getOptions() const;
 
-  void setOptions(DisplayNamesOptions* options) {
-    setFixedSlot(OPTIONS, PrivateValue(options));
-  }
+  void setOptions(const DisplayNamesOptions& options);
 
   mozilla::intl::DisplayNames* getDisplayNames() const {
     const auto& slot = getFixedSlot(LOCALE_DISPLAY_NAMES_SLOT);

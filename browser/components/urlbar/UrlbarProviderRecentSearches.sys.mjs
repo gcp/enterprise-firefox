@@ -92,12 +92,18 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
    *   Callback invoked by the provider to add a new result.
    */
   async startQuery(queryContext, addCallback) {
-    let engine = lazy.UrlbarSearchUtils.getDefaultEngine(
-      queryContext.isPrivate
-    );
+    let engine;
+    if (queryContext.searchMode?.engineName) {
+      engine = lazy.UrlbarSearchUtils.getEngineByName(
+        queryContext.searchMode.engineName
+      );
+    } else {
+      engine = lazy.UrlbarSearchUtils.getDefaultEngine(queryContext.isPrivate);
+    }
     if (!engine) {
       return;
     }
+
     let results = await lazy.FormHistory.search(["value", "lastUsed"], {
       fieldname: lazy.DEFAULT_FORM_HISTORY_PARAM,
       // Use undefined to show recent searches of all engines.

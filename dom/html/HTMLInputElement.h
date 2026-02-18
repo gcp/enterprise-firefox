@@ -225,13 +225,7 @@ class HTMLInputElement final : public TextControlElement,
   void SetLastValueChangeWasInteractive(bool);
 
   // TextControlElement
-  bool IsSingleLineTextControlOrTextArea() const override {
-    return IsSingleLineTextControl(false);
-  }
   void SetValueChanged(bool aValueChanged) override;
-  bool IsSingleLineTextControl() const override;
-  bool IsTextArea() const override;
-  bool IsPasswordTextControl() const override;
   Maybe<int32_t> GetCols() override;
   int32_t GetWrapCols() override;
   int32_t GetRows() override;
@@ -248,16 +242,12 @@ class HTMLInputElement final : public TextControlElement,
   nsresult BindToFrame(nsTextControlFrame* aFrame) override;
   MOZ_CAN_RUN_SCRIPT void UnbindFromFrame(nsTextControlFrame* aFrame) override;
   MOZ_CAN_RUN_SCRIPT nsresult CreateEditor() override;
-  void SetPreviewValue(const nsAString& aValue) override;
-  void GetPreviewValue(nsAString& aValue) override;
   void SetAutofillState(const nsAString& aState) override {
     SetFormAutofillState(aState);
   }
   void GetAutofillState(nsAString& aState) override {
     GetFormAutofillState(aState);
   }
-  void EnablePreview() override;
-  bool IsPreviewEnabled() override;
   void InitializeKeyboardEventListeners() override;
   void OnValueChanged(ValueChangeKind, bool aNewValueEmpty,
                       const nsAString* aKnownNewValue) override;
@@ -856,14 +846,6 @@ class HTMLInputElement final : public TextControlElement,
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static void HandleNumberControlSpin(void* aData);
 
-  bool NumberSpinnerUpButtonIsDepressed() const {
-    return mNumberControlSpinnerIsSpinning && mNumberControlSpinnerSpinsUp;
-  }
-
-  bool NumberSpinnerDownButtonIsDepressed() const {
-    return mNumberControlSpinnerIsSpinning && !mNumberControlSpinnerSpinsUp;
-  }
-
   bool MozIsTextField(bool aExcludePassword);
 
   MOZ_CAN_RUN_SCRIPT nsIEditor* GetEditorForBindings();
@@ -924,15 +906,16 @@ class HTMLInputElement final : public TextControlElement,
     return IsAutoDirectionalityAssociated(mType);
   }
 
+  // Pull IsSingleLineTextControl into our scope, otherwise it'd be hidden
+  // by the TextControlElement version.
+  using nsGenericHTMLFormControlElementWithState::IsSingleLineTextControl;
+  using TextControlElement::IsSingleLineTextControl;
+
  protected:
   MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual ~HTMLInputElement();
 
   JSObject* WrapNode(JSContext* aCx,
                      JS::Handle<JSObject*> aGivenProto) override;
-
-  // Pull IsSingleLineTextControl into our scope, otherwise it'd be hidden
-  // by the TextControlElement version.
-  using nsGenericHTMLFormControlElementWithState::IsSingleLineTextControl;
 
   /**
    * The ValueModeType specifies how the value IDL attribute should behave.
@@ -1614,8 +1597,18 @@ class HTMLInputElement final : public TextControlElement,
            aType == FormControlType::InputTime ||
            aType == FormControlType::InputDatetimeLocal;
   }
-
   bool CreatesDateTimeWidget() const { return CreatesDateTimeWidget(mType); }
+
+  static bool CreatesUAShadowTree(FormControlType aType) {
+    return IsSingleLineTextControl(false, aType) ||
+           CreatesDateTimeWidget(aType);
+  }
+  bool CreatesUAShadowTree() const { return CreatesUAShadowTree(mType); }
+
+  static NotifyUAWidget NotifiesUAWidget(FormControlType aType) {
+    return NotifyUAWidget(CreatesDateTimeWidget(aType));
+  }
+  NotifyUAWidget NotifiesUAWidget() const { return NotifiesUAWidget(mType); }
 
   static bool MayFireChangeOnBlur(FormControlType aType) {
     return IsSingleLineTextControl(false, aType) ||
@@ -1623,6 +1616,7 @@ class HTMLInputElement final : public TextControlElement,
            aType == FormControlType::InputRange ||
            aType == FormControlType::InputNumber;
   }
+  void SetupShadowTree(bool aNotify);
 
   bool CheckActivationBehaviorPreconditions(EventChainVisitor& aVisitor) const;
 

@@ -1132,6 +1132,9 @@ export class UserCharacteristicsPageService {
         "audioUniqueSamples",
         "timezoneWeb",
         "timezoneOffsetWeb",
+        "sdpCodecList",
+        "webauthnCapabilities",
+        "storageQuota",
       ],
     };
 

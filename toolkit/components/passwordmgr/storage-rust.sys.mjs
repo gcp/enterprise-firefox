@@ -325,6 +325,13 @@ export class LoginManagerRustStorage {
     throw Components.Exception("loginIsDeleted", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
+  loginIsDeletedAsync(_guid) {
+    throw Components.Exception(
+      "loginIsDeletedAsync",
+      Cr.NS_ERROR_NOT_IMPLEMENTED
+    );
+  }
+
   addWithMeta(login) {
     return this.#storageAdapter.addWithMeta(login);
   }
