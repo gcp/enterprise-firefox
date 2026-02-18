@@ -170,6 +170,7 @@ class WebGPUChild final : public PWebGPUChild {
  public:
   ipc::IPCResult RecvServerMessage(const ipc::ByteBuf& aByteBuf);
   ipc::IPCResult RecvUncapturedError(RawId aDeviceId,
+                                     const dom::GPUErrorFilter aType,
                                      const nsACString& aMessage);
   ipc::IPCResult RecvDeviceLost(RawId aDeviceId, uint8_t aReason,
                                 const nsACString& aMessage);
