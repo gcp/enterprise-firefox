@@ -24,17 +24,6 @@
     </issue>
 
     <issue
-        id="NonObservableLocale"
-        message="Reading locale in a non-observable way in a composable function"
-        errorLine1="                text = it.uppercase(Locale.getDefault()),"
-        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/mozilla/fenix/compose/list/ListItem.kt"
-            line="937"
-            column="37"/>
-    </issue>
-
-    <issue
         id="VectorRaster"
         message="Limit vector icons sizes to 200×200 to keep icon drawing fast; see https://developer.android.com/studio/write/vector-asset-studio#when for more"
         errorLine1="    android:width=&quot;432dp&quot;"
