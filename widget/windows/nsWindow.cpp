@@ -227,6 +227,10 @@
 
 #include "DirectManipulationOwner.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/browser/extensions/felt/felt.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::gfx;
@@ -1148,9 +1152,14 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
     // we choose to make it look like regular Firefox in terms of the icon
     // it uses (which also means we shouldn't use the Private Browsing
     // AUMID).
+    // Firefox Enterprise uses a private window for the authentication window
+    // (felt ui), but we want it to appear like regular Firefox Enterprise.
     bool usePrivateAumid =
         Preferences::GetBool("browser.privateWindowSeparation.enabled", true) &&
         aInitData.mIsPrivate &&
+#if defined(MOZ_ENTERPRISE)
+        !is_felt_ui() &&
+#endif
         !StaticPrefs::browser_privatebrowsing_autostart();
     RefPtr<IPropertyStore> pPropStore;
     if (!FAILED(SHGetPropertyStoreForWindow(mWnd, IID_IPropertyStore,
