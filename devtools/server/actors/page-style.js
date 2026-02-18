@@ -684,36 +684,31 @@ class PageStyleActor extends Actor {
    *         See #getRuleItem for definition.
    */
   #getAllElementRules(node, { isInherited, skipPseudo, filter }) {
-    const { bindingElement, pseudo } = CssLogic.getBindingElementAndPseudo(
-      node.rawNode
-    );
+    const { rawNode } = node;
     const rules = [];
-
-    if (!bindingElement) {
-      return rules;
-    }
 
     // First add rule actors for element style defined via the DOM "style" attribute,
     // and/or via the JS "style" attribute (CSSOM API).
-    if (bindingElement.style) {
+    if (rawNode.style) {
+      const isPseudoElement = !!rawNode.implementedPseudoElement;
       // We only show element styles if:
       //  - we aren't processing a parent element for inherited rules, and that's not a pseudo element
       //    --or--
       //  - we are processing parent elements for inherited rules and we have at least one inherited rule
-      const showElementStyles = !isInherited && !pseudo;
+      const showElementStyles = !isInherited && !isPseudoElement;
       const showInheritedStyles =
-        isInherited && this.#hasInheritedProps(bindingElement.style);
+        isInherited && this.#hasInheritedProps(rawNode.style);
 
       if (showElementStyles || showInheritedStyles) {
         const elementStyleActor = this.styleRef(
-          bindingElement,
+          rawNode,
           // We never try to fetch element styles for pseudo elements.
           null
         );
 
         if (showElementStyles) {
           rules.push(
-            this.#getRuleItem(elementStyleActor, node.rawNode, {
+            this.#getRuleItem(elementStyleActor, rawNode, {
               pseudoElement: null,
               isSystem: false,
               inherited: null,
@@ -724,7 +719,7 @@ class PageStyleActor extends Actor {
           // `inherited` property so the client can show this information (for example in
           // the "Inherited from X" section in the Rules view).
           rules.push(
-            this.#getRuleItem(elementStyleActor, node.rawNode, {
+            this.#getRuleItem(elementStyleActor, rawNode, {
               pseudoElement: null,
               isSystem: false,
               inherited: node,
@@ -736,22 +731,18 @@ class PageStyleActor extends Actor {
 
     // Add normal rules matching exactly the DOM Element passed in (node).
     //
-    // Typically this is passing in the node passed into the function (node == bindingElement),
-    // unless if that node was a pseudo element (like ::before, ::marker,...).
-    // In which case, it will pass in the `parentNode` (bindingElement) along with "::before", "::marker",... in `pseudo` argument.
+    // Note that when we are processing the special DOM Elements for pseudo elements
+    // like ::before, ::marker, ::details-content,...
+    // we pass an empty pseudo string  as we want to build the Rule for that DOM Element
+    // and not a pseudo element Rule.
+    // Pseudo element rule are build just after in this method and are for pseudo elements
+    // created as children of the currently processed DOM Element.
     for (const oneRule of this.#getElementRules(
-      bindingElement,
-      pseudo,
+      rawNode,
+      "",
       isInherited ? node : null,
       filter
     )) {
-      // When processing a pseudo element (like ::before, ::marker,...)
-      // The "appliedstyle" object will be flagged as pseudo with a valid `pseudoElement` string attribute.
-      // But as we are fetching rules for the pseudo DOM element itself and not its parent
-      // we don't want to be considered as a nested rule.
-      // If we keep this attribute, the rule would be displayed in container dedicated to all the pseudo elements.
-      oneRule.pseudoElement = null;
-
       rules.push(oneRule);
     }
 
@@ -765,11 +756,10 @@ class PageStyleActor extends Actor {
     // ::before::marker , ::marker is a child of ::before).
     // In such case, we want to call #getElementRules with the actual pseudo element node,
     // not its binding element.
-    const elementForPseudo = pseudo ? node.rawNode : bindingElement;
 
     const relevantPseudoElements = [];
     for (const readPseudo of PSEUDO_ELEMENTS) {
-      if (!this.#pseudoIsRelevant(elementForPseudo, readPseudo, isInherited)) {
+      if (!this.#pseudoIsRelevant(rawNode, readPseudo, isInherited)) {
         continue;
       }
 
@@ -789,7 +779,7 @@ class PageStyleActor extends Actor {
 
     for (const readPseudo of relevantPseudoElements) {
       const pseudoRules = this.#getElementRules(
-        elementForPseudo,
+        rawNode,
         readPseudo,
         isInherited ? node : null,
         filter
