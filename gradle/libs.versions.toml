@@ -108,6 +108,7 @@ okio = "3.15.0"
 sentry = "8.32.0"
 zxing = "3.5.4"
 lifecycle-runtime-testing = "2.10.0"
+material3 = "1.4.0"
 
 [libraries]
 # AGP
@@ -286,6 +287,7 @@ okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
 sentry = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 androidx-lifecycle-runtime-testing = { group = "androidx.lifecycle", name = "lifecycle-runtime-testing", version.ref = "lifecycle-runtime-testing" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 [plugins]
 dependency-analysis = { id = "com.autonomousapps.dependency-analysis", version.ref = "dependency-analysis" }
