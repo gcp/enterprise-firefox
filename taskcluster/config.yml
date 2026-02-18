@@ -441,11 +441,6 @@ release-promotion:
                 - release-partner-attribution
                 - release-partner-attribution-beetmover
             target-tasks-method: promote_desktop
-        promote_firefox_rc:
-            product: firefox
-            is-rc: true
-            target-tasks-method: promote_desktop
-            partial-updates: true
         push_devedition:
             product: devedition
             target-tasks-method: push_desktop
@@ -486,7 +481,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
                             staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
@@ -500,7 +495,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
                             staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
@@ -514,7 +509,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/mozilla-EME-free-manifest.git'
                             staging: 'git@github.com:mozilla-partners/staging-mozilla-EME-free-manifest.git'
