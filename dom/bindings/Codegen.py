@@ -3315,7 +3315,7 @@ class CGConstDefinition(CGThing):
         value = member.value.value
         if tag == IDLType.Tags.bool:
             value = toStringBool(member.value.value)
-        self.const = "static const %s %s = %s;" % (builtinNames[tag], name, value)
+        self.const = "constexpr %s %s = %s;" % (builtinNames[tag], name, value)
 
     def declare(self):
         return self.const

@@ -44,7 +44,6 @@ class IMEContentObserver;
 class LazyLogModule;
 class ScrollbarsForWheel;
 class ScrollContainerFrame;
-class TextControlElement;
 class WheelTransaction;
 
 namespace dom {
@@ -307,19 +306,6 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void ContentRemoved(
       dom::Document* aDocument, nsIContent* aContent,
       const ContentRemoveInfo& aInfo);
-
-  /**
-   * Called when a native anonymous <div> element which is root element of
-   * text editor will be removed.
-   */
-  void TextControlRootWillBeRemoved(TextControlElement& aTextControlElement);
-
-  /**
-   * Called when a native anonymous <div> element which is root element of
-   * text editor is created.
-   */
-  void TextControlRootAdded(dom::Element& aAnonymousDivElement,
-                            TextControlElement& aTextControlElement);
 
   bool EventStatusOK(WidgetGUIEvent* aEvent);
 
@@ -1416,8 +1402,6 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   bool mShouldAlwaysUseLineDeltas : 1;
   bool mShouldAlwaysUseLineDeltasInitialized : 1;
-
-  bool mGestureDownInTextControl : 1;
 
   bool mInTouchDrag;
 

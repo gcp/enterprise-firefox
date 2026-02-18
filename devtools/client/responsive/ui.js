@@ -68,7 +68,7 @@ function debug(_msg) {
  * the tab upon opening responsive design.  This object acts a helper to
  * integrate the tool into the surrounding browser UI as needed.
  */
-class ResponsiveUI {
+class ResponsiveUI extends EventEmitter {
   /**
    * @param {ResponsiveUIManager} manager
    *        The ResponsiveUIManager instance.
@@ -78,6 +78,7 @@ class ResponsiveUI {
    *        The specific browser <tab> element this responsive instance is for.
    */
   constructor(manager, window, tab) {
+    super();
     this.manager = manager;
     // The main browser chrome window (that holds many tabs).
     this.browserWindow = window;
@@ -106,7 +107,6 @@ class ResponsiveUI {
     this.resolveInited = resolve;
 
     this.dynamicToolbar = null;
-    EventEmitter.decorate(this);
   }
 
   get toolWindow() {

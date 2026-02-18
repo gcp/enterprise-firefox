@@ -2188,7 +2188,7 @@ class CssRuleView extends EventEmitter {
    *         Optional. The declaration to scroll to.
    * @param  {string} scrollBehavior
    *         Optional. The transition animation when scrolling. If prefers-reduced-motion
-   *         system pref is set, then the scroll behavior will be overridden to "auto".
+   *         system pref is set, then the scroll behavior will be overridden to "instant".
    */
   #scrollToElement(rule, declaration, scrollBehavior = "smooth") {
     let elementToScrollTo = rule;
@@ -2207,9 +2207,10 @@ class CssRuleView extends EventEmitter {
     // Ensure that smooth scrolling is disabled when the user prefers reduced motion.
     const win = elementToScrollTo.ownerGlobal;
     const reducedMotion = win.matchMedia("(prefers-reduced-motion)").matches;
-    scrollBehavior = reducedMotion ? "auto" : scrollBehavior;
-
-    elementToScrollTo.scrollIntoView({ behavior: scrollBehavior });
+    scrollBehavior = reducedMotion ? "instant" : scrollBehavior;
+    elementToScrollTo.scrollIntoView({
+      behavior: scrollBehavior,
+    });
   }
 
   /**
@@ -2226,95 +2227,76 @@ class CssRuleView extends EventEmitter {
   }
 
   /**
+   * Returns whether or not the rule is in the view
+   *
+   * @param  {StyleRuleFront} ruleFront
+   * @returns {boolean}
+   */
+  hasRule(ruleFront) {
+    return this.rules.some(r => r.domRule === ruleFront);
+  }
+
+  /**
    * Finds the specified TextProperty name in the rule view. If found, scroll to and
    * flash the TextProperty.
    *
    * @param  {string} name
    *         The property name to scroll to and highlight.
    * @param  {object} options
+   * @param  {StyleRuleFront|undefined} options.ruleFront
+   *         An optional StyleRuleFront. When this is set, we will only look for the property
+   *         in this exact rule.
    * @param  {Function|undefined} options.ruleValidator
    *         An optional function that can be used to filter out rules we shouldn't look
    *         into to find the property name. The function is called with a Rule object,
    *         and the rule will be skipped if the function returns a falsy value.
-   * @return {boolean} true if the TextProperty name is found, and false otherwise.
+   * @param  {true|undefined} options.focusValue
+   *         An optional boolean that indicate that the declaration value should be focused.
+   *         If false (the default value), the declaration name will be focused.
+   * @returns {boolean} true if the TextProperty name is found, and false otherwise.
    */
-  highlightProperty(name, { ruleValidator } = {}) {
+  highlightProperty = async (
+    name,
+    { ruleValidator, ruleFront, focusValue = false } = {}
+  ) => {
     // First, let's clear any search we might have, as the property could be hidden
     this.#onClearSearch({ focusSearchField: false });
 
-    let scrollBehavior = "auto";
-    const hasRuleValidator = typeof ruleValidator === "function";
-    for (const rule of this.rules) {
-      if (hasRuleValidator && !ruleValidator(rule)) {
-        continue;
+    if (ruleFront) {
+      const rule = this.rules.find(r => r.domRule === ruleFront);
+      if (!rule) {
+        console.error("Unable to find a rule for actor", ruleFront);
+        return false;
       }
-      for (const textProp of rule.textProps) {
-        if (textProp.overridden || textProp.invisible || !textProp.enabled) {
-          continue;
-        }
 
-        // First, search for a matching authored property.
-        if (textProp.name === name) {
-          // If using 2-Pane mode, then switch to the Rules tab first.
-          if (!this.inspector.isThreePaneModeEnabled) {
-            this.inspector.sidebar.select("ruleview");
-          }
+      const highlighted = await this.#maybeHighlightPropertyInRule({
+        name,
+        rule,
+        ruleValidator,
+        // If ruleFront is passed, we might need to highlight a declaration that is actually
+        // overridden  (e.g. when calling this from a  "matched selector" item in the
+        // computed panel).
+        matchOverridden: true,
+        focusValue,
+      });
+      if (!highlighted) {
+        console.error("Unable to highlight rule", name, rule);
+        return false;
+      }
 
-          // If the property is being applied by a pseudo element rule, expand the pseudo
-          // element list container.
-          if (rule.pseudoElement.length && !this.showPseudoElements) {
-            // Set the scroll behavior to "auto" to avoid timing issues between toggling
-            // the pseudo element container and scrolling smoothly to the rule.
-            scrollBehavior = "auto";
-            this.#togglePseudoElementRuleContainer();
-          }
+      return true;
+    }
 
-          // If we're jumping to an unused CSS variable, it might not be visible, so show
-          // it here.
-          if (!textProp.editor && textProp.isUnusedVariable) {
-            textProp.rule.editor.showUnusedCssVariable(textProp);
-          }
-
-          this.#highlightElementInRule(
-            rule,
-            textProp.editor.element,
-            scrollBehavior,
-            textProp.editor.nameSpan
-          );
-          return true;
-        }
-
-        // If there is no matching property, then look in computed properties.
-        for (const computed of textProp.computed) {
-          if (computed.overridden) {
-            continue;
-          }
-
-          if (computed.name === name) {
-            if (!this.inspector.isThreePaneModeEnabled) {
-              this.inspector.sidebar.select("ruleview");
-            }
-
-            if (
-              textProp.rule.pseudoElement.length &&
-              !this.showPseudoElements
-            ) {
-              scrollBehavior = "auto";
-              this.#togglePseudoElementRuleContainer();
-            }
-
-            // Expand the computed list.
-            textProp.editor.expandForFilter();
-
-            this.#highlightElementInRule(
-              rule,
-              computed.element,
-              scrollBehavior
-            );
-
-            return true;
-          }
-        }
+    for (const rule of this.rules) {
+      if (
+        await this.#maybeHighlightPropertyInRule({
+          name,
+          rule,
+          ruleValidator,
+          focusValue,
+        })
+      ) {
+        return true;
       }
     }
     // If the property is a CSS variable and we didn't find its declaration, it might
@@ -2324,13 +2306,119 @@ class CssRuleView extends EventEmitter {
     }
 
     return false;
+  };
+
+  /**
+   * Finds the specified TextProperty name in a specific rule. If found, scroll to it and
+   * flash/focus the TextProperty.
+   *
+   * @param  {object} options
+   * @param  {string} options.name
+   *         The property name to scroll to and highlight.
+   * @param  {Rule} options.rule
+   *         The rule to find the property into
+   * @param  {Function|undefined} options.ruleValidator
+   *         An optional function that can be used to filter out rules we shouldn't look
+   *         into to find the property name. The function is called with a Rule object,
+   *         and the rule will be skipped if the function returns a falsy value.
+   * @param  {boolean|undefined} options.matchOverridden
+   *         If true, the declaration will be considered even if it is overridden.
+   * @param {string} options.scrollBehavior
+   *        An optional string that will be used as `scrollIntoView` `behavior` option.
+   *        Note that this will be overridden to "instant" if the user prefers reduced motion.
+   * @param  {true|undefined} options.focusValue
+   *         An optional boolean that indicate that the declaration value should be focused.
+   *         If false (the default value), the declaration name will be focused.
+   * @returns {boolean} true if the TextProperty name is found, and false otherwise.
+   */
+  async #maybeHighlightPropertyInRule({
+    name,
+    rule,
+    ruleValidator,
+    matchOverridden = false,
+    focusValue = false,
+  }) {
+    const hasRuleValidator = typeof ruleValidator === "function";
+    if (hasRuleValidator && !ruleValidator(rule)) {
+      return false;
+    }
+
+    let matchingTextPropComputed;
+    // hasHigherPriorityThanEarlierProp (that we use in the loop), is expecting
+    // the props to be iterated through in reverse.
+    const textProps = rule.textProps.toReversed();
+    for (const textProp of textProps) {
+      for (const computed of textProp.computed) {
+        if (
+          computed.name === name &&
+          !textProp.invisible &&
+          textProp.enabled &&
+          (!computed.overridden || matchOverridden) &&
+          (!matchingTextPropComputed ||
+            this.elementStyle.hasHigherPriorityThanEarlierProp(
+              computed,
+              matchingTextPropComputed
+            ))
+        ) {
+          matchingTextPropComputed = computed;
+        }
+      }
+    }
+
+    if (!matchingTextPropComputed) {
+      return false;
+    }
+
+    await this.#selectRuleViewIfNeeded();
+
+    let scrollBehavior;
+
+    // If the property is being applied by a pseudo element rule, expand the pseudo
+    // element list container.
+    if (rule.pseudoElement.length && !this.showPseudoElements) {
+      // Set the scroll behavior to "instant" to avoid timing issues between toggling
+      // the pseudo element container and scrolling smoothly to the rule.
+      scrollBehavior = "instant";
+      this.#togglePseudoElementRuleContainer();
+    }
+
+    const textProp = matchingTextPropComputed.textProp;
+
+    // If we're jumping to an unused CSS variable, it might not be visible, so show
+    // it here.
+    if (!textProp.editor && textProp.isUnusedVariable) {
+      textProp.rule.editor.showUnusedCssVariable(textProp);
+    }
+
+    // If the textProp is a shorthand, we need to expand the computed list so we can
+    // highlight the proper element.
+    const isTextPropAShorthand =
+      textProp.name !== matchingTextPropComputed.name;
+    if (isTextPropAShorthand) {
+      textProp.editor.expandForFilter();
+    }
+
+    this.#highlightElementInRule({
+      rule,
+      elementToHighlight: isTextPropAShorthand
+        ? // if the prop is a shorthand, we hand to highlight the exact longhand property
+          matchingTextPropComputed.element
+        : textProp.editor.element,
+      elementToFocus: focusValue
+        ? textProp.editor.valueSpan
+        : textProp.editor.nameSpan,
+      scrollBehavior,
+    });
+    return true;
   }
 
   /**
    * If the passed name matches a registered CSS property highlight it
    *
    * @param {string} name - The name of the registered property to highlight
-   * @param {string} scrollBehavior
+   * @param {string} scrollBehavior - An optional string that will be used as
+   *        `scrollIntoView` `behavior` option.
+   *        Note that this will be overridden to "instant" if the user prefers reduced motion.
    * @returns {boolean} Returns true if `name` matched a registered property
    */
   #maybeHighlightCssRegisteredProperty(name, scrollBehavior) {
@@ -2358,34 +2446,53 @@ class CssRuleView extends EventEmitter {
       this.#toggleContainerVisibility(toggle, propertyContainer);
     }
 
-    this.#highlightElementInRule(null, propertyEl, scrollBehavior);
+    this.#highlightElementInRule({
+      elementToHighlight: propertyEl,
+      scrollBehavior,
+    });
     return true;
   }
 
   /**
    * Highlight a given element in a rule editor
    *
-   * @param {Rule} rule
-   * @param {Element} element
-   * @param {string} scrollBehavior
-   * @param {Element} elementToFocus
+   * @param {object} options
+   * @param {Rule} options.rule
+   *        The rule the element to highlight is in.
+   * @param {Element} options.elementToHighlight
+   *        The element to highlight.
+   * @param {Element} options.elementToFocus
+   *        An optional element to focus.
+   * @param {string} options.scrollBehavior
+   *        An optional string that will be used as `scrollIntoView` `behavior` option.
+   *        Note that this will be overridden to "instant" if the user prefers reduced motion.
    */
-  async #highlightElementInRule(rule, element, scrollBehavior, elementToFocus) {
+  async #highlightElementInRule({
+    rule,
+    elementToHighlight,
+    elementToFocus,
+    scrollBehavior,
+  }) {
     if (rule) {
-      this.#scrollToElement(rule.editor.selectorText, element, scrollBehavior);
+      this.#scrollToElement(
+        rule.editor.selectorText,
+        elementToHighlight,
+        scrollBehavior
+      );
     } else {
-      this.#scrollToElement(element, null, scrollBehavior);
+      this.#scrollToElement(elementToHighlight, null, scrollBehavior);
     }
 
-    // If we're focusing an element, show the focus indicator instead of flashing the element
     if (elementToFocus) {
-      elementToFocus.focus({ focusVisible: true });
-      this.emitForTests("element-highlighted", element);
-      return;
+      elementToFocus.focus({
+        focusVisible: true,
+        // Don't scroll when focusing, this is taken care of by the call to #scrollToElement
+        preventScroll: true,
+      });
     }
 
-    await this.#flashElement(element);
-    this.emitForTests("element-highlighted", element);
+    await this.#flashElement(elementToHighlight);
+    this.emitForTests("element-highlighted", elementToHighlight);
   }
 
   /**
@@ -2398,6 +2505,23 @@ class CssRuleView extends EventEmitter {
     return this.cssRegisteredPropertiesByTarget.get(
       this.inspector.selection.nodeFront.targetFront
     );
+  }
+
+  async #selectRuleViewIfNeeded() {
+    // If three-pane mode is enable, or if the rule view is already the currently selected
+    // tab, there's no need to do anything.
+    if (
+      this.inspector.isThreePaneModeEnabled ||
+      this.inspector.sidebar.getCurrentTabID() === "ruleview"
+    ) {
+      return;
+    }
+
+    // Otherwise, we need to select the ruleview from the sidebar. This will update the
+    // panel, so we need to wait for it be populatedr
+    const onRefreshed = this.inspector.once("rule-view-refreshed");
+    await this.inspector.sidebar.select("ruleview");
+    await onRefreshed;
   }
 }
 

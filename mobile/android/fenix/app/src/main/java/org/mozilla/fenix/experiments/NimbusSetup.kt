@@ -36,6 +36,7 @@ private val logger = Logger("service/Nimbus")
 /**
  * Create the Nimbus singleton object for the Fenix app.
  */
+@org.mozilla.geckoview.ExperimentalGeckoViewApi
 fun createNimbus(
     context: Context,
     urlString: String?,
@@ -92,8 +93,12 @@ fun createNimbus(
             context.settings().nimbusExperimentsFetched = true
         }
         recordedContext = recordedNimbusContext
+        @org.mozilla.geckoview.ExperimentalGeckoViewApi
+        geckoPrefHandler = NimbusGeckoPrefHandler
     }.build(appInfo, serverSettings).also { nimbusApi ->
         nimbusApi.recordIsReady(FxNimbus.features.nimbusIsReady.value().eventCount)
+        @org.mozilla.geckoview.ExperimentalGeckoViewApi
+        NimbusGeckoPrefHandler.nimbusApi = nimbusApi
     }
 }
 

@@ -60,6 +60,10 @@ private fun selectionChanged(state: AppState, action: AppAction.SelectionChanged
         return state
     }
 
+    if (state.screen is Screen.EditUrl) {
+        return state
+    }
+
     return state.copy(
         screen = Screen.Browser(tabId = action.tabId, showTabs = false),
     )

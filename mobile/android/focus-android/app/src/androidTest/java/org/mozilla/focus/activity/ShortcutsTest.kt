@@ -101,7 +101,7 @@ class ShortcutsTest : TestSetup() {
         homeScreen {
         }.clickPageShortcut(tab1.title) {
         }.openTabsTray {
-            verifyTabsOrder(tab1.title)
+            verifyTabsOrder("Add new tab", tab1.title)
         }.closeTab(tab1.title) {
             verifyTabsCounterNotShown()
         }

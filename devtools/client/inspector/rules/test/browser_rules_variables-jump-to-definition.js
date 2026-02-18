@@ -64,6 +64,8 @@ const TEST_URI = `
 `;
 
 add_task(async function () {
+  // Make scrolling instant when jumping to a variable
+  await pushPref("ui.prefersReducedMotion", 1);
   await pushPref("devtools.inspector.three-pane-enabled", false);
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
   const { inspector, view } = await openRuleView();

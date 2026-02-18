@@ -7,10 +7,13 @@
 #ifndef builtin_intl_DurationFormat_h
 #define builtin_intl_DurationFormat_h
 
+#include "mozilla/Assertions.h"
+
 #include <stdint.h>
 
 #include "builtin/temporal/TemporalUnit.h"
 #include "js/Class.h"
+#include "js/Value.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
 
@@ -21,38 +24,7 @@ class NumberFormat;
 
 namespace js::intl {
 
-enum class DurationDisplay : uint8_t { Auto, Always };
-enum class DurationStyle : uint8_t { Long, Short, Narrow, Numeric, TwoDigit };
-enum class DurationBaseStyle : uint8_t { Long, Short, Narrow, Digital };
-
-struct DurationFormatOptions {
-// Packed representation to keep the unit options as small as possible.
-#define DECLARE_DURATION_UNIT(name)                          \
-  DurationDisplay name##Display : 1 = DurationDisplay::Auto; \
-  DurationStyle name##Style : 3 = DurationStyle::Short;
-
-  DECLARE_DURATION_UNIT(years);
-  DECLARE_DURATION_UNIT(months);
-  DECLARE_DURATION_UNIT(weeks);
-  DECLARE_DURATION_UNIT(days);
-  DECLARE_DURATION_UNIT(hours);
-  DECLARE_DURATION_UNIT(minutes);
-  DECLARE_DURATION_UNIT(seconds);
-  DECLARE_DURATION_UNIT(milliseconds);
-  DECLARE_DURATION_UNIT(microseconds);
-  DECLARE_DURATION_UNIT(nanoseconds);
-
-#undef DECLARE_DURATION_UNIT
-
-  DurationBaseStyle style = DurationBaseStyle::Short;
-  int8_t fractionalDigits = -1;
-};
-
-struct DurationUnitOptions {
-  // Use the same bit-widths for fast extraction from DurationFormatOptions.
-  DurationDisplay display : 1;
-  DurationStyle style : 3;
-};
+struct DurationFormatOptions;
 
 class DurationFormatObject : public NativeObject {
  public:
@@ -128,17 +100,9 @@ class DurationFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM, JS::StringValue(numberingSystem));
   }
 
-  DurationFormatOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<DurationFormatOptions*>(slot.toPrivate());
-  }
+  DurationFormatOptions getOptions() const;
 
-  void setOptions(DurationFormatOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
-  }
+  void setOptions(const DurationFormatOptions& options);
 
   mozilla::intl::NumberFormat* getNumberFormat(
       temporal::TemporalUnit unit) const {

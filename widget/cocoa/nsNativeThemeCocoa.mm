@@ -13,7 +13,6 @@
 #include "nsDeviceContext.h"
 #include "nsLayoutUtils.h"
 #include "nsObjCExceptions.h"
-#include "nsNumberControlFrame.h"
 #include "nsRect.h"
 #include "nsSize.h"
 #include "nsStyleConsts.h"

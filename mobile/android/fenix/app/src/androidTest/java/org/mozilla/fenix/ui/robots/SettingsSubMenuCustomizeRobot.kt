@@ -241,6 +241,30 @@ class SettingsSubMenuCustomizeRobot {
         Log.i(TAG, "clickTheChangeIconDialogButton: Clicked the \"Change icon\" dialog button")
     }
 
+    fun verifyToolbarLayout() {
+        Log.i(TAG, "verifyToolbarLayout: Trying to verify that the \"Simple\" toolbar layout option is visible")
+        simpleToolbarLayoutToggle()
+            .check(matches(ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)))
+        Log.i(TAG, "verifyToolbarLayout: Verified that the \"Simple\" toolbar layout option is visible")
+        Log.i(TAG, "verifyToolbarLayout: Trying to verify that the \"Expanded\" toolbar layout option is visible")
+        expandedToolbarLayoutToggle()
+            .check(matches(ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)))
+        Log.i(TAG, "verifyToolbarLayout: Verified that the \"Expanded\" toolbar layout option is visible")
+    }
+
+    fun selectExpandedToolbarLayout() {
+        Log.i(TAG, "selectExpandedToolbarLayout: Trying to click the \"Expanded\" toolbar layout option")
+        expandedToolbarLayoutToggle().click()
+        Log.i(TAG, "selectExpandedToolbarLayout: Clicked the \"Expanded\" toolbar layout option")
+    }
+
+    fun verifyToolbarLayoutPreference(selectedToolbarLayout: String) {
+        Log.i(TAG, "verifyToolbarLayoutPreference: Trying to verify that the $selectedToolbarLayout toolbar layout option is checked")
+        onView(withText(selectedToolbarLayout))
+            .check(matches(hasSibling(allOf(withId(R.id.radio_button), isChecked()))))
+        Log.i(TAG, "verifyToolbarLayoutPreference: Verified that the $selectedToolbarLayout toolbar layout option is checked")
+    }
+
     class Transition {
         fun goBack(interact: SettingsRobot.() -> Unit): SettingsRobot.Transition {
             Log.i(TAG, "goBack: Waiting for device to be idle")
@@ -278,3 +302,7 @@ private fun pullToRefreshToggle() =
 
 private fun goBackButton() =
     onView(allOf(ViewMatchers.withContentDescription("Navigate up")))
+
+private fun simpleToolbarLayoutToggle() = onView(withText("Simple"))
+
+private fun expandedToolbarLayoutToggle() = onView(withText("Expanded"))

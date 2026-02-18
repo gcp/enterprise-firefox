@@ -1366,6 +1366,54 @@ async function populateICEFoundations() {
   };
 }
 
+async function populateSDPCodecList() {
+  if (!window.RTCPeerConnection) {
+    return {};
+  }
+  if (window.location.hash === "#automation") {
+    return {};
+  }
+
+  const pc = new RTCPeerConnection({ iceServers: [] });
+  pc.createDataChannel("fp");
+
+  const offer = await pc.createOffer();
+  pc.close();
+
+  // Extract codec-related SDP lines (strip session-specific values)
+  const lines = offer.sdp.split("\r\n");
+  const codecLines = lines.filter(
+    l =>
+      l.startsWith("m=") ||
+      l.startsWith("a=rtpmap:") ||
+      l.startsWith("a=fmtp:") ||
+      l.startsWith("a=rtcp-fb:")
+  );
+
+  return { sdpCodecList: JSON.stringify(codecLines) };
+}
+
+async function populateWebAuthnCapabilities() {
+  if (!window.PublicKeyCredential) {
+    return {};
+  }
+  if (!PublicKeyCredential.getClientCapabilities) {
+    return {};
+  }
+
+  const caps = await PublicKeyCredential.getClientCapabilities();
+  return { webauthnCapabilities: JSON.stringify(caps) };
+}
+
+async function populateStorageQuota() {
+  if (!navigator.storage || !navigator.storage.estimate) {
+    return {};
+  }
+
+  const estimate = await navigator.storage.estimate();
+  return { storageQuota: Math.round(estimate.quota / 1048576) };
+}
+
 async function populateSensorInfo() {
   const { promise, resolve } = Promise.withResolvers();
 
@@ -1579,6 +1627,9 @@ async function startPopulating() {
     populateAudioFingerprint,
     populatePointerInfo,
     populateICEFoundations,
+    populateSDPCodecList,
+    populateWebAuthnCapabilities,
+    populateStorageQuota,
     populateSensorInfo,
     populateMathML,
     populateCSSQueries,

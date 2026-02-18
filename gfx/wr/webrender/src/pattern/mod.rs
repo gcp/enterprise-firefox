@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub mod gradient;
+pub mod box_shadow;
+
 use api::{ColorF, units::DeviceRect};
 
 use crate::clip::{ClipIntern, ClipStore};
@@ -19,15 +22,13 @@ use crate::transform::TransformPalette;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PatternKind {
     ColorOrTexture = 0,
-    RadialGradient = 1,
-    ConicGradient = 2,
-    Gradient = 3,
+    Gradient = 1,
 
-    Mask = 4,
+    Mask = 2,
     // When adding patterns, don't forget to update the NUM_PATTERNS constant.
 }
 
-pub const NUM_PATTERNS: u32 = 5;
+pub const NUM_PATTERNS: u32 = 3;
 
 impl PatternKind {
     pub fn from_u32(val: u32) -> Self {

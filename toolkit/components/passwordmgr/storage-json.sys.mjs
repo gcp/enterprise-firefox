@@ -203,9 +203,15 @@ export class LoginManagerStorage_json {
   }
 
   // Returns false if the login has marked as deleted or doesn't exist.
-  loginIsDeleted(guid) {
+  #loginIsDeleted(guid) {
     let login = this._store.data.logins.find(l => l.guid == guid);
     return !!login?.deleted;
+  }
+
+  async loginIsDeletedAsync(guid) {
+    let result = this.#loginIsDeleted(guid);
+    // Emulate being async:
+    return Promise.resolve(result);
   }
 
   // Synchronuously stores encrypted login, returns login clone with upserted
@@ -1029,7 +1035,7 @@ export class LoginManagerStorage_json {
       .map((login, i) => {
         // Deleted logins don't have any info to decrypt.
         const decryptedLogin = login.clone();
-        if (this.loginIsDeleted(login.guid)) {
+        if (this.#loginIsDeleted(login.guid)) {
           return decryptedLogin;
         }
 
@@ -1104,7 +1110,7 @@ export class LoginManagerStorage_json {
     let result = [];
 
     for (let login of logins) {
-      if (this.loginIsDeleted(login.guid)) {
+      if (this.#loginIsDeleted(login.guid)) {
         result.push(login);
         continue;
       }
@@ -1144,7 +1150,7 @@ export class LoginManagerStorage_json {
     this._store.ensureDataReady();
 
     const encryptedLogins = structuredClone(
-      this._store.data.logins.filter(login => !this.loginIsDeleted(login.guid))
+      this._store.data.logins.filter(login => !this.#loginIsDeleted(login.guid))
     );
     let encrypted = encryptedLogins.flatMap(
       ({ encryptedUsername, encryptedPassword, encryptedUnknownFields }) => [

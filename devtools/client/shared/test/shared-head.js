@@ -2555,8 +2555,8 @@ async function toggleJsTracer(toolbox) {
  *        The id of the context menu item
  */
 function getNetmonitorContextMenuItem(monitor, id) {
-  const Menu = require("resource://devtools/client/framework/menu.js");
-  return Menu.getMenuElementById(id, monitor.panelWin.document);
+  const menuDoc = DevToolsUtils.getTopWindow(monitor.panelWin).document;
+  return menuDoc.getElementById(id);
 }
 
 /**

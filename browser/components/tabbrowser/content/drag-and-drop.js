@@ -868,11 +868,24 @@
       }
       if (target && ignoreSides) {
         let { width, height } = target.getBoundingClientRect();
+
+        let xMin = target.screenX + width * 0.25;
+        let xMax = target.screenX + width * 0.75;
+        if (isTab(target) && target.splitview) {
+          let [lTab, rTab] = window.RTL_UI
+            ? target.splitview.tabs.reverse()
+            : target.splitview.tabs;
+          xMin = lTab.screenX + lTab.getBoundingClientRect().width * 0.25;
+          xMax = rTab.screenX + rTab.getBoundingClientRect().width * 0.75;
+        }
+
+        let yMin = target.screenY + height * 0.25;
+        let yMax = target.screenY + height * 0.75;
+
         if (
-          event.screenX < target.screenX + width * 0.25 ||
-          event.screenX > target.screenX + width * 0.75 ||
-          ((event.screenY < target.screenY + height * 0.25 ||
-            event.screenY > target.screenY + height * 0.75) &&
+          event.screenX < xMin ||
+          event.screenX > xMax ||
+          ((event.screenY < yMin || event.screenY > yMax) &&
             this._tabbrowserTabs.verticalMode)
         ) {
           return null;

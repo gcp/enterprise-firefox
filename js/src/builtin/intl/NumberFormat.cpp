@@ -33,8 +33,8 @@
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/NumberFormatOptions.h"
 #include "builtin/intl/ParameterNegotiation.h"
-#include "builtin/intl/PluralRules.h"
 #include "builtin/intl/RelativeTimeFormat.h"
 #include "builtin/intl/UsingEnum.h"
 #include "builtin/Number.h"
@@ -135,6 +135,22 @@ const ClassSpec NumberFormatObject::classSpec_ = {
     ClassSpec::DontDefineConstructor,
 };
 
+NumberFormatOptions js::intl::NumberFormatObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS_SLOT);
+  const auto& digitsSlot = getFixedSlot(DIGITS_OPTIONS_SLOT);
+  if (slot.isUndefined() || digitsSlot.isUndefined()) {
+    return {};
+  }
+  return PackedNumberFormatOptions::unpack(slot, digitsSlot);
+}
+
+void js::intl::NumberFormatObject::setOptions(
+    const NumberFormatOptions& options) {
+  auto [packed, packedDigits] = PackedNumberFormatOptions::pack(options);
+  setFixedSlot(OPTIONS_SLOT, packed);
+  setFixedSlot(DIGITS_OPTIONS_SLOT, packedDigits);
+}
+
 /**
  * IsWellFormedCurrencyCode ( currency )
  *
@@ -157,30 +173,35 @@ static constexpr bool IsWellFormedNormalizedCurrencyCode(
  */
 static constexpr bool IsWellFormedNormalizedCurrencyCode(
     const NumberFormatUnitOptions::Currency& currency) {
-  return IsWellFormedNormalizedCurrencyCode(
-      std::string_view{currency.code, std::size(currency.code)});
+  return IsWellFormedNormalizedCurrencyCode(currency.to_string_view());
 }
 #endif
 
 /**
  * Hash a well-formed currency in normalized case.
  */
-static constexpr int32_t CurrencyHash(std::string_view currency) {
+static constexpr int32_t CurrencyHash(
+    const NumberFormatUnitOptions::Currency& currency) {
   MOZ_ASSERT(IsWellFormedNormalizedCurrencyCode(currency));
 
-  // Prefer small hash values because they can be more likely encoded as
-  // literals in assembly code.
-  //
-  // Each character is in A..Z, so there are 26 possible values, which can be
-  // represented in five bits. That means 15 bits are needed in total to hash a
-  // currency, which fits in int16 and therefore can be encoded directly for
-  // x86 and arm64 assembly.
-  return ((currency[0] - 'A') << 10) | ((currency[1] - 'A') << 5) |
-         ((currency[2] - 'A') << 0);
+  return currency.toIndex();
 }
 
-constexpr auto operator""_curr(const char* code, size_t n) {
-  return CurrencyHash({code, n});
+struct CurrencyLiteral {
+  NumberFormatUnitOptions::Currency currency;
+
+  static constexpr size_t CurrencyLength =
+      std::extent_v<decltype(currency.code)>;
+
+  constexpr MOZ_IMPLICIT CurrencyLiteral(
+      const char (&code)[CurrencyLength + 1]) {
+    std::copy_n(code, CurrencyLength, currency.code);
+  }
+};
+
+template <CurrencyLiteral C>
+constexpr auto operator""_curr() {
+  return CurrencyHash(C.currency);
 }
 
 /**
@@ -194,7 +215,7 @@ static int32_t CurrencyDigits(
   MOZ_ASSERT(IsWellFormedNormalizedCurrencyCode(currency));
 
   // Step 2.
-  switch (CurrencyHash(currency.code)) {
+  switch (CurrencyHash(currency)) {
 #define CURRENCY(currency, digits) \
   case #currency##_curr:           \
     return digits;
@@ -280,12 +301,20 @@ static constexpr size_t MaxUnitLength() {
  *
  * Also see: https://unicode.org/reports/tr35/tr35-general.html#Unit_Elements
  */
-static bool IsSanctionedSingleUnitIdentifier(std::string_view unitIdentifier) {
-  return std::ranges::binary_search(
-      std::begin(mozilla::intl::simpleMeasureUnits),
-      std::end(mozilla::intl::simpleMeasureUnits), unitIdentifier,
-      [](const auto& a, const auto& b) { return a < b; },
-      [](const auto& unit) { return std::string_view{unit.name}; });
+static mozilla::Maybe<uint8_t> IsSanctionedSingleUnitIdentifier(
+    std::string_view unitIdentifier) {
+  auto comp = [](const auto& a, const auto& b) { return a < b; };
+  auto proj = [](const auto& unit) { return std::string_view{unit.name}; };
+
+  const auto* first = std::begin(mozilla::intl::simpleMeasureUnits);
+  const auto* last = std::end(mozilla::intl::simpleMeasureUnits);
+
+  const auto* it =
+      std::ranges::lower_bound(first, last, unitIdentifier, comp, proj);
+  if (it == last || (unitIdentifier != it->name)) {
+    return mozilla::Nothing();
+  }
+  return mozilla::Some(uint8_t(std::distance(first, it)));
 }
 
 /**
@@ -297,10 +326,13 @@ static bool IsSanctionedSingleUnitIdentifier(std::string_view unitIdentifier) {
  * sanctioned by UTS #35 or be a compound unit composed of two sanctioned simple
  * units.
  */
-static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
+static mozilla::Maybe<NumberFormatUnitOptions::Unit> IsWellFormedUnitIdentifier(
+    std::string_view unitIdentifier) {
   // Step 1.
-  if (IsSanctionedSingleUnitIdentifier(unitIdentifier)) {
-    return true;
+  if (auto numerator = IsSanctionedSingleUnitIdentifier(unitIdentifier)) {
+    return mozilla::Some(NumberFormatUnitOptions::Unit{
+        .numerator = *numerator,
+    });
   }
 
   // Step 2.
@@ -309,7 +341,7 @@ static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
 
   // Step 3.
   if (pos == std::string_view::npos) {
-    return false;
+    return mozilla::Nothing();
   }
 
   // Step 4.
@@ -318,23 +350,32 @@ static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
   // so we can skip searching for the second "-per-" substring.
 
   // Step 5.
-  auto numerator = unitIdentifier.substr(0, pos);
+  auto numerator =
+      IsSanctionedSingleUnitIdentifier(unitIdentifier.substr(0, pos));
 
   // Step 6.
-  auto denominator = unitIdentifier.substr(pos + separator.length());
+  auto denominator = IsSanctionedSingleUnitIdentifier(
+      unitIdentifier.substr(pos + separator.length()));
 
-  // Steps 7-8.
-  return IsSanctionedSingleUnitIdentifier(numerator) &&
-         IsSanctionedSingleUnitIdentifier(denominator);
+  // Step 7.
+  if (numerator && denominator) {
+    return mozilla::Some(NumberFormatUnitOptions::Unit{
+        .numerator = *numerator,
+        .denominator = *denominator,
+    });
+  }
+
+  // Step 8.
+  return mozilla::Nothing();
 }
 
 /**
  * Return true if |unitIdentifier| is an available unit identifier.
  */
-static bool IsAvailableUnitIdentifier(JSContext* cx,
-                                      std::string_view unitIdentifier,
-                                      bool* result) {
-  MOZ_ASSERT(IsWellFormedUnitIdentifier(unitIdentifier));
+static bool IsAvailableUnitIdentifier(
+    JSContext* cx, const NumberFormatUnitOptions::Unit& unitIdentifier,
+    bool* result) {
+  MOZ_ASSERT(unitIdentifier.hasNumerator());
 
 #if DEBUG || MOZ_SYSTEM_ICU
   auto units = mozilla::intl::MeasureUnit::GetAvailable();
@@ -343,20 +384,17 @@ static bool IsAvailableUnitIdentifier(JSContext* cx,
     return false;
   }
 
-  constexpr std::string_view separator = "-per-";
+  std::string_view numerator =
+      mozilla::intl::simpleMeasureUnits[unitIdentifier.numerator].name;
 
-  auto numerator = unitIdentifier;
-  auto denominator = unitIdentifier;
-
-  // Compound units are separated by "-per-".
-  auto pos = unitIdentifier.find(separator);
-  if (pos != std::string_view::npos) {
-    numerator = unitIdentifier.substr(0, pos);
-    denominator = unitIdentifier.substr(pos + separator.length());
+  std::string_view denominator{};
+  if (unitIdentifier.hasDenominator()) {
+    denominator =
+        mozilla::intl::simpleMeasureUnits[unitIdentifier.denominator].name;
   }
 
   bool foundNumerator = false;
-  bool foundDenominator = false;
+  bool foundDenominator = !unitIdentifier.hasDenominator();
   for (auto unit : units.unwrap()) {
     if (unit.isErr()) {
       ReportInternalError(cx);
@@ -368,7 +406,7 @@ static bool IsAvailableUnitIdentifier(JSContext* cx,
     if (numerator == unitView) {
       foundNumerator = true;
     }
-    if (denominator == unitView) {
+    if (unitIdentifier.hasDenominator() && denominator == unitView) {
       foundDenominator = true;
     }
 
@@ -411,9 +449,6 @@ static bool ToWellFormedUnitIdentifier(JSContext* cx,
                                        NumberFormatUnitOptions::Unit* result) {
   static constexpr size_t UnitLength = MaxUnitLength();
 
-  static_assert(std::extent_v<decltype(result->name)> > UnitLength,
-                "large enough to hold the largest unit and a NUL terminator");
-
   if (unitIdentifier->length() <= UnitLength) {
     auto* linear = unitIdentifier->ensureLinear(cx);
     if (!linear) {
@@ -425,18 +460,15 @@ static bool ToWellFormedUnitIdentifier(JSContext* cx,
       char chars[UnitLength] = {};
       CopyChars(reinterpret_cast<JS::Latin1Char*>(chars), *linear);
 
-      // String view over the unit identifier characters.
-      std::string_view unit{chars, unitIdentifier->length()};
-
       // If the unit is well-formed and available, copy it to the result.
-      if (IsWellFormedUnitIdentifier(unit)) {
+      auto unit = IsWellFormedUnitIdentifier({chars, unitIdentifier->length()});
+      if (unit) {
         bool isAvailable;
-        if (!IsAvailableUnitIdentifier(cx, unit, &isAvailable)) {
+        if (!IsAvailableUnitIdentifier(cx, *unit, &isAvailable)) {
           return false;
         }
         if (isAvailable) {
-          unit.copy(result->name, std::size(result->name));
-          result->name[unit.length()] = '\0';
+          *result = *unit;
           return true;
         }
       }
@@ -457,7 +489,7 @@ static constexpr std::string_view RoundingModeToString(
   using enum NumberFormatDigitOptions::RoundingMode;
 #else
   USING_ENUM(NumberFormatDigitOptions::RoundingMode, Ceil, Floor, Expand, Trunc,
-             HalfCeil, HalfFloor, HalfExpand, HalfTrunc, HalfEven);
+             HalfCeil, HalfFloor, HalfExpand, HalfTrunc, HalfEven, HalfOdd);
 #endif
   switch (roundingMode) {
     case Ceil:
@@ -478,6 +510,9 @@ static constexpr std::string_view RoundingModeToString(
       return "halfTrunc";
     case HalfEven:
       return "halfEven";
+    case HalfOdd:
+      // Not available in ECMA-402.
+      break;
   }
   MOZ_CRASH("invalid number format rounding mode");
 }
@@ -1177,10 +1212,7 @@ static bool InitializeNumberFormat(JSContext* cx,
   }
   numberFormat->setRequestedLocales(requestedLocalesArray);
 
-  auto nfOptions = cx->make_unique<NumberFormatOptions>();
-  if (!nfOptions) {
-    return false;
-  }
+  NumberFormatOptions nfOptions{};
 
   if (!optionsValue.isUndefined()) {
     // ResolveOptions, steps 2-3.
@@ -1222,12 +1254,12 @@ static bool InitializeNumberFormat(JSContext* cx,
     // Step 5-8. (Performed in ResolveLocale)
 
     // Step 9.
-    if (!SetNumberFormatUnitOptions(cx, nfOptions->unitOptions, options)) {
+    if (!SetNumberFormatUnitOptions(cx, nfOptions.unitOptions, options)) {
       return false;
     }
 
     // Step 10.
-    auto style = nfOptions->unitOptions.style;
+    auto style = nfOptions.unitOptions.style;
 
     // Step 11.
     static constexpr auto notations =
@@ -1242,7 +1274,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     }
 
     // Step 12.
-    nfOptions->notation = notation;
+    nfOptions.notation = notation;
 
     // Steps 13-14.
     int32_t mnfdDefault;
@@ -1250,7 +1282,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     if (style == NumberFormatUnitOptions::Style::Currency &&
         notation == NumberFormatOptions::Notation::Standard) {
       // Steps 13.a-b.
-      int32_t cDigits = CurrencyDigits(nfOptions->unitOptions.currency);
+      int32_t cDigits = CurrencyDigits(nfOptions.unitOptions.currency);
 
       // Step 13.c.
       mnfdDefault = cDigits;
@@ -1266,7 +1298,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     }
 
     // Step 15.
-    if (!SetNumberFormatDigitOptions(cx, nfOptions->digitOptions, options,
+    if (!SetNumberFormatDigitOptions(cx, nfOptions.digitOptions, options,
                                      mnfdDefault, mxfdDefault, notation)) {
       return false;
     }
@@ -1278,7 +1310,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     if (!GetStringOption(cx, options, cx->names().compactDisplay,
                          compactDisplays,
                          NumberFormatOptions::CompactDisplay::Short,
-                         &nfOptions->compactDisplay)) {
+                         &nfOptions.compactDisplay)) {
       return false;
     }
 
@@ -1306,7 +1338,7 @@ static bool InitializeNumberFormat(JSContext* cx,
     }
 
     // Steps 21-23.
-    nfOptions->useGrouping = useGrouping.match(
+    nfOptions.useGrouping = useGrouping.match(
         [](bool grouping) {
           if (grouping) {
             return NumberFormatOptions::UseGrouping::Always;
@@ -1326,26 +1358,12 @@ static bool InitializeNumberFormat(JSContext* cx,
         NumberFormatOptions::SignDisplay::Negative);
     if (!GetStringOption(cx, options, cx->names().signDisplay, signDisplays,
                          NumberFormatOptions::SignDisplay::Auto,
-                         &nfOptions->signDisplay)) {
+                         &nfOptions.signDisplay)) {
       return false;
     }
   } else {
     static constexpr NumberFormatOptions defaultOptions = {
-        .digitOptions =
-            {
-                .roundingIncrement = 1,
-                .minimumIntegerDigits = 1,
-                .minimumFractionDigits = 0,
-                .maximumFractionDigits = 3,
-                .minimumSignificantDigits = 0,
-                .maximumSignificantDigits = 0,
-                .roundingMode =
-                    NumberFormatDigitOptions::RoundingMode::HalfExpand,
-                .roundingPriority =
-                    NumberFormatDigitOptions::RoundingPriority::Auto,
-                .trailingZeroDisplay =
-                    NumberFormatDigitOptions::TrailingZeroDisplay::Auto,
-            },
+        .digitOptions = NumberFormatDigitOptions::defaultOptions(),
         .unitOptions =
             {
                 .style = NumberFormatUnitOptions::Style::Decimal,
@@ -1356,11 +1374,9 @@ static bool InitializeNumberFormat(JSContext* cx,
     };
 
     // Initialize using the default number format options.
-    *nfOptions = defaultOptions;
+    nfOptions = defaultOptions;
   }
-  numberFormat->setOptions(nfOptions.release());
-  AddCellMemory(numberFormat, sizeof(NumberFormatOptions),
-                MemoryUse::IntlOptions);
+  numberFormat->setOptions(nfOptions);
 
   // Step 26. (Performed in caller)
 
@@ -1438,10 +1454,6 @@ void js::intl::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* numberFormat = &obj->as<NumberFormatObject>();
   auto* nf = numberFormat->getNumberFormatter();
   auto* nrf = numberFormat->getNumberRangeFormatter();
-
-  if (auto* options = numberFormat->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (nf) {
     RemoveICUCellMemory(gcx, obj, NumberFormatObject::EstimatedMemoryUse);
@@ -1523,77 +1535,6 @@ static UniqueChars NumberFormatLocale(
   return FormatLocale(cx, locale, keywords);
 }
 
-static auto ToCurrencyDisplay(
-    NumberFormatUnitOptions::CurrencyDisplay currencyDisplay) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::CurrencyDisplay;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::CurrencyDisplay, Symbol,
-             NarrowSymbol, Code, Name);
-#endif
-  switch (currencyDisplay) {
-    case NumberFormatUnitOptions::CurrencyDisplay::Symbol:
-      return Symbol;
-    case NumberFormatUnitOptions::CurrencyDisplay::NarrowSymbol:
-      return NarrowSymbol;
-    case NumberFormatUnitOptions::CurrencyDisplay::Code:
-      return Code;
-    case NumberFormatUnitOptions::CurrencyDisplay::Name:
-      return Name;
-  }
-  MOZ_CRASH("invalid currency display");
-}
-
-static auto ToUnitDisplay(NumberFormatUnitOptions::UnitDisplay unitDisplay) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::UnitDisplay;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::UnitDisplay, Short, Narrow,
-             Long);
-#endif
-  switch (unitDisplay) {
-    case NumberFormatUnitOptions::UnitDisplay::Short:
-      return Short;
-    case NumberFormatUnitOptions::UnitDisplay::Narrow:
-      return Narrow;
-    case NumberFormatUnitOptions::UnitDisplay::Long:
-      return Long;
-  }
-  MOZ_CRASH("invalid unit display");
-}
-
-static auto ToRoundingMode(
-    NumberFormatDigitOptions::RoundingMode roundingMode) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::RoundingMode;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::RoundingMode, Ceil, Floor,
-             Expand, Trunc, HalfCeil, HalfFloor, HalfExpand, HalfTrunc,
-             HalfEven);
-#endif
-  switch (roundingMode) {
-    case NumberFormatDigitOptions::RoundingMode::Ceil:
-      return Ceil;
-    case NumberFormatDigitOptions::RoundingMode::Floor:
-      return Floor;
-    case NumberFormatDigitOptions::RoundingMode::Expand:
-      return Expand;
-    case NumberFormatDigitOptions::RoundingMode::Trunc:
-      return Trunc;
-    case NumberFormatDigitOptions::RoundingMode::HalfCeil:
-      return HalfCeil;
-    case NumberFormatDigitOptions::RoundingMode::HalfFloor:
-      return HalfFloor;
-    case NumberFormatDigitOptions::RoundingMode::HalfExpand:
-      return HalfExpand;
-    case NumberFormatDigitOptions::RoundingMode::HalfTrunc:
-      return HalfTrunc;
-    case NumberFormatDigitOptions::RoundingMode::HalfEven:
-      return HalfEven;
-  }
-  MOZ_CRASH("invalid rounding mode");
-}
-
 static auto ToSignDisplay(NumberFormatOptions::SignDisplay signDisplay) {
 #ifndef USING_ENUM
   using enum mozilla::intl::NumberFormatOptions::SignDisplay;
@@ -1666,45 +1607,6 @@ static auto ToNotation(NumberFormatOptions::Notation notation,
   MOZ_CRASH("invalid notation");
 }
 
-static auto ToGrouping(NumberFormatOptions::UseGrouping useGrouping) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::Grouping;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::Grouping, Auto, Min2, Always,
-             Never);
-#endif
-  switch (useGrouping) {
-    case NumberFormatOptions::UseGrouping::Auto:
-      return Auto;
-    case NumberFormatOptions::UseGrouping::Min2:
-      return Min2;
-    case NumberFormatOptions::UseGrouping::Always:
-      return Always;
-    case NumberFormatOptions::UseGrouping::Never:
-      return Never;
-  }
-  MOZ_CRASH("invalid grouping");
-}
-
-static auto ToRoundingPriority(
-    NumberFormatDigitOptions::RoundingPriority roundingPriority) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::RoundingPriority;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::RoundingPriority, Auto,
-             MorePrecision, LessPrecision);
-#endif
-  switch (roundingPriority) {
-    case NumberFormatDigitOptions::RoundingPriority::Auto:
-      return Auto;
-    case NumberFormatDigitOptions::RoundingPriority::MorePrecision:
-      return MorePrecision;
-    case NumberFormatDigitOptions::RoundingPriority::LessPrecision:
-      return LessPrecision;
-  }
-  MOZ_CRASH("invalid rounding priority");
-}
-
 struct MozNumberFormatOptions : public mozilla::intl::NumberRangeFormatOptions {
   static_assert(std::is_base_of_v<mozilla::intl::NumberFormatOptions,
                                   mozilla::intl::NumberRangeFormatOptions>);
@@ -1712,6 +1614,35 @@ struct MozNumberFormatOptions : public mozilla::intl::NumberRangeFormatOptions {
   char currencyChars[3] = {};
   char unitChars[MaxUnitLength() + 1] = {};
 };
+
+template <size_t N>
+static std::string_view UnitName(const NumberFormatUnitOptions::Unit& unit,
+                                 char (&result)[N]) {
+  static_assert(N >= MaxUnitLength());
+
+  static constexpr size_t SimpleMeasureUnitsLength =
+      std::size(mozilla::intl::simpleMeasureUnits);
+
+  MOZ_RELEASE_ASSERT(unit.hasNumerator() &&
+                     unit.numerator < SimpleMeasureUnitsLength);
+  MOZ_RELEASE_ASSERT(!unit.hasDenominator() ||
+                     unit.denominator < SimpleMeasureUnitsLength);
+
+  size_t length = 0;
+
+  auto appendToUnit = [&](std::string_view sv) {
+    sv.copy(result + length, sv.length());
+    length += sv.length();
+  };
+
+  appendToUnit(mozilla::intl::simpleMeasureUnits[unit.numerator].name);
+  if (unit.hasDenominator()) {
+    appendToUnit("-per-");
+    appendToUnit(mozilla::intl::simpleMeasureUnits[unit.denominator].name);
+  }
+
+  return {result, length};
+}
 
 static void SetNumberFormatUnitOptions(
     const NumberFormatUnitOptions& unitOptions,
@@ -1734,10 +1665,10 @@ static void SetNumberFormatUnitOptions(
       static_assert(std::extent_v<decltype(options.currencyChars)> ==
                     CurrencyLength);
 
-      std::copy_n(unitOptions.currency.code, CurrencyLength,
-                  options.currencyChars);
+      unitOptions.currency.to_string_view().copy(options.currencyChars,
+                                                 CurrencyLength);
 
-      auto display = ToCurrencyDisplay(unitOptions.currencyDisplay);
+      auto display = unitOptions.currencyDisplay;
 
       options.mCurrency = mozilla::Some(std::make_pair(
           std::string_view(options.currencyChars, CurrencyLength), display));
@@ -1745,21 +1676,10 @@ static void SetNumberFormatUnitOptions(
     }
 
     case NumberFormatUnitOptions::Style::Unit: {
-      static constexpr size_t UnitLength = MaxUnitLength();
+      auto name = UnitName(unitOptions.unit, options.unitChars);
+      auto display = unitOptions.unitDisplay;
 
-      static_assert(
-          std::extent_v<decltype(unitOptions.unit.name)> > UnitLength,
-          "large enough to hold the largest unit and a NUL terminator");
-      static_assert(
-          std::extent_v<decltype(options.unitChars)> > UnitLength,
-          "large enough to hold the largest unit and a NUL terminator");
-
-      std::copy_n(unitOptions.unit.name, UnitLength, options.unitChars);
-
-      auto display = ToUnitDisplay(unitOptions.unitDisplay);
-
-      options.mUnit = mozilla::Some(
-          std::make_pair(std::string_view(options.unitChars), display));
+      options.mUnit = mozilla::Some(std::make_pair(name, display));
       return;
     }
   }
@@ -1793,8 +1713,8 @@ static void SetNumberFormatDigitOptions(
 
   options.mMinIntegerDigits = mozilla::Some(digitOptions.minimumIntegerDigits);
   options.mRoundingIncrement = digitOptions.roundingIncrement;
-  options.mRoundingMode = ToRoundingMode(digitOptions.roundingMode);
-  options.mRoundingPriority = ToRoundingPriority(digitOptions.roundingPriority);
+  options.mRoundingMode = digitOptions.roundingMode;
+  options.mRoundingPriority = digitOptions.roundingPriority;
   options.mStripTrailingZero =
       digitOptions.trailingZeroDisplay ==
       NumberFormatDigitOptions::TrailingZeroDisplay::StripIfInteger;
@@ -1806,7 +1726,7 @@ static void SetNumberFormatOptions(const NumberFormatOptions& nfOptions,
   SetNumberFormatUnitOptions(nfOptions.unitOptions, options);
 
   options.mNotation = ToNotation(nfOptions.notation, nfOptions.compactDisplay);
-  options.mGrouping = ToGrouping(nfOptions.useGrouping);
+  options.mGrouping = nfOptions.useGrouping;
   if (nfOptions.unitOptions.style == NumberFormatUnitOptions::Style::Currency &&
       nfOptions.unitOptions.currencySign ==
           NumberFormatUnitOptions::CurrencySign::Accounting) {
@@ -1840,7 +1760,7 @@ static Formatter* NewNumberFormat(JSContext* cx,
   if (!ResolveLocale(cx, numberFormat)) {
     return nullptr;
   }
-  auto nfOptions = *numberFormat->getOptions();
+  auto nfOptions = numberFormat->getOptions();
 
   auto locale = NumberFormatLocale(cx, numberFormat);
   if (!locale) {
@@ -2983,7 +2903,7 @@ static bool numberFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
   if (!ResolveLocale(cx, numberFormat)) {
     return false;
   }
-  auto nfOptions = *numberFormat->getOptions();
+  auto nfOptions = numberFormat->getOptions();
 
   // Step 4.
   Rooted<IdValueVector> options(cx, cx);
@@ -3022,8 +2942,8 @@ static bool numberFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
       // currency, currencyDisplay, and currencySign are only present for
       // currency formatters.
 
-      const auto& code = nfOptions.unitOptions.currency.code;
-      auto* currency = NewStringCopyN<CanGC>(cx, code, std::size(code));
+      auto code = nfOptions.unitOptions.currency.to_string_view();
+      auto* currency = NewStringCopy<CanGC>(cx, code);
       if (!currency) {
         return false;
       }
@@ -3057,9 +2977,10 @@ static bool numberFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
 
     case Unit: {
       // unit and unitDisplay are only present for unit formatters.
+      char unitChars[MaxUnitLength()] = {};
 
-      auto name = std::string_view{nfOptions.unitOptions.unit.name};
-      auto* unit = NewStringCopy<CanGC>(cx, name);
+      auto* unit = NewStringCopy<CanGC>(
+          cx, UnitName(nfOptions.unitOptions.unit, unitChars));
       if (!unit) {
         return false;
       }

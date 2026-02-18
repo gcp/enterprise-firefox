@@ -126,8 +126,6 @@
     <ID>UndocumentedPublicClass:SupportUtils.kt$SupportUtils</ID>
     <ID>UndocumentedPublicClass:SupportUtils.kt$SupportUtils$SumoTopic</ID>
     <ID>UndocumentedPublicClass:SwitchWithDescription.kt$SwitchWithDescription : ConstraintLayout</ID>
-    <ID>UndocumentedPublicClass:TabViewHolder.kt$TabViewHolder : ViewHolder</ID>
-    <ID>UndocumentedPublicClass:TabsPopup.kt$TabsPopup : PopupWindow</ID>
     <ID>UndocumentedPublicClass:TelemetryMiddleware.kt$TelemetryMiddleware : Middleware</ID>
     <ID>UndocumentedPublicClass:TrackingProtectionPanel.kt$TrackingProtectionPanel : BottomSheetDialog</ID>
     <ID>UndocumentedPublicClass:ViewUtils.kt$ViewUtils</ID>

@@ -14,7 +14,7 @@
 #include "builtin/Array.h"
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/LocaleNegotiation.h"
-#include "builtin/intl/NumberFormat.h"
+#include "builtin/intl/NumberFormatOptions.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
 #include "gc/GCContext.h"
@@ -100,6 +100,19 @@ const ClassSpec PluralRulesObject::classSpec_ = {
     nullptr,
     ClassSpec::DontDefineConstructor,
 };
+
+PluralRulesOptions js::intl::PluralRulesObject::getOptions() const {
+  const auto& slot = getFixedSlot(OPTIONS_SLOT);
+  if (slot.isUndefined()) {
+    return {};
+  }
+  return PackedPluralRulesOptions::unpack(slot);
+}
+
+void js::intl::PluralRulesObject::setOptions(
+    const PluralRulesOptions& options) {
+  setFixedSlot(OPTIONS_SLOT, PackedPluralRulesOptions::pack(options));
+}
 
 static constexpr std::string_view PluralRulesTypeToString(
     PluralRulesOptions::Type type) {
@@ -193,10 +206,7 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
   }
   pluralRules->setRequestedLocales(requestedLocalesArray);
 
-  auto plOptions = cx->make_unique<PluralRulesOptions>();
-  if (!plOptions) {
-    return false;
-  }
+  PluralRulesOptions plOptions{};
 
   if (args.hasDefined(1)) {
     // ResolveOptions, steps 2-3.
@@ -234,8 +244,7 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
     static constexpr auto types = MapOptions<PluralRulesTypeToString>(
         PluralRulesOptions::Type::Cardinal, PluralRulesOptions::Type::Ordinal);
     if (!GetStringOption(cx, options, cx->names().type, types,
-                         PluralRulesOptions::Type::Cardinal,
-                         &plOptions->type)) {
+                         PluralRulesOptions::Type::Cardinal, &plOptions.type)) {
       return false;
     }
 
@@ -247,7 +256,7 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
         PluralRulesOptions::Notation::Compact);
     if (!GetStringOption(cx, options, cx->names().notation, notations,
                          NumberFormatOptions::Notation::Standard,
-                         &plOptions->notation)) {
+                         &plOptions.notation)) {
       return false;
     }
 
@@ -259,41 +268,26 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
     if (!GetStringOption(cx, options, cx->names().compactDisplay,
                          compactDisplays,
                          PluralRulesOptions::CompactDisplay::Short,
-                         &plOptions->compactDisplay)) {
+                         &plOptions.compactDisplay)) {
       return false;
     }
 
     // Step 13.
-    if (!SetNumberFormatDigitOptions(cx, plOptions->digitOptions, options, 0, 3,
-                                     plOptions->notation)) {
+    if (!SetNumberFormatDigitOptions(cx, plOptions.digitOptions, options, 0, 3,
+                                     plOptions.notation)) {
       return false;
     }
   } else {
     static constexpr PluralRulesOptions defaultOptions = {
-        .digitOptions =
-            {
-                .roundingIncrement = 1,
-                .minimumIntegerDigits = 1,
-                .minimumFractionDigits = 0,
-                .maximumFractionDigits = 3,
-                .minimumSignificantDigits = 0,
-                .maximumSignificantDigits = 0,
-                .roundingMode =
-                    NumberFormatDigitOptions::RoundingMode::HalfExpand,
-                .roundingPriority =
-                    NumberFormatDigitOptions::RoundingPriority::Auto,
-                .trailingZeroDisplay =
-                    NumberFormatDigitOptions::TrailingZeroDisplay::Auto,
-            },
-        .notation = NumberFormatOptions::Notation::Standard,
+        .digitOptions = NumberFormatDigitOptions::defaultOptions(),
+        .type = PluralRulesOptions::Type::Cardinal,
+        .notation = PluralRulesOptions::Notation::Standard,
     };
 
     // Initialize using the default plural rules options.
-    *plOptions = defaultOptions;
+    plOptions = defaultOptions;
   }
-  pluralRules->setOptions(plOptions.release());
-  AddCellMemory(pluralRules, sizeof(PluralRulesOptions),
-                MemoryUse::IntlOptions);
+  pluralRules->setOptions(plOptions);
 
   // Step 14.
   args.rval().setObject(*pluralRules);
@@ -302,10 +296,6 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
 
 void js::intl::PluralRulesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* pluralRules = &obj->as<PluralRulesObject>();
-
-  if (auto* options = pluralRules->getOptions()) {
-    gcx->delete_(obj, options, MemoryUse::IntlOptions);
-  }
 
   if (auto* pr = pluralRules->getPluralRules()) {
     RemoveICUCellMemory(gcx, obj,
@@ -376,21 +366,6 @@ static JSString* KeywordToString(mozilla::intl::PluralRules::Keyword keyword,
   MOZ_CRASH("Unexpected PluralRules keyword");
 }
 
-static auto ToPluralRulesType(PluralRulesOptions::Type type) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::PluralRules::Type;
-#else
-  USING_ENUM(mozilla::intl::PluralRules::Type, Cardinal, Ordinal);
-#endif
-  switch (type) {
-    case PluralRulesOptions::Type::Cardinal:
-      return Cardinal;
-    case PluralRulesOptions::Type::Ordinal:
-      return Ordinal;
-  }
-  MOZ_CRASH("invalid plural rules type");
-}
-
 /**
  * Returns a new intl::PluralRules with the locale and type options of the given
  * PluralRules.
@@ -400,7 +375,7 @@ static mozilla::intl::PluralRules* NewPluralRules(
   if (!ResolveLocale(cx, pluralRules)) {
     return nullptr;
   }
-  auto plOptions = *pluralRules->getOptions();
+  auto plOptions = pluralRules->getOptions();
 
   auto locale = EncodeLocale(cx, pluralRules->getLocale());
   if (!locale) {
@@ -408,7 +383,7 @@ static mozilla::intl::PluralRules* NewPluralRules(
   }
 
   mozilla::intl::PluralRulesOptions options = {
-      .mPluralType = ToPluralRulesType(plOptions.type),
+      .mPluralType = plOptions.type,
   };
   SetPluralRulesOptions(plOptions, options);
 
@@ -653,7 +628,7 @@ static bool pluralRules_resolvedOptions(JSContext* cx, const CallArgs& args) {
   if (!ResolveLocale(cx, pluralRules)) {
     return false;
   }
-  auto plOptions = *pluralRules->getOptions();
+  auto plOptions = pluralRules->getOptions();
 
   // Step 4. (Reordered)
   Rooted<ArrayObject*> pluralCategories(cx,

@@ -18,6 +18,7 @@
 #include "mozilla/Result.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StringBuffer.h"
+#include "mozilla/TextControlElement.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/Comment.h"
@@ -1801,16 +1802,10 @@ nsHTMLCopyEncoder::SetSelection(Selection* aSelection) {
   RefPtr<nsRange> range = aSelection->GetRangeAt(0);
   nsINode* commonParent = range->GetClosestCommonInclusiveAncestor();
 
-  for (nsCOMPtr<nsIContent> selContent(
-           nsIContent::FromNodeOrNull(commonParent));
-       selContent; selContent = selContent->GetParent()) {
-    // checking for selection inside a plaintext form widget
-    if (selContent->IsAnyOfHTMLElements(nsGkAtoms::input,
-                                        nsGkAtoms::textarea)) {
-      mIsTextWidget = true;
-      break;
-    }
-  }
+  mIsTextWidget =
+      commonParent &&
+      TextControlElement::FromNodeOrNull(
+          commonParent->GetClosestNativeAnonymousSubtreeRootParentOrHost());
 
   // normalize selection if we are not in a widget
   if (mIsTextWidget) {

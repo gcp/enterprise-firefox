@@ -7,8 +7,6 @@
 #ifndef builtin_intl_Collator_h
 #define builtin_intl_Collator_h
 
-#include "mozilla/Maybe.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,20 +21,7 @@ class Collator;
 
 namespace js::intl {
 
-struct CollatorOptions {
-  enum class Usage : int8_t { Sort, Search };
-  Usage usage = Usage::Sort;
-
-  enum class Sensitivity : int8_t { Base, Accent, Case, Variant };
-  mozilla::Maybe<Sensitivity> sensitivity{};
-
-  mozilla::Maybe<bool> ignorePunctuation{};
-
-  mozilla::Maybe<bool> numeric{};
-
-  enum class CaseFirst : int8_t { Upper, Lower, False };
-  mozilla::Maybe<CaseFirst> caseFirst{};
-};
+struct CollatorOptions;
 
 class CollatorObject : public NativeObject {
  public:
@@ -91,17 +76,9 @@ class CollatorObject : public NativeObject {
     setFixedSlot(COLLATION_SLOT, JS::StringValue(collation));
   }
 
-  CollatorOptions* getOptions() const {
-    const auto& slot = getFixedSlot(OPTIONS_SLOT);
-    if (slot.isUndefined()) {
-      return nullptr;
-    }
-    return static_cast<CollatorOptions*>(slot.toPrivate());
-  }
+  CollatorOptions getOptions() const;
 
-  void setOptions(CollatorOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
-  }
+  void setOptions(const CollatorOptions& options);
 
   mozilla::intl::Collator* getCollator() const {
     const auto& slot = getFixedSlot(INTL_COLLATOR_SLOT);
