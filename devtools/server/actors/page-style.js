@@ -680,13 +680,8 @@ class PageStyleActor extends Actor {
    *        provided node
    * @param {GetAppliedFilterOption} options.filter - will be passed to #getElementRules
    *
-   * @return Array The rules for a given element. Each item in the
-   *               array has the following signature:
-   *                - rule RuleActor
-   *                - inherited NodeActor
-   *                - isSystem Boolean
-   *                - pseudoElement String
-   *                - darkColorScheme Boolean
+   * @return {Array{AppliedStyle}} The rules for a given element.
+   *         See #getRuleItem for definition.
    */
   #getAllElementRules(node, { isInherited, skipPseudo, filter }) {
     const { bindingElement, pseudo } = CssLogic.getBindingElementAndPseudo(
@@ -698,53 +693,67 @@ class PageStyleActor extends Actor {
       return rules;
     }
 
+    // First add rule actors for element style defined via the DOM "style" attribute,
+    // and/or via the JS "style" attribute (CSSOM API).
     if (bindingElement.style) {
-      const elementStyle = this.styleRef(
-        bindingElement,
-        // for inline style, we can't have a related pseudo element
-        null
-      );
+      // We only show element styles if:
+      //  - we aren't processing a parent element for inherited rules, and that's not a pseudo element
+      //    --or--
+      //  - we are processing parent elements for inherited rules and we have at least one inherited rule
       const showElementStyles = !isInherited && !pseudo;
       const showInheritedStyles =
         isInherited && this.#hasInheritedProps(bindingElement.style);
 
-      const rule = this.#getRuleItem(elementStyle, node.rawNode, {
-        pseudoElement: null,
-        isSystem: false,
-        inherited: null,
-      });
+      if (showElementStyles || showInheritedStyles) {
+        const elementStyleActor = this.styleRef(
+          bindingElement,
+          // We never try to fetch element styles for pseudo elements.
+          null
+        );
 
-      // First any inline styles
-      if (showElementStyles) {
-        rules.push(rule);
-      }
-
-      // Now any inherited styles
-      if (showInheritedStyles) {
-        // at this point `isInherited` is true, so we want to put the NodeActor in the
-        // `inherited` property so the client can show this information (for example in
-        // the "Inherited from X" section in the Rules view).
-        rule.inherited = node;
-        rules.push(rule);
+        if (showElementStyles) {
+          rules.push(
+            this.#getRuleItem(elementStyleActor, node.rawNode, {
+              pseudoElement: null,
+              isSystem: false,
+              inherited: null,
+            })
+          );
+        } else if (showInheritedStyles) {
+          // at this point `isInherited` is true, so we want to put the NodeActor in the
+          // `inherited` property so the client can show this information (for example in
+          // the "Inherited from X" section in the Rules view).
+          rules.push(
+            this.#getRuleItem(elementStyleActor, node.rawNode, {
+              pseudoElement: null,
+              isSystem: false,
+              inherited: node,
+            })
+          );
+        }
       }
     }
 
-    // Add normal rules.  Typically this is passing in the node passed into the
-    // function, unless if that node was ::before/::after.  In which case,
-    // it will pass in the parentNode along with "::before"/"::after".
-    this.#getElementRules(
+    // Add normal rules matching exactly the DOM Element passed in (node).
+    //
+    // Typically this is passing in the node passed into the function (node == bindingElement),
+    // unless if that node was a pseudo element (like ::before, ::marker,...).
+    // In which case, it will pass in the `parentNode` (bindingElement) along with "::before", "::marker",... in `pseudo` argument.
+    for (const oneRule of this.#getElementRules(
       bindingElement,
       pseudo,
       isInherited ? node : null,
       filter
-    ).forEach(oneRule => {
-      // The only case when there would be a pseudo here is
-      // ::before/::after, and in this case we want to tell the
-      // view that it belongs to the element (which is a
-      // _moz_generated_content native anonymous element).
+    )) {
+      // When processing a pseudo element (like ::before, ::marker,...)
+      // The "appliedstyle" object will be flagged as pseudo with a valid `pseudoElement` string attribute.
+      // But as we are fetching rules for the pseudo DOM element itself and not its parent
+      // we don't want to be considered as a nested rule.
+      // If we keep this attribute, the rule would be displayed in container dedicated to all the pseudo elements.
       oneRule.pseudoElement = null;
+
       rules.push(oneRule);
-    });
+    }
 
     // If we don't want to check pseudo elements rules, we can stop here.
     if (skipPseudo) {
@@ -802,23 +811,37 @@ class PageStyleActor extends Actor {
   }
 
   /**
-   * @param {DOMNode} rawNode
-   * @param {StyleRuleActor} styleRuleActor
+   * Create a new rule description ultimately returned by PageStyle.getApplied method.
+   *
+   * @param {StyleRuleActor} rule
+   * @param {DOMNode | null} rawNode
    * @param {object} params
    * @param {NodeActor} params.inherited
    * @param {boolean} params.isSystem
    * @param {string | null} params.pseudoElement
-   * @returns Object
+   * @param {StyleRuleActor} params.keyframes
+   * @returns {appliedstyle}
    */
-  #getRuleItem(rule, rawNode, { inherited, isSystem, pseudoElement }) {
+  #getRuleItem(
+    rule,
+    rawNode = null,
+    { inherited, isSystem, pseudoElement, keyframes } = {}
+  ) {
     return {
+      // /!\ Keep "appliedstyle" protocol.js type definition in sync with this object
       rule,
       pseudoElement,
       isSystem,
       inherited,
       // We can't compute the value for the whole document as the color scheme
       // can be set at the node level (e.g. with `color-scheme`)
-      darkColorScheme: InspectorUtils.isUsedColorSchemeDark(rawNode),
+      darkColorScheme: rawNode
+        ? InspectorUtils.isUsedColorSchemeDark(rawNode)
+        : undefined,
+      keyframes,
+
+      // May be later set from getAppliedProps.
+      matchedSelectorIndexes: undefined,
     };
   }
 
@@ -941,7 +964,7 @@ class PageStyleActor extends Actor {
    * @param {NodeActor} inherited
    * @param {GetAppliedFilterOption} filter
    *
-   * @returns Array
+   * @returns {Array<appliedstyle>}
    */
   #getElementRules(node, pseudo, inherited, filter) {
     if (!Element.isInstance(node)) {
@@ -1057,7 +1080,7 @@ class PageStyleActor extends Actor {
    *   is provided and only the style properties that apply to the new
    *   rule is fetched.
    * @param {GetAppliedOptions} options
-   * @returns Array of rule entries that applies to the given node and its associated rules.
+   * @returns {Array<appliedstyle>} of rule entries that applies to the given node and its associated rules.
    */
   getAppliedProps(node, entries, options) {
     if (options.inherited) {
@@ -1144,10 +1167,11 @@ class PageStyleActor extends Actor {
           }
 
           for (const rule of keyframesRule.cssRules) {
-            entries.push({
-              rule: this.styleRef(rule),
-              keyframes: this.styleRef(keyframesRule),
-            });
+            entries.push(
+              this.#getRuleItem(this.styleRef(rule), null, {
+                keyframes: this.styleRef(keyframesRule),
+              })
+            );
           }
         }
       }
@@ -1166,9 +1190,7 @@ class PageStyleActor extends Actor {
           continue;
         }
 
-        entries.push({
-          rule: this.styleRef(positionTryRule),
-        });
+        entries.push(this.#getRuleItem(this.styleRef(positionTryRule)));
       }
     }
 
@@ -1299,7 +1321,7 @@ class PageStyleActor extends Actor {
    */
   getNewAppliedProps(node, rule) {
     const ruleActor = this.styleRef(rule);
-    return this.getAppliedProps(node, [{ rule: ruleActor }], {
+    return this.getAppliedProps(node, [this.#getRuleItem(ruleActor)], {
       matchedSelectors: true,
     });
   }
