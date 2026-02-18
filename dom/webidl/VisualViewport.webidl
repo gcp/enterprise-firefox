@@ -22,5 +22,4 @@ interface VisualViewport : EventTarget {
 
   attribute EventHandler onresize;
   attribute EventHandler onscroll;
-  attribute EventHandler onscrollend;
 };
