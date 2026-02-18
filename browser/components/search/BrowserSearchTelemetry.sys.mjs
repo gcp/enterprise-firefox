@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   ContextId: "moz-src:///browser/modules/ContextId.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchSERPTelemetry:
@@ -161,7 +161,7 @@ class BrowserSearchTelemetryHandler {
    *        The search engine alias used in the search, if any.
    * @param {string} [details.newtabSessionId=undefined]
    *        The newtab session that prompted this search, if any.
-   * @param {string} [details.searchUrlType=undefined]
+   * @param {Values<typeof lazy.SearchUtils.URL_TYPE>} [details.searchUrlType=undefined]
    *        A `SearchUtils.URL_TYPE` value that indicates the type of search.
    *        Defaults to `SearchUtils.URL_TYPE.SEARCH`, a plain old search.
    * @throws if source is not in the known sources list.
