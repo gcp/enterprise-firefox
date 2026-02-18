@@ -944,6 +944,12 @@ export class UrlbarView {
       // noticeable on Mac. Use `openPopup()` with x and y coords instead. See
       // bug 1831760 and bug 1710459.
       let rect = getBoundsWithoutFlushing(anchor);
+      rect = this.window.windowUtils.toScreenRectInCSSUnits(
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+      );
       this.resultMenu.openPopup(null, {
         x: rect.x,
         y: rect.y + rect.height,

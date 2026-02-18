@@ -866,7 +866,6 @@ async function clickDoorhangerButton(buttonType, index = 0) {
   let button;
   if (buttonType == MAIN_BUTTON || buttonType == SECONDARY_BUTTON) {
     button = getNotification()[buttonType];
-    button.click();
   } else if (buttonType == MENU_BUTTON) {
     // Click the dropmarker arrow and wait for the menu to show up.
     info("expecting notification menu button present");
@@ -885,9 +884,9 @@ async function clickDoorhangerButton(buttonType, index = 0) {
     await dropdownPromise;
 
     button = notification.querySelectorAll("menuitem")[index];
-    notification.menupopup.activateItem(button);
   }
 
+  button.click();
   info("expecting notification popup hidden");
   await popuphidden;
 }
@@ -908,8 +907,6 @@ async function clickAddressDoorhangerButton(buttonType, subType) {
     } else if (subType == ADDRESS_MENU_LEARN_MORE) {
       button = AutofillDoorhanger.learnMoreButton(notification);
     }
-    menupopup.activateItem(button);
-    return;
   } else {
     await clickDoorhangerButton(buttonType);
     return;

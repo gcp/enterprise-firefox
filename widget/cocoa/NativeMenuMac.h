@@ -29,10 +29,8 @@ class NativeMenuMac : public NativeMenu,
   explicit NativeMenuMac(dom::Element* aElement);
 
   // NativeMenu
-  void ShowMenuAnchored(nsIFrame* aClickedFrame, const CSSIntRect& aRect,
-                        const nsAString& aPosition) override;
-  void ShowMenuAtPosition(nsIFrame* aClickedFrame, const CSSIntPoint& aPosition,
-                          bool aIsContextMenu) override;
+  void ShowAsContextMenu(nsIFrame* aClickedFrame, const CSSIntPoint& aPosition,
+                         bool aIsContextMenu) override;
   bool Close() override;
   void ActivateItem(dom::Element* aItemElement, Modifiers aModifiers,
                     int16_t aButton, ErrorResult& aRv) override;

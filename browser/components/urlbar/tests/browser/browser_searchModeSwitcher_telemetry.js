@@ -22,18 +22,18 @@ add_task(async function test_opened() {
   await cleanUp();
 
   info("Open search mode switcher popup");
-  const popup1 = await UrlbarTestUtils.openSearchModeSwitcher(window);
+  await UrlbarTestUtils.openSearchModeSwitcher(window);
   Assert.equal(Glean.urlbarUnifiedsearchbutton.opened.testGetValue(), 1);
 
   info("Close search mode switcher popup");
-  popup1.hidePopup();
+  EventUtils.synthesizeKey("KEY_Escape", {});
 
   info("Open search mode switcher popup again");
-  const popup2 = await UrlbarTestUtils.openSearchModeSwitcher(window);
+  await UrlbarTestUtils.openSearchModeSwitcher(window);
   Assert.equal(Glean.urlbarUnifiedsearchbutton.opened.testGetValue(), 2);
 
   info("Close search mode switcher popup again");
-  popup2.hidePopup();
+  EventUtils.synthesizeKey("KEY_Escape", {});
 });
 
 add_task(async function test_picked_search_engines() {

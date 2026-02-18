@@ -83,14 +83,9 @@ var gContextMenuFired = false;
 async function startTest()
 {
   // These tests check behavior of non-native menus, and use anchored and non-anchored popups
-  // somewhat interchangeably. So disable native menus for this test.
+  // somewhat interchangeably. So disable native context menus for this test.
   // We will have separate tests for native context menu behavior, see bug 1700727.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["widget.macos.native-anchored-menus", false],
-      ["widget.macos.native-context-menus", false]
-    ]
-  });
+  await SpecialPowers.pushPrefEnv({ set: [["widget.macos.native-context-menus", false]] });
 
   // first, check if the richlistbox selection changes on a contextmenu mouse event
   var element = $("list");

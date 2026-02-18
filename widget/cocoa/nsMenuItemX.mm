@@ -67,6 +67,13 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
     mMenuGroupOwner->RegisterForContentChanges(mImageElement, this);
   }
 
+  // decide enabled state based on command content if it exists, otherwise do it
+  // based on our own content
+  const bool isEnabled =
+      mCommandElement
+          ? !mCommandElement->GetBoolAttr(nsGkAtoms::disabled)
+          : !mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled);
+
   // set up the native menu item
   if (mType == eSeparatorMenuItemType) {
     mNativeMenuItem = [[NSMenuItem separatorItem] retain];
@@ -77,13 +84,14 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
                                                       action:nil
                                                keyEquivalent:@""];
 
-    SetEnabled();
-    SetChecked();
+    mIsChecked = mContent->AsElement()->GetBoolAttr(nsGkAtoms::checked);
+
+    mNativeMenuItem.enabled = isEnabled;
+    mNativeMenuItem.state =
+        mIsChecked ? NSControlStateValueOn : NSControlStateValueOff;
+
     SetKeyEquiv();
     SetBadge();
-    SetAttributedTitle();
-    SetIndentationLevel();
-    SetTooltip();
   }
 
   mIcon = MakeUnique<nsMenuItemIconX>(this);
@@ -148,15 +156,18 @@ void nsMenuItemX::DetachFromGroupOwner() {
   mMenuGroupOwner = nullptr;
 }
 
-nsresult nsMenuItemX::ModifyChecked(bool aIsChecked) {
+nsresult nsMenuItemX::SetChecked(bool aIsChecked) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  mIsChecked = aIsChecked;
 
   // update the content model. This will also handle unchecking our siblings
   // if we are a radiomenu
-  mContent->AsElement()->SetBoolAttr(nsGkAtoms::checked, aIsChecked);
+  mContent->AsElement()->SetBoolAttr(nsGkAtoms::checked, mIsChecked);
 
   // update native menu item
-  SetChecked();
+  mNativeMenuItem.state =
+      mIsChecked ? NSControlStateValueOn : NSControlStateValueOff;
 
   return NS_OK;
 
@@ -175,7 +186,7 @@ void nsMenuItemX::DoCommand(NSEventModifierFlags aModifierFlags,
     if (!mContent->AsElement()->AttrValueIs(kNameSpaceID_None,
                                             nsGkAtoms::autocheck,
                                             nsGkAtoms::_false, eCaseMatters)) {
-      ModifyChecked(!mIsChecked);
+      SetChecked(!mIsChecked);
     }
     /* the AttributeChanged code will update all the internal state */
   }
@@ -315,94 +326,6 @@ void nsMenuItemX::SetBadge() {
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
-void nsMenuItemX::SetTitle() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  nsAutoString newLabel;
-  mContent->AsElement()->GetAttr(nsGkAtoms::label, newLabel);
-  mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
-
-  SetAttributedTitle();
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::SetAttributedTitle() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  if (!mMenuParent->IsAnchoredPopUp()) {
-    // Use attributed titles only on anchored popups so that pulldowns and
-    // context menus always use native default sizing.
-    return;
-  }
-
-  if (NSAttributedString* attrString = nsMenuUtilsX::AttributedStringForContent(
-          mContent, mNativeMenuItem.title)) {
-    mNativeMenuItem.attributedTitle = attrString;
-  } else {
-    mNativeMenuItem.attributedTitle = nil;
-  }
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::SetChecked() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  mIsChecked = mContent->AsElement()->GetBoolAttr(nsGkAtoms::checked) ||
-               mContent->AsElement()->GetBoolAttr(nsGkAtoms::selected);
-
-  mNativeMenuItem.state =
-      mIsChecked ? NSControlStateValueOn : NSControlStateValueOff;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::SetEnabled() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  // decide enabled state based on command content if it exists, otherwise do it
-  // based on our own content
-  bool isEnabled;
-  if (mCommandElement) {
-    isEnabled = !mCommandElement->GetBoolAttr(nsGkAtoms::disabled);
-  } else if (mContent->IsXULElement(nsGkAtoms::menucaption)) {
-    isEnabled = false;
-  } else {
-    isEnabled = !mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled);
-  }
-
-  mNativeMenuItem.enabled = isEnabled;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::SetIndentationLevel() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  if (mContent->AsElement()->GetBoolAttr(nsGkAtoms::indented)) {
-    mNativeMenuItem.indentationLevel = 1;
-  } else {
-    mNativeMenuItem.indentationLevel = 0;
-  }
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::SetTooltip() {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
-  nsAutoString tooltip;
-  if (!mContent->AsElement()->GetAttr(nsGkAtoms::tooltiptext, tooltip)) {
-    mNativeMenuItem.toolTip = nil;
-    return;
-  }
-
-  mNativeMenuItem.toolTip = nsMenuUtilsX::GetTruncatedCocoaLabel(tooltip);
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
 void nsMenuItemX::Dump(uint32_t aIndent) const {
   printf("%*s - item [%p] %-16s <%s>\n", aIndent * 2, "", this,
          mType == eSeparatorMenuItemType ? "----"
@@ -424,15 +347,14 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
   }
 
   if (aContent == mContent) {  // our own content node changed
-    if (aAttribute == nsGkAtoms::checked || aAttribute == nsGkAtoms::selected) {
+    if (aAttribute == nsGkAtoms::checked) {
       // if we're a radio menu, uncheck our sibling radio items. No need to
       // do any of this if we're just a normal check menu.
       // XXX isn't this done by XULButtonElement as well?
-      if (aAttribute == nsGkAtoms::checked && mType == eRadioMenuItemType &&
+      if (mType == eRadioMenuItemType &&
           mContent->AsElement()->GetBoolAttr(nsGkAtoms::checked)) {
         UncheckRadioSiblings(mContent);
       }
-      SetChecked();
       mMenuParent->SetRebuild(true);
     } else if (aAttribute == nsGkAtoms::hidden ||
                aAttribute == nsGkAtoms::collapsed) {
@@ -449,18 +371,17 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
       mMenuParent->SetRebuild(true);
     } else if (aAttribute == nsGkAtoms::label) {
       if (mType != eSeparatorMenuItemType) {
-        SetTitle();
+        nsAutoString newLabel;
+        mContent->AsElement()->GetAttr(nsGkAtoms::label, newLabel);
+        mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
       }
     } else if (aAttribute == nsGkAtoms::badge) {
       SetBadge();
     } else if (aAttribute == nsGkAtoms::key) {
       SetKeyEquiv();
     } else if (aAttribute == nsGkAtoms::disabled) {
-      SetEnabled();
-    } else if (aAttribute == nsGkAtoms::indented) {
-      SetIndentationLevel();
-    } else if (aAttribute == nsGkAtoms::tooltiptext) {
-      SetTooltip();
+      mNativeMenuItem.enabled =
+          !aContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled);
     }
   } else if (aContent == mCommandElement) {
     // the only thing that really matters when the menu isn't showing is the
@@ -476,7 +397,7 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
                                            commandDisabled);
       }
       // now we sync our native menu item with the command DOM node
-      SetEnabled();
+      mNativeMenuItem.enabled = !commandDisabled;
     }
   } else if (aContent == mImageElement && aAttribute == nsGkAtoms::srcset) {
     SetupIcon();
@@ -486,8 +407,7 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
 }
 
 bool IsMenuStructureElement(nsIContent* aContent) {
-  return aContent->IsAnyOfXULElements(nsGkAtoms::menu, nsGkAtoms::menucaption,
-                                      nsGkAtoms::menuitem,
+  return aContent->IsAnyOfXULElements(nsGkAtoms::menu, nsGkAtoms::menuitem,
                                       nsGkAtoms::menuseparator);
 }
 

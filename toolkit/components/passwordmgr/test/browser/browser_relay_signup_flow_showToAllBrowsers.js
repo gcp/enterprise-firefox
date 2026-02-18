@@ -276,7 +276,7 @@ async function clickThruMoreActionsToDisableRelay(notificationPopup) {
   );
   await BrowserTestUtils.waitForPopupEvent(menuPopup, "shown");
   const buttonToClick = menuPopup.querySelector("menuitem[accesskey='D']");
-  notificationPopup.activateItem(buttonToClick);
+  await clickButtonAndWaitForPopupToClose(buttonToClick);
 }
 
 add_task(

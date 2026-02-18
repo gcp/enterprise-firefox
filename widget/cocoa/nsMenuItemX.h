@@ -70,7 +70,7 @@ class nsMenuItemX final : public nsChangeObserver,
   void IconUpdated() override;
 
   // nsMenuItemX
-  nsresult ModifyChecked(bool aIsChecked);
+  nsresult SetChecked(bool aIsChecked);
   EMenuItemType GetMenuItemType();
   void DoCommand(NSEventModifierFlags aModifierFlags, int16_t aButton);
   nsresult DispatchDOMEvent(const nsString& eventName,
@@ -88,15 +88,8 @@ class nsMenuItemX final : public nsChangeObserver,
   void UncheckRadioSiblings(nsIContent* aCheckedElement);
   void SetKeyEquiv();
   void SetBadge();
-  void SetTitle();
-  void SetAttributedTitle();
-  void SetChecked();
-  void SetEnabled();
-  void SetIndentationLevel();
-  void SetTooltip();
 
-  // XUL <menucaption>, <menuitem>, or <menuseparator>
-  nsCOMPtr<nsIContent> mContent;
+  nsCOMPtr<nsIContent> mContent;  // XUL <menuitem> or <menuseparator>
 
   EMenuItemType mType;
 

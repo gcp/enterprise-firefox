@@ -2264,7 +2264,6 @@ var BookmarkingUI = {
       is: "places-popup",
     });
     otherBookmarksPopup.setAttribute("placespopup", "true");
-    otherBookmarksPopup.setAttribute("native", "false");
     otherBookmarksPopup.setAttribute("context", "placesContext");
     otherBookmarksPopup.classList.add("toolbar-menupopup");
     otherBookmarksPopup.id = "OtherBookmarksPopup";

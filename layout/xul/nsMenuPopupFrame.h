@@ -313,12 +313,6 @@ class nsMenuPopupFrame final : public nsBlockFrame, public nsIWidgetListener {
   // a chrome shell
   bool IsInContentShell() const { return mInContentShell; }
 
-  void InitializePopupProperties(nsIContent* aAnchorContent,
-                                 nsIContent* aTriggerContent,
-                                 const nsAString& aPosition, int32_t aXPos,
-                                 int32_t aYPos, MenuPopupAnchorType aAnchorType,
-                                 bool aAttributesOverride);
-
   // the Initialize methods are used to set the anchor position for
   // each way of opening a popup.
   void InitializePopup(nsIContent* aAnchorContent, nsIContent* aTriggerContent,
@@ -341,13 +335,6 @@ class nsMenuPopupFrame final : public nsBlockFrame, public nsIWidgetListener {
   // Called if this popup should be displayed as an OS-native context menu.
   void InitializePopupAsNativeContextMenu(nsIContent* aTriggerContent,
                                           int32_t aXPos, int32_t aYPos);
-
-  // Called if this popup should be displayed as an OS-native anchored menu.
-  void InitializePopupAsNativeAnchoredMenu(nsIContent* aAnchorContent,
-                                           nsIContent* aTriggerContent,
-                                           const nsAString& aPosition,
-                                           const mozilla::CSSIntRect& aRect,
-                                           bool aIsContextMenu);
 
   // indicate that the popup should be opened
   void ShowPopup(bool aIsContextMenu);
@@ -662,7 +649,7 @@ class nsMenuPopupFrame final : public nsBlockFrame, public nsIWidgetListener {
   bool mConstrainedByLayout = false;
 
   // Whether the most recent initialization of this menupopup happened via
-  // InitializePopupAsNativeContextMenu or InitializePopupAsNativeAnchoredMenu.
+  // InitializePopupAsNativeContextMenu.
   bool mIsNativeMenu = false;
 
   // Whether we have a pending `popuppositioned` event.
