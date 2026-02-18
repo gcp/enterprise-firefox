@@ -15,7 +15,9 @@
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Logging.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/SyncRunnable.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/Base64.h"
 #include "nsUrlClassifierDBService.h"
 #include "nsUrlClassifierUtils.h"
@@ -152,6 +154,13 @@ nsresult Classifier::GetPrivateStoreDirectory(
   providerDirectory.forget(aPrivateStoreDirectory);
 
   return NS_OK;
+}
+
+// static
+bool Classifier::IsRealTimeModeEnabled() {
+  return StaticPrefs::browser_safebrowsing_realTime_enabled() &&
+         StaticPrefs::browser_safebrowsing_globalCache_enabled() &&
+         Preferences::GetBool("browser.safebrowsing.provider.google5.enabled");
 }
 
 Classifier::Classifier()
