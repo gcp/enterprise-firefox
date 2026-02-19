@@ -4,7 +4,9 @@
 
 //! Glean telemetry integration.
 
-use crate::config::{buildid, Config};
+use crate::config::{buildid, installation_resource_path, Config};
+use ini::Ini;
+use url::Url;
 
 const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -27,17 +29,20 @@ impl InitOptions {
     /// Initialize glean.
     ///
     /// When mocking, this should be called on a thread where the mock data is present.
-    pub fn init(self) -> std::io::Result<crashping::GleanHandle> {
-        self.init_glean().initialize()
+    pub fn init(self) -> anyhow::Result<crashping::GleanHandle> {
+        let glean_handle = self.init_glean()?.initialize()?;
+        Ok(glean_handle)
     }
 
     /// Initialize glean for tests.
     #[cfg(test)]
     fn test_init(self) {
-        self.init_glean().test_reset_glean(true)
+        self.init_glean()
+            .expect("Mock initialization should succeed")
+            .test_reset_glean(true)
     }
 
-    fn init_glean(self) -> crashping::InitGlean {
+    fn init_glean(self) -> anyhow::Result<crashping::InitGlean> {
         let mut data_dir = if cfg!(mock) {
             // Use a (non-mocked) temp directory since glean won't access our mocked API.
             ::std::env::temp_dir().join("crashreporter-mock")
@@ -67,9 +72,29 @@ impl InitOptions {
         if cfg!(mock) {
             init_glean.configuration.server_endpoint =
                 Some("https://incoming.glean.example.com".to_owned());
+        } else if cfg!(feature = "enterprise") {
+            let console_url = Self::construct_enterprise_console_endpoint()?;
+            init_glean.configuration.server_endpoint = Some(console_url);
         }
 
-        init_glean
+        Ok(init_glean)
+    }
+
+    fn construct_enterprise_console_endpoint() -> anyhow::Result<String> {
+        let ini_path = installation_resource_path()
+            .join("distribution")
+            .join("distribution.ini");
+        let mut ini_file = crate::std::fs::File::open(ini_path)?;
+        let conf = Ini::read_from(&mut ini_file)?;
+        let console_url = conf
+            .get_from(Some("Preferences"), "enterprise.console.address")
+            .ok_or(anyhow::anyhow!("Failed to find console address preference"))?;
+        let mut parsed_console_url = Url::parse(console_url)?;
+        parsed_console_url.set_path(&format!(
+            "{}/api/browser/telemetry",
+            parsed_console_url.path().trim_end_matches('/')
+        ));
+        Ok(parsed_console_url.to_string())
     }
 }
 
@@ -125,6 +150,7 @@ mod uploader {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::std::{fs::MockFS, fs::MockFiles, mock};
     use once_cell::sync::Lazy;
     use std::sync::{Mutex, MutexGuard};
 
@@ -159,6 +185,70 @@ mod test {
                 true,
             );
         }
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    fn build_expected_enterprise_glean_url() -> anyhow::Result<()> {
+        let mock_files = MockFiles::new();
+        mock_files.add_dir("work_dir/distribution");
+        mock_files.add_file(
+            "work_dir/distribution/distribution.ini",
+            "[Preferences]\n\
+        enterprise.console.address=https://console.example.com/foo/",
+        );
+
+        mock::builder()
+            .set(MockFS, mock_files.clone())
+            .set(
+                crate::std::env::MockCurrentExe,
+                "work_dir/crashreporter".into(),
+            )
+            .run(|| {
+                let path_result = InitOptions::construct_enterprise_console_endpoint();
+                assert_eq!(
+                    path_result?,
+                    "https://console.example.com/foo/api/browser/telemetry"
+                );
+                anyhow::Ok(())
+            })
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    fn error_when_distribution_ini_missing() {
+        let mock_files = MockFiles::new();
+        mock_files.add_dir("work_dir/distribution");
+
+        mock::builder()
+            .set(MockFS, mock_files.clone())
+            .set(
+                crate::std::env::MockCurrentExe,
+                "work_dir/crashreporter".into(),
+            )
+            .run(|| {
+                let path_result = InitOptions::construct_enterprise_console_endpoint();
+                assert!(path_result.is_err());
+            });
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    fn error_when_console_address_missing() {
+        let mock_files = MockFiles::new();
+        mock_files.add_dir("work_dir/distribution");
+        mock_files.add_file("work_dir/distribution/distribution.ini", "[Preferences]");
+
+        mock::builder()
+            .set(MockFS, mock_files.clone())
+            .set(
+                crate::std::env::MockCurrentExe,
+                "work_dir/crashreporter".into(),
+            )
+            .run(|| {
+                let path_result = InitOptions::construct_enterprise_console_endpoint();
+                assert!(path_result.is_err());
+            });
     }
 }
 
