@@ -577,7 +577,7 @@ class TabTracker extends TabTrackerBase {
         // Because we are delaying calling emitCreated above, we also need to
         // delay sending this event because it shouldn't fire before onCreated.
         this.maybeWaitForTabOpen(nativeTab).then(() => {
-          if (!nativeTab.parentNode) {
+          if (!nativeTab.parentNode || this.adoptedTabs.has(nativeTab)) {
             // If the tab is already be destroyed, do nothing.
             return;
           }

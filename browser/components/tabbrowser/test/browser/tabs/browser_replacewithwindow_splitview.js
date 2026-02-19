@@ -1,14 +1,6 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const { PromiseTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/PromiseTestUtils.sys.mjs"
-);
-// TODO bug 2017768: the last replaceTabsWithWindow call below triggers error.
-PromiseTestUtils.allowMatchingRejectionsGlobally(
-  /Cannot attach ID to a tab in a closed window/
-);
-
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.tabs.splitView.enabled", true]],
