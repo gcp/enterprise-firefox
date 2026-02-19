@@ -54,7 +54,7 @@ async function setupVpnPrefs({
   bandwidth = false,
   autostart = false,
   autostartprivate = false,
-  entitlementCache = undefined,
+  entitlementCache = "",
 }) {
   let prefs = [
     [FEATURE_PREF, feature],
@@ -63,11 +63,8 @@ async function setupVpnPrefs({
     [BANDWIDTH_FEATURE_ENABLED_PREF, bandwidth],
     [AUTOSTART_PREF, autostart],
     [AUTOSTART_PRIVATE_PREF, autostartprivate],
+    [ENTITLEMENT_CACHE_PREF, entitlementCache],
   ];
-
-  if (entitlementCache !== undefined) {
-    prefs.push([ENTITLEMENT_CACHE_PREF, entitlementCache]);
-  }
 
   return SpecialPowers.pushPrefEnv({
     set: prefs,
@@ -118,7 +115,11 @@ add_task(
 
 // Test the site exceptions controls load correctly.
 add_task(async function test_exceptions_settings() {
-  await setupVpnPrefs({ feature: true, siteExceptions: true });
+  await setupVpnPrefs({
+    feature: true,
+    siteExceptions: true,
+    entitlementCache: '{"some":"data"}',
+  });
 
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
@@ -144,7 +145,11 @@ add_task(async function test_exceptions_settings() {
 // and correctly add site exclusions.
 add_task(async function test_exclusions_add_button() {
   const PERM_NAME = "ipp-vpn";
-  await setupVpnPrefs({ feature: "beta", siteExceptions: true });
+  await setupVpnPrefs({
+    feature: "beta",
+    siteExceptions: true,
+    entitlementCache: '{"some":"data"}',
+  });
 
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
@@ -243,7 +248,11 @@ add_task(async function test_exclusions_add_button() {
 // Test that we show the correct number of site exclusions
 add_task(async function test_exclusions_count() {
   const PERM_NAME = "ipp-vpn";
-  await setupVpnPrefs({ feature: "beta", siteExceptions: true });
+  await setupVpnPrefs({
+    feature: "beta",
+    siteExceptions: true,
+    entitlementCache: '{"some":"data"}',
+  });
 
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
@@ -340,6 +349,7 @@ add_task(async function test_autostart_checkboxes() {
     autostartFeatureEnabled: true,
     autostart: true,
     autostartprivate: true,
+    entitlementCache: '{"some":"data"}',
   });
 
   await BrowserTestUtils.withNewTab(
@@ -377,6 +387,7 @@ add_task(async function test_autostart_checkboxes() {
 add_task(async function test_additional_links() {
   await setupVpnPrefs({
     feature: true,
+    entitlementCache: '{"some":"data"}',
   });
 
   await BrowserTestUtils.withNewTab(
@@ -392,11 +403,11 @@ add_task(async function test_additional_links() {
   );
 });
 
-// Test that the "not opted in" section is shown when entitlementCache is "null"
-add_task(async function test_not_opted_in_section_visible_when_null() {
+// Test that the "not opted in" section is shown when entitlementCache is empty
+add_task(async function test_not_opted_in_section_visible_when_empty() {
   await setupVpnPrefs({
     feature: true,
-    entitlementCache: "null",
+    entitlementCache: "",
   });
 
   await BrowserTestUtils.withNewTab(
@@ -408,13 +419,13 @@ add_task(async function test_not_opted_in_section_visible_when_null() {
       );
       is_element_visible(
         notOptedInSection,
-        "Not opted in section is shown when entitlementCache is null"
+        "Not opted in section is shown when entitlementCache is empty"
       );
 
       let getStartedButton = settingGroup?.querySelector("#getStartedButton");
       is_element_visible(
         getStartedButton,
-        "Get started button is shown when entitlementCache is null"
+        "Get started button is shown when entitlementCache is empty"
       );
     }
   );
@@ -436,7 +447,7 @@ add_task(async function test_get_started_button() {
 
   await setupVpnPrefs({
     feature: true,
-    entitlementCache: "null",
+    entitlementCache: "",
   });
 
   await BrowserTestUtils.withNewTab(
@@ -446,7 +457,7 @@ add_task(async function test_get_started_button() {
       let getStartedButton = settingGroup?.querySelector("#getStartedButton");
       is_element_visible(
         getStartedButton,
-        "Get started button is shown when entitlementCache is null"
+        "Get started button is shown when entitlementCache is empty"
       );
 
       const waitForPanelShown = BrowserTestUtils.waitForEvent(
@@ -511,13 +522,13 @@ add_task(async function test_not_opted_in_section_hidden_when_opted_in() {
   );
 });
 
-// Test that VPN sections are hidden when entitlementCache is "null"
+// Test that VPN sections are hidden when entitlementCache is empty
 add_task(async function test_vpn_sections_hidden_when_not_opted_in() {
   await setupVpnPrefs({
     feature: true,
     siteExceptions: true,
     autostartFeatureEnabled: true,
-    entitlementCache: "null",
+    entitlementCache: "",
   });
 
   await BrowserTestUtils.withNewTab(
@@ -530,7 +541,7 @@ add_task(async function test_vpn_sections_hidden_when_not_opted_in() {
       );
       is_element_hidden(
         siteExceptionsGroup,
-        "Site exceptions group is hidden when entitlementCache is null"
+        "Site exceptions group is hidden when entitlementCache is empty"
       );
 
       let autoStartSettings = settingGroup?.querySelector(
@@ -538,13 +549,13 @@ add_task(async function test_vpn_sections_hidden_when_not_opted_in() {
       );
       is_element_hidden(
         autoStartSettings,
-        "Autostart settings group is hidden when entitlementCache is null"
+        "Autostart settings group is hidden when entitlementCache is empty"
       );
 
       let ipProtectionLinks = settingGroup?.querySelector("#ipProtectionLinks");
       is_element_hidden(
         ipProtectionLinks,
-        "VPN links section is hidden when entitlementCache is null"
+        "VPN links section is hidden when entitlementCache is empty"
       );
 
       let bandwidthSettings = settingGroup?.querySelector(
@@ -552,7 +563,7 @@ add_task(async function test_vpn_sections_hidden_when_not_opted_in() {
       );
       is_element_hidden(
         bandwidthSettings,
-        "Bandwidth settings are hidden when entitlementCache is null"
+        "Bandwidth settings are hidden when entitlementCache is empty"
       );
     }
   );

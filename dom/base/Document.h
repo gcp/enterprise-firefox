@@ -130,7 +130,6 @@ class ElementCreationOptionsOrString;
 class InfallibleAllocPolicy;
 class JSObject;
 class JSTracer;
-class PLDHashTable;
 class PolicyContainer;
 class gfxUserFontSet;
 class mozIDOMWindowProxy;
@@ -5507,11 +5506,18 @@ class Document : public nsINode,
   // https://drafts.csswg.org/css-viewport/#interactive-widget-section
   dom::InteractiveWidget mInteractiveWidgetMode;
 
-  // XXXdholbert This should really be modernized to a nsTHashMap or similar,
-  // though note that the modernization will need to take care to also convert
-  // the special hash_table_ops logic (e.g. how SubDocClearEntry clears the
-  // parent document as part of cleaning up an entry in this table).
-  UniquePtr<PLDHashTable> mSubDocuments;
+  // Custom deleter for a `unique_ptr<Document>` which first clears the
+  // ParentDocument edge, then releases the held reference to the document.
+  struct ClearParentDocumentDeleter {
+    void operator()(Document* aDocument) {
+      aDocument->SetParentDocument(nullptr);
+      NS_RELEASE(aDocument);
+    }
+  };
+
+  nsTHashMap<RefPtr<Element>,
+             std::unique_ptr<Document, ClearParentDocumentDeleter>>
+      mSubDocuments;
 
   class HeaderData;
   UniquePtr<HeaderData> mHeaderData;

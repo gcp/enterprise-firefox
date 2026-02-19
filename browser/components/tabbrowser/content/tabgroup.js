@@ -494,7 +494,12 @@
       if (this.isBeingDragged) {
         return false;
       }
-      if (this.collapsed && !tab.selected && !tab.multiselected) {
+      if (
+        this.collapsed &&
+        !tab.selected &&
+        !tab.multiselected &&
+        !tab.splitview?.hasActiveTab
+      ) {
         return false;
       }
       return true;

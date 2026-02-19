@@ -12,7 +12,7 @@ const { BANDWIDTH } = ChromeUtils.importESModule(
 
 function dispatchUsageEvent(remainingPercent) {
   // Use realistic byte values: 50 GB max bandwidth
-  const maxBytes = 50n * BigInt(BANDWIDTH.BYTES_IN_GB);
+  const maxBytes = BigInt(BANDWIDTH.MAX_IN_GB) * BigInt(BANDWIDTH.BYTES_IN_GB);
   const remainingBytes = BigInt(
     Math.floor(Number(maxBytes) * remainingPercent)
   );
@@ -22,11 +22,7 @@ function dispatchUsageEvent(remainingPercent) {
       bubbles: true,
       composed: true,
       detail: {
-        usage: {
-          max: maxBytes,
-          remaining: remainingBytes,
-          reset: Temporal.Now.instant(),
-        },
+        usage: new ProxyUsage(maxBytes, remainingBytes, Temporal.Now.instant()),
       },
     })
   );

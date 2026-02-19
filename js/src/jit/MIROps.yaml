@@ -2906,15 +2906,6 @@
   generate_lir: true
   lir_temps: 2
 
-- name: AddSlotAndCallAddPropHook
-  operands:
-    object: Object
-    value: Value
-  arguments:
-    shape: Shape*
-  possibly_calls: true
-  generate_lir: true
-
 - name: StoreDynamicSlot
   gen_boilerplate: false
 

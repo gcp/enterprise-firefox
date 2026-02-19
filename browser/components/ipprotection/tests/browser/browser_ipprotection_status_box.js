@@ -4,14 +4,14 @@
 
 "use strict";
 
-const { LINKS, ERRORS } = ChromeUtils.importESModule(
+const { BANDWIDTH, LINKS, ERRORS } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
 );
 const lazy = {};
 
 const mockBandwidthUsage = {
-  remaining: 50,
-  max: 150,
+  remaining: 15 * BANDWIDTH.BYTES_IN_GB,
+  max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
 };
 
 add_task(async function test_paused_content() {

@@ -641,7 +641,7 @@ nsresult HTMLSelectEventListener::KeyDown(dom::Event* aKeyEvent) {
     mControlSelectMode = false;
   }
 
-  auto isVerticalRL = [=]() -> bool {
+  auto isVerticalRL = [this]() -> bool {
     if (nsIFrame* f = mElement->GetPrimaryFrame()) {
       return f->GetWritingMode().IsVerticalRL();
     }

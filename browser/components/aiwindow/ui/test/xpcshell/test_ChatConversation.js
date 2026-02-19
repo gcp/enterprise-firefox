@@ -43,6 +43,7 @@ add_task(function test_ChatConversation_addMessage() {
   const content = {
     type: "text",
     content: "hello world",
+    userContext: {},
   };
 
   conversation.addMessage(
@@ -68,6 +69,7 @@ add_task(function test_invalidRole_ChatConversation_addMessage() {
   const content = {
     type: "text",
     content: "hello world",
+    userContext: {},
   };
 
   conversation.addMessage(313, content, new URL("https://www.mozilla.com"), 0);
@@ -81,6 +83,7 @@ add_task(function test_negativeTurnIndex_ChatConversation_addMessage() {
   const content = {
     type: "text",
     content: "hello world",
+    userContext: {},
   };
 
   conversation.addMessage(
@@ -100,6 +103,7 @@ add_task(function test_parentMessageId_ChatConversation_addMessage() {
   const content = {
     type: "text",
     content: "hello world",
+    userContext: {},
   };
 
   conversation.addMessage(
@@ -128,6 +132,7 @@ add_task(function test_ordinal_ChatConversation_addMessage() {
   const content = {
     type: "text",
     content: "hello world",
+    userContext: {},
   };
 
   conversation.addMessage(
@@ -168,6 +173,7 @@ add_task(function test_ChatConversation_addUserMessage() {
     soft.deepEqual(message.content, {
       type: "text",
       body: "user to assistant msg",
+      userContext: {},
     });
   });
 });
@@ -196,6 +202,23 @@ add_task(function test_opts_ChatConversation_addUserMessage() {
   const message = conversation.messages[0];
 
   Assert.equal(message.revisionRootMessageId, "321");
+});
+
+add_task(async function test_userContext_ChatConversation_addUserMessage() {
+  const conversation = new ChatConversation({});
+
+  const content = "user to assistant msg";
+  const userContext = { testContextInfo: "123" };
+  conversation.addUserMessage(
+    content,
+    "https://www.firefox.com",
+    new UserRoleOpts({ revisionRootMessageId: "321" }),
+    userContext
+  );
+
+  const message = conversation.messages[0];
+
+  Assert.deepEqual(message.content.userContext, userContext);
 });
 
 add_task(function test_ChatConversation_addAssistantMessage() {
@@ -492,14 +515,24 @@ add_task(function test_ChatConversation_helpersTurnIndexing() {
 add_task(function test_ChatConversation_getMessagesInOpenAiFormat() {
   const conversation = new ChatConversation({});
   conversation.addSystemMessage("text", "the system prompt");
-  conversation.addUserMessage("a user's prompt", "https://www.somesite.com");
+  conversation.addUserMessage(
+    "a user's prompt",
+    "https://www.somesite.com",
+    new UserRoleOpts(),
+    { testContext: "321" }
+  );
   conversation.addToolCallMessage({
     tool_call_id: "123",
     name: "tool_1",
     body: [1, 2, 3],
   });
   conversation.addAssistantMessage("text", "the llm response");
-  conversation.addUserMessage("a user's second prompt", "some question");
+  conversation.addUserMessage(
+    "a user's second prompt",
+    "some question",
+    new UserRoleOpts(),
+    { testContext: "654" }
+  );
   conversation.addToolCallMessage({
     tool_call_id: "456",
     name: "tool_1",
@@ -514,6 +547,7 @@ add_task(function test_ChatConversation_getMessagesInOpenAiFormat() {
     { role: "user", content: "a user's prompt" },
     { role: "tool", content: "[1,2,3]", name: "tool_1", tool_call_id: "123" },
     { role: "assistant", content: "the llm response" },
+    { role: "user", content: "654" },
     { role: "user", content: "a user's second prompt" },
     { role: "tool", content: "[4,5,6]", name: "tool_1", tool_call_id: "456" },
     { role: "assistant", content: "the second llm response" },
@@ -547,121 +581,6 @@ add_task(async function test_nonUserMessage_ChatConversation_retryMessage() {
     conversation.retryMessage(conversation.messages[0]),
     /Not a user message/
   );
-});
-
-add_task(async function test_withMemories_ChatConversation_retryMessage() {
-  let sandbox = lazy.sinon.createSandbox();
-
-  const conversation = new ChatConversation({});
-
-  sandbox.stub(conversation, "getRealTimeInfo").callsFake(() => {
-    conversation.addSystemMessage(
-      SYSTEM_PROMPT_TYPE.REAL_TIME,
-      "real time data"
-    );
-  });
-
-  sandbox.stub(conversation, "getMemoriesContext").callsFake(() => {
-    conversation.addSystemMessage(SYSTEM_PROMPT_TYPE.MEMORIES, "memories data");
-  });
-
-  conversation.addSystemMessage("text", "the system prompt");
-  conversation.addUserMessage("a user's prompt", "https://www.somesite.com");
-  conversation.addToolCallMessage({ some: "tool call details" });
-  conversation.addAssistantMessage("text", "the llm response");
-  conversation.addUserMessage("a user's second prompt", "some question");
-  conversation.addToolCallMessage({ some: "more tool call details" });
-  conversation.addAssistantMessage("text", "the second llm response");
-
-  const retryTarget = conversation.messages[1];
-  const retryIndexBefore = conversation.messages.findIndex(
-    m => m.id === retryTarget.id
-  );
-
-  if (retryIndexBefore === -1) {
-    throw new Error("Retry target must exist in messages");
-  }
-
-  const deleted = await conversation.retryMessage(retryTarget);
-
-  Assert.withSoftAssertions(function (soft) {
-    soft.equal(
-      conversation.messages.length,
-      retryIndexBefore,
-      "Conversation should be truncated to messages before the retried user message"
-    );
-
-    soft.ok(
-      Array.isArray(deleted),
-      "retryMessage should return an array of deleted messages"
-    );
-    soft.equal(
-      deleted[0].content.body,
-      "a user's prompt",
-      "First deleted message should be the retried user message"
-    );
-  });
-
-  sandbox.restore();
-});
-
-add_task(async function test_withoutMemories_ChatConversation_retryMessage() {
-  let sandbox = lazy.sinon.createSandbox();
-
-  const conversation = new ChatConversation({});
-
-  sandbox.stub(conversation, "getRealTimeInfo").callsFake(() => {
-    conversation.addSystemMessage(
-      SYSTEM_PROMPT_TYPE.REAL_TIME,
-      "real time data"
-    );
-  });
-
-  const memoriesStub = sandbox.stub(conversation, "getMemoriesContext");
-
-  conversation.addSystemMessage("text", "the system prompt");
-  conversation.addUserMessage("a user's prompt", "https://www.somesite.com");
-  conversation.addToolCallMessage({ some: "tool call details" });
-  conversation.addAssistantMessage("text", "the llm response");
-  conversation.addUserMessage("a user's second prompt", "some question");
-  conversation.addToolCallMessage({ some: "more tool call details" });
-  conversation.addAssistantMessage("text", "the second llm response");
-
-  const retryTarget = conversation.messages[1];
-  const retryIndexBefore = conversation.messages.findIndex(
-    m => m.id === retryTarget.id
-  );
-  if (retryIndexBefore === -1) {
-    throw new Error("Retry target must exist in messages");
-  }
-
-  const deleted = await conversation.retryMessage(retryTarget);
-
-  Assert.withSoftAssertions(function (soft) {
-    soft.equal(
-      conversation.messages.length,
-      retryIndexBefore,
-      "Conversation should be truncated to messages before the retried user message"
-    );
-
-    soft.ok(
-      Array.isArray(deleted),
-      "retryMessage should return an array of deleted messages"
-    );
-    soft.equal(
-      deleted[0].content.body,
-      "a user's prompt",
-      "First deleted message should be the retried user message"
-    );
-
-    soft.equal(
-      memoriesStub.called,
-      false,
-      "getMemoriesContext should not have been called by retryMessage"
-    );
-  });
-
-  sandbox.restore();
 });
 
 add_task(
@@ -826,7 +745,7 @@ add_task(async function test_returnsContent_ChatConversation_getRealTimeInfo() {
   };
 
   const conversation = new ChatConversation({});
-  await conversation.getRealTimeInfo(
+  const realTimeInfo = await conversation.getRealTimeInfo(
     mockEngineInstance,
     mockGetRealTimeMapping
   );
@@ -836,12 +755,12 @@ add_task(async function test_returnsContent_ChatConversation_getRealTimeInfo() {
       mockEngineInstance.loadPrompt.called,
       "loadPrompt should be called"
     );
-    soft.equal(conversation.messages[0].role, MESSAGE_ROLE.SYSTEM);
-    soft.deepEqual(conversation.messages[0].content, {
-      type: SYSTEM_PROMPT_TYPE.REAL_TIME,
-      body: "Current date: 2024-01-15\nLocale: en-US",
-    });
   });
+  Assert.equal(
+    realTimeInfo,
+    "Current date: 2024-01-15\nLocale: en-US",
+    "getRealTimeInfo returns the expected contexutal information"
+  );
 });
 
 add_task(
@@ -853,15 +772,15 @@ add_task(
     const mockGetRealTimeMapping = lazy.sinon.stub().resolves(null);
 
     const conversation = new ChatConversation({});
-    await conversation.getRealTimeInfo(
+    const realTimeInfo = await conversation.getRealTimeInfo(
       mockEngineInstance,
       mockGetRealTimeMapping
     );
 
     Assert.equal(
-      conversation.messages.length,
-      0,
-      "Should not add message when mapping is null"
+      realTimeInfo,
+      null,
+      "getRealTimeInfo returns null if constructRealTime returns an empty object"
     );
   }
 );
@@ -877,7 +796,7 @@ add_task(
       .resolves({ content: "memories data" });
 
     const conversation = new ChatConversation({});
-    await conversation.getMemoriesContext(
+    const memoriesContext = await conversation.getMemoriesContext(
       "hello",
       mockEngineInstance,
       constructMemories
@@ -888,12 +807,12 @@ add_task(
         constructMemories.calledWith("hello", mockEngineInstance),
         "constructMemories should be called with message and engineInstance"
       );
-      soft.equal(conversation.messages[0].role, MESSAGE_ROLE.SYSTEM);
-      soft.deepEqual(conversation.messages[0].content, {
-        type: SYSTEM_PROMPT_TYPE.MEMORIES,
-        body: "memories data",
-      });
     });
+    Assert.equal(
+      memoriesContext,
+      "memories data",
+      "getMemoriesContext returns the expected memories information"
+    );
   }
 );
 
@@ -903,9 +822,16 @@ add_task(
     const constructMemories = lazy.sinon.stub().resolves({});
 
     const conversation = new ChatConversation({});
-    await conversation.getMemoriesContext("hello", constructMemories);
+    const memoriesContext = await conversation.getMemoriesContext(
+      "hello",
+      constructMemories
+    );
 
-    Assert.equal(conversation.messages.length, 0);
+    Assert.equal(
+      memoriesContext,
+      null,
+      "getMemoriesContext returns null if constructMemories returns an empty object"
+    );
   }
 );
 

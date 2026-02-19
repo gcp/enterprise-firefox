@@ -1139,6 +1139,7 @@ describe("MultiStageAboutWelcomeProton module", () => {
         "AW_WELCOME_BACK",
         "RETURN_TO_AMO",
         "AW_BACKUP_RESTORE_EMBEDDED_BACKUP_FOUND",
+        "AW_BACKUP_RESTORE_EMBEDDED_MULTIPLE_BACKUPS_FOUND",
       ]);
       assert.propertyVal(
         data.screens[0].content.primary_button.action,
@@ -1150,6 +1151,7 @@ describe("MultiStageAboutWelcomeProton module", () => {
       const data = await prepConfig({}, [
         "AW_WELCOME_BACK",
         "AW_BACKUP_RESTORE_EMBEDDED_BACKUP_FOUND",
+        "AW_BACKUP_RESTORE_EMBEDDED_MULTIPLE_BACKUPS_FOUND",
       ]);
 
       assert.notProperty(data, "skipFxA");

@@ -9,7 +9,7 @@
  */
 
 /**
- * @import { GetTextOptions } from './PageExtractor.d.ts'
+ * @import { GetDOMOptions, DOMExtractionResult } from './PageExtractor.d.ts'
  */
 
 const WHITESPACE_REGEX = /\s+/g;
@@ -31,7 +31,7 @@ class ExtractionContext {
   /**
    * The text-extraction options, provided at initialization.
    *
-   * @type {GetTextOptions}
+   * @type {GetDOMOptions}
    */
   #options;
 
@@ -48,6 +48,21 @@ class ExtractionContext {
   #links = new Set();
 
   /**
+   * @type {Set<HTMLCanvasElement>}
+   */
+  #canvases = new Set();
+
+  /**
+   * @type {number}
+   */
+  #minCanvasSize;
+
+  /**
+   * @type {number}
+   */
+  #maxCanvasCount;
+
+  /**
    * When extracting content just from the viewport, this value will be set.
    *
    * @type {{ top: number; left: number; right: number; bottom: number } | null}
@@ -58,10 +73,14 @@ class ExtractionContext {
    * Constructs a new extraction context with the provided options.
    *
    * @param {Document} document
-   * @param {GetTextOptions} options
+   * @param {GetDOMOptions} options
    */
   constructor(document, options) {
     this.#options = options;
+    this.#minCanvasSize = options.minCanvasSize ?? 50;
+    this.#maxCanvasCount = options.includeCanvasSnapshots
+      ? (options.maxCanvasCount ?? 10)
+      : 0;
 
     if (options.justViewport) {
       const { visualViewport } = document.defaultView;
@@ -92,10 +111,43 @@ class ExtractionContext {
   }
 
   /**
+   * @returns {HTMLCanvasElement[]}
+   */
+  get canvases() {
+    return Array.from(this.#canvases);
+  }
+
+  /**
    * @param {string} href
    */
   maybeAddLink(href) {
     this.#links.add(href);
+  }
+
+  /**
+   * @param {HTMLCanvasElement} canvas
+   */
+  #maybeAddCanvas(canvas) {
+    const canvasSet = this.#canvases;
+
+    if (canvasSet.has(canvas)) {
+      return;
+    }
+
+    if (canvasSet.size >= this.#maxCanvasCount) {
+      return;
+    }
+
+    const minSize = this.#minCanvasSize;
+    if (canvas.width < minSize || canvas.height < minSize) {
+      return;
+    }
+
+    if (isNodeHidden(canvas) || this.maybeOutOfViewport(canvas)) {
+      return;
+    }
+
+    canvasSet.add(canvas);
   }
 
   /**
@@ -163,6 +215,44 @@ class ExtractionContext {
           this.maybeAddLink(href);
         }
       }
+    }
+  }
+
+  /**
+   * Extract all canvases from a node.
+   *
+   * @param {Node} node
+   */
+  extractCanvasesFromBlock(node) {
+    const canvasSet = this.#canvases;
+    const maxCount = this.#maxCanvasCount;
+
+    if (canvasSet.size >= maxCount) {
+      return;
+    }
+
+    const element = asElement(node);
+    if (!element) {
+      return;
+    }
+
+    if (element.tagName === "CANVAS") {
+      this.#maybeAddCanvas(/** @type {HTMLCanvasElement} */ (element));
+      return;
+    }
+
+    const canvases = element.getElementsByTagName("canvas");
+    const len = canvases.length;
+
+    if (len === 0) {
+      return;
+    }
+
+    for (let i = 0; i < len; i++) {
+      if (canvasSet.size >= maxCount) {
+        break;
+      }
+      this.#maybeAddCanvas(canvases[i]);
     }
   }
 
@@ -433,9 +523,9 @@ class ExtractionContext {
  * the supported options @see {GetTextOptions}.
  *
  * @param {Document} document
- * @param {GetTextOptions} options
+ * @param {GetDOMOptions} options
  *
- * @returns {{ text: string, links: string[] }}
+ * @returns {DOMExtractionResult}
  *
  * In-depth documentation:
  *
@@ -493,6 +583,7 @@ export function extractTextFromDOM(document, options) {
   return {
     text: context.textContent.trim(),
     links: context.links,
+    canvases: context.canvases,
   };
 }
 
@@ -563,6 +654,11 @@ function determineBlockStatus(node) {
     return NodeFilter.FILTER_ACCEPT;
   }
 
+  const canvasElement = asElement(node);
+  if (canvasElement?.tagName === "CANVAS") {
+    return NodeFilter.FILTER_ACCEPT;
+  }
+
   if (isExcludedNode(node)) {
     // This is an explicit.
     return NodeFilter.FILTER_REJECT;
@@ -586,9 +682,9 @@ function determineBlockStatus(node) {
   if (!node.textContent?.trim().length) {
     // Check if this is an anchor with an image.
     // Accept these anchors so their links are captured, even without alt text.
-    const element = asElement(node);
-    if (element?.nodeName === "A") {
-      const img = element.querySelector("img");
+    const anchorElement = asElement(node);
+    if (anchorElement?.nodeName === "A") {
+      const img = anchorElement.querySelector("img");
       if (img) {
         return NodeFilter.FILTER_ACCEPT;
       }
@@ -830,6 +926,7 @@ function subdivideAndExtractText(node, context) {
         processSubdivide(shadowRoot, context);
       } else {
         context.extractLinksFromBlock(node);
+        context.extractCanvasesFromBlock(node);
         context.maybeAppendTextContent(node);
       }
       break;
@@ -880,6 +977,7 @@ function processSubdivide(node, context) {
       processSubdivide(shadowRoot, context);
     } else {
       context.extractLinksFromBlock(currentNode);
+      context.extractCanvasesFromBlock(currentNode);
       context.maybeAppendTextContent(currentNode);
     }
     if (context.shouldStopExtraction()) {

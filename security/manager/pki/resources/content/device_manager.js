@@ -20,18 +20,18 @@ var secmoddb;
 var skip_enable_buttons = false;
 
 /* Do the initial load of all PKCS# modules and list them. */
-function LoadModules() {
+async function LoadModules() {
   secmoddb = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
     Ci.nsIPKCS11ModuleDB
   );
-  RefreshDeviceList();
+  await RefreshDeviceList();
 
   document
     .getElementById("device_tree")
     .addEventListener("select", () => enableButtons());
   document
     .getElementById("devicemanager")
-    .addEventListener("command", event => {
+    .addEventListener("command", async event => {
       switch (event.target.id) {
         case "login_button":
           doLogin();
@@ -43,13 +43,13 @@ function LoadModules() {
           changePassword();
           break;
         case "load_button":
-          doLoad();
+          await doLoad();
           break;
         case "unload_button":
-          doUnload();
+          await doUnload();
           break;
         case "fipsbutton":
-          toggleFIPS();
+          await toggleFIPS();
           break;
         default:
           // Default means that we are not handling a command so we should
@@ -57,6 +57,8 @@ function LoadModules() {
           throw new Error("Unhandled command event");
       }
     });
+
+  Services.obs.notifyObservers(window, "device-manager-loaded");
 }
 
 async function doPrompt(l10n_id) {
@@ -69,8 +71,8 @@ async function doConfirm(l10n_id) {
   return Services.prompt.confirm(window, null, msg);
 }
 
-function RefreshDeviceList() {
-  for (let module of secmoddb.listModules()) {
+async function RefreshDeviceList() {
+  for (let module of await secmoddb.listModules()) {
     let slots = module.listSlots();
     AddModule(module, slots);
   }
@@ -365,21 +367,21 @@ function doLogout() {
 }
 
 // load a new device
-function doLoad() {
+async function doLoad() {
   window.browsingContext.topChromeWindow.open(
     "load_device.xhtml",
     "loaddevice",
     "chrome,centerscreen,modal"
   );
   ClearDeviceList();
-  RefreshDeviceList();
+  await RefreshDeviceList();
 }
 
 async function deleteSelected() {
   getSelectedItem();
   if (selected_module && (await doConfirm("del-module-warning"))) {
     try {
-      secmoddb.deleteModule(selected_module.name);
+      await secmoddb.deleteModule(selected_module.name);
     } catch (e) {
       doPrompt("del-module-error");
       return false;
@@ -393,7 +395,7 @@ async function deleteSelected() {
 async function doUnload() {
   if (await deleteSelected()) {
     ClearDeviceList();
-    RefreshDeviceList();
+    await RefreshDeviceList();
   }
 }
 
@@ -442,7 +444,7 @@ function showTokenInfo() {
   );
 }
 
-function toggleFIPS() {
+async function toggleFIPS() {
   if (!lazy.FIPSUtils.isFIPSEnabled) {
     // A restriction of FIPS mode is, the password must be set
     // In FIPS mode the password must be non-empty.
@@ -470,7 +472,7 @@ function toggleFIPS() {
   // module that just changed.
   ClearDeviceList();
 
-  RefreshDeviceList();
+  await RefreshDeviceList();
 }
 
-window.addEventListener("load", () => LoadModules());
+window.addEventListener("load", async () => LoadModules());

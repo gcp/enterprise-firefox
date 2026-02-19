@@ -86,6 +86,7 @@ MACH_COMMANDS = {
         "python/mozbuild/mozbuild/compilation/codecomplete.py"
     ),
     "configure": MachCommandReference("python/mozbuild/mozbuild/build_commands.py"),
+    "coverage-report": MachCommandReference("tools/code-coverage/mach_commands.py"),
     "cppunittest": MachCommandReference("testing/mach_commands.py"),
     "crash-ping-metrics": MachCommandReference(
         "toolkit/crashreporter/crashping/glean_metrics.py"

@@ -151,6 +151,7 @@ import mozilla.components.ui.widgets.withCenterAlignedButtons
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.BuildConfig
 import org.mozilla.fenix.FeatureFlags
+import org.mozilla.fenix.GleanMetrics.EmailMask
 import org.mozilla.fenix.GleanMetrics.MediaState
 import org.mozilla.fenix.GleanMetrics.PullToRefreshInBrowser
 import org.mozilla.fenix.GleanMetrics.Toolbar
@@ -1187,8 +1188,12 @@ abstract class BaseBrowserFragment :
                         val created = relay.getOrCreateNewMask(generatedFor)
 
                         if (created == null) {
+                            // Record failure telemetry
+                            EmailMask.getOrCreateFailed.record()
+                            // Log failure
                             val errorMessage =
                                 getString(R.string.email_masks_error_retrieving_masks)
+
                             appStore.dispatch(AppAction.SnackbarAction.ShowSnackbar(errorMessage))
                             return@withContext null
                         }

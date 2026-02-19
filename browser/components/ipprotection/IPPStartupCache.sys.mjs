@@ -186,7 +186,9 @@ class IPPStartupCacheSingleton {
     if (usageInfo instanceof lazy.ProxyUsage === false) {
       throw new Error(
         "usageInfo must be an instance of ProxyUsage, is " +
-          JSON.stringify(usageInfo)
+          JSON.stringify(usageInfo, (key, value) =>
+            typeof value === "bigint" ? JSON.rawJSON(value.toString()) : value
+          )
       );
     }
     const serialized = JSON.stringify({

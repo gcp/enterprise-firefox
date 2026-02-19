@@ -749,7 +749,7 @@ function getCellValue(id, column) {
  */
 async function editCell(id, column, newValue, validate = true) {
   const row = getRowCells(id, true);
-  const editableFieldsEngine = gUI.table._editableFieldsEngine;
+  const editableFieldsEngine = gUI.table.editableFieldsEngine;
 
   editableFieldsEngine.edit(row[column]);
 
@@ -768,7 +768,7 @@ async function editCell(id, column, newValue, validate = true) {
  */
 function startCellEdit(id, column, selectText = true) {
   const row = getRowCells(id, true);
-  const editableFieldsEngine = gUI.table._editableFieldsEngine;
+  const editableFieldsEngine = gUI.table.editableFieldsEngine;
   const cell = row[column];
 
   info("Selecting row " + id);
@@ -778,7 +778,7 @@ function startCellEdit(id, column, selectText = true) {
   editableFieldsEngine.edit(cell);
 
   if (!selectText) {
-    const textbox = gUI.table._editableFieldsEngine.textbox;
+    const textbox = gUI.table.editableFieldsEngine.textbox;
     textbox.selectionEnd = textbox.selectionStart;
   }
 }
@@ -813,7 +813,7 @@ function checkCellUneditable(id, column) {
   const row = getRowCells(id, true);
   const cell = row[column];
 
-  const editableFieldsEngine = gUI.table._editableFieldsEngine;
+  const editableFieldsEngine = gUI.table.editableFieldsEngine;
   const textbox = editableFieldsEngine.textbox;
 
   // When a field is being edited, the cell is hidden, and the textbox is made visible.
@@ -877,7 +877,7 @@ function showAllColumns(state) {
  *         Validate result? Default true.
  */
 async function typeWithTerminator(str, terminator, validate = true) {
-  const editableFieldsEngine = gUI.table._editableFieldsEngine;
+  const editableFieldsEngine = gUI.table.editableFieldsEngine;
   const textbox = editableFieldsEngine.textbox;
   const colName = textbox.closest(".table-widget-column").id;
 
@@ -905,7 +905,7 @@ async function typeWithTerminator(str, terminator, validate = true) {
 }
 
 function getCurrentEditorValue() {
-  const editableFieldsEngine = gUI.table._editableFieldsEngine;
+  const editableFieldsEngine = gUI.table.editableFieldsEngine;
   const textbox = editableFieldsEngine.textbox;
 
   return textbox.value;
@@ -1090,6 +1090,48 @@ async function performAdd(store) {
   is(rowId, value, `Row '${rowId}' was successfully added.`);
 
   return rowId;
+}
+
+/**
+ * Remove all items from a store.
+ *
+ * @param  {Array} store
+ *         An array containing the path to the store from which we wish to remove all items.
+ */
+async function performRemoveAll(store) {
+  const storeName = store.join(" > ");
+  const toolbar = gPanelWindow.document.getElementById("storage-toolbar");
+
+  // Set waitForItem=false, there might not be any item in the table before
+  // using remove all.
+  await selectTreeItem(store, { waitForItem: false });
+
+  const menuDeleteAll = toolbar.querySelector("#delete-all-button");
+
+  if (menuDeleteAll.hidden) {
+    is(
+      menuDeleteAll.hidden,
+      false,
+      `performRemoveAll called for ${storeName} but it is not supported`
+    );
+    return;
+  }
+
+  menuDeleteAll.click();
+
+  // Wait for the table to become empty
+  await BrowserTestUtils.waitForCondition(
+    () => getCellLength() === 0,
+    `All items removed from ${storeName}`,
+    500,
+    100
+  );
+
+  is(
+    getCellLength(),
+    0,
+    `All items were successfully removed from ${storeName}.`
+  );
 }
 
 // Cell css selector that can be used to count or select cells.

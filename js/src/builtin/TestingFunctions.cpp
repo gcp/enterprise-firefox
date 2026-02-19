@@ -3624,7 +3624,7 @@ static bool NewObjectWithAddPropertyHook(JSContext* cx, unsigned argc,
       return true;
     }
     val.setInt32(val.toInt32() + 1);
-    return JS_DefinePropertyById(cx, obj, propId, val, 0);
+    return JS_DefinePropertyById(cx, obj, propId, val, JSPROP_PERMANENT);
   };
 
   static const JSClassOps classOps = {
@@ -3657,7 +3657,7 @@ static bool NewObjectWithAddPropertyHook(JSContext* cx, unsigned argc,
   }
   RootedId propId(cx, AtomToId(propName));
   RootedValue val(cx, Int32Value(0));
-  if (!JS_DefinePropertyById(cx, obj, propId, val, 0)) {
+  if (!JS_DefinePropertyById(cx, obj, propId, val, JSPROP_PERMANENT)) {
     return false;
   }
 

@@ -1998,9 +1998,6 @@ inline void TraceBufferSlot(JSTracer* trc, NativeObject* obj, uint32_t slot,
   }
 }
 
-bool AddSlotAndCallAddPropHook(JSContext* cx, Handle<NativeObject*> obj,
-                               HandleValue v, Handle<Shape*> newShape);
-
 }  // namespace js
 
 #endif /* vm_NativeObject_h */

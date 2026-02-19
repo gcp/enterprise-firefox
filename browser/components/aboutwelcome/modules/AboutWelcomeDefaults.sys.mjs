@@ -42,7 +42,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
     {
       id: "AW_BACKUP_RESTORE_EMBEDDED_BACKUP_FOUND",
       targeting:
-        "backupRestoreEnabled && !hasSelectableProfiles && (backupsInfo.found || backupsInfo.multipleBackupsFound)",
+        "backupRestoreEnabled && !hasSelectableProfiles && (backupsInfo.found && !backupsInfo.multipleBackupsFound)",
       content: {
         fullscreen: true,
         logo: {},
@@ -51,6 +51,66 @@ const MR_ABOUT_WELCOME_DEFAULT = {
         },
         subtitle: {
           string_id: "restore-from-backup-subtitle",
+        },
+        tiles: {
+          type: "backup_restore",
+        },
+        position: "split",
+        split_narrow_bkg_position: "-42px",
+        background:
+          "url('chrome://activity-stream/content/data/content/assets/fox-doodle-backup-restore.svg') var(--mr-secondary-position) no-repeat var(--mr-screen-background-color)",
+        progress_bar: true,
+        hide_secondary_section: "responsive",
+        backup_show_filepicker: {
+          action: {},
+        },
+        skip_button: {
+          label: {
+            string_id: "restore-from-backup-secondary-button",
+          },
+          action: {
+            navigate: true,
+          },
+        },
+      },
+    },
+    {
+      id: "AW_BACKUP_RESTORE_EMBEDDED_MULTIPLE_BACKUPS_FOUND",
+      targeting:
+        "backupRestoreEnabled && !hasSelectableProfiles && backupsInfo.multipleBackupsFound",
+      content: {
+        fullscreen: true,
+        logo: {},
+        title: {
+          string_id: "restore-from-backup-title",
+        },
+        subtitle: {
+          string_id: "restore-from-backup-subtitle",
+        },
+        cta_paragraph: {
+          icon: {
+            background:
+              "center / contain no-repeat url('chrome://global/skin/icons/info.svg')",
+            height: "16px",
+            width: "16px",
+            marginInline: "0 4px",
+          },
+          info_tile: true,
+          text: {
+            string_id: "multiple-backups-info-tile",
+            string_name: "settings-label",
+          },
+          style: {
+            marginBlock: "20px 0",
+            letterSpacing: "revert",
+          },
+          action: {
+            type: "OPEN_ABOUT_PAGE",
+            data: {
+              args: "preferences#sync-backup",
+              where: "tabshifted",
+            },
+          },
         },
         tiles: {
           type: "backup_restore",
