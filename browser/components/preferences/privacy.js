@@ -84,6 +84,7 @@ ChromeUtils.defineESModuleGetters(this, {
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
   IPProtection:
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
+  BANDWIDTH: "chrome://browser/content/ipprotection/ipprotection-constants.mjs",
 });
 
 const SANITIZE_ON_SHUTDOWN_MAPPINGS = {
@@ -211,8 +212,7 @@ Preferences.addAll([
   { id: "browser.ipProtection.autoStartEnabled", type: "bool" },
   { id: "browser.ipProtection.autoStartPrivateEnabled", type: "bool" },
   { id: "browser.ipProtection.bandwidth.enabled", type: "bool" },
-  { id: "browser.ipProtection.bandwidth.value", type: "int" },
-  { id: "browser.ipProtection.bandwidth.max", type: "int" },
+  { id: "browser.ipProtection.usageCache", type: "string" },
 
   // Media
   { id: "media.autoplay.default", type: "int" },
@@ -1443,7 +1443,7 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "ipProtectionNotOptedIn",
   pref: "browser.ipProtection.entitlementCache",
-  get: prefVal => prefVal == "null",
+  get: prefVal => !prefVal,
 });
 Preferences.addSetting({
   id: "ipProtectionNotOptedInSection",
@@ -1610,15 +1610,25 @@ Preferences.addSetting({
     ipProtectionVisible.value &&
     ipProtectionBandwidthVisible.value &&
     !ipProtectionNotOptedIn.value,
-  pref: "browser.ipProtection.bandwidth.value",
+  pref: "browser.ipProtection.usageCache",
   getControlConfig: config => {
-    const max = Services.prefs.getIntPref(
-      "browser.ipProtection.bandwidth.max",
-      150
+    const usagePref = Services.prefs.getStringPref(
+      "browser.ipProtection.usageCache",
+      ""
     );
+    let usage;
+    if (usagePref) {
+      usage = JSON.parse(usagePref);
+    } else {
+      usage = {
+        max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+        remaining: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      };
+    }
+
     return {
       ...config,
-      controlAttrs: { max },
+      controlAttrs: usage,
     };
   },
 });

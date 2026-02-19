@@ -5497,6 +5497,15 @@ bool SetPropIRGenerator::canAttachAddSlotStub(HandleObject obj, HandleId id) {
     return false;
   }
 
+  // We don't support addProperty hooks because they're uncommon. Ignore the
+  // Array addProperty hook, because it doesn't do anything for non-index
+  // properties.
+  DebugOnly<uint32_t> index;
+  MOZ_ASSERT_IF(nobj->is<ArrayObject>(), !IdIsIndex(id, &index));
+  if (nobj->getClass()->getAddProperty() && !nobj->is<ArrayObject>()) {
+    return false;
+  }
+
   // Object must be extensible, or we must be initializing a private
   // elem.
   bool canAddNewProperty = nobj->isExtensible() || id.isPrivateName();
@@ -5658,21 +5667,11 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(
     ShapeGuardProtoChain(writer, nobj, objId);
   }
 
-  // If the JSClass has an addProperty hook, we need to call a VM function to
-  // invoke this hook. Ignore the Array addProperty hook, because it doesn't do
-  // anything for non-index properties.
-  DebugOnly<uint32_t> index;
-  MOZ_ASSERT_IF(obj->is<ArrayObject>(), !IdIsIndex(id, &index));
-  bool mustCallAddPropertyHook =
-      !obj->is<ArrayObject>() && obj->getClass()->getAddProperty();
   bool preserveWrapper =
       obj->getClass()->preservesWrapper() &&
       !oldShape->hasObjectFlag(ObjectFlag::HasPreservedWrapper);
 
-  if (mustCallAddPropertyHook) {
-    writer.addSlotAndCallAddPropHook(objId, rhsValId, newShape);
-    trackAttached("SetProp.AddSlotWithAddPropertyHook");
-  } else if (holder->isFixedSlot(propInfo.slot())) {
+  if (holder->isFixedSlot(propInfo.slot())) {
     size_t offset = NativeObject::getFixedSlotOffset(propInfo.slot());
     writer.addAndStoreFixedSlot(objId, offset, rhsValId, newShape,
                                 preserveWrapper);

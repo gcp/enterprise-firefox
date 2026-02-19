@@ -201,9 +201,7 @@ export class IPProtectionPanel {
       paused: false,
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
       siteData: this.#getSiteData(),
-      bandwidthUsage: lazy.BANDWIDTH_USAGE_ENABLED
-        ? { remaining: 50, max: BANDWIDTH.MAX_IN_GB }
-        : null,
+      bandwidthUsage: this.#getBandwidthUsage(),
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
     };
@@ -653,6 +651,25 @@ export class IPProtectionPanel {
   }
 
   /**
+   * BigInts throw when using JSON.stringify or when using arithmetic with
+   * numbers so we convert them to numbers here so they max and remaining can
+   * be safely used.
+   *
+   * @returns {object} An object with max and remaining as numbers
+   */
+  #getBandwidthUsage() {
+    if (lazy.BANDWIDTH_USAGE_ENABLED && lazy.IPPProxyManager.usageInfo) {
+      return {
+        max: Number(lazy.IPPProxyManager.usageInfo.max),
+        remaining: Number(lazy.IPPProxyManager.usageInfo.remaining),
+        reset: lazy.IPPProxyManager.usageInfo.resets,
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Checks if the given principal represents a privileged page.
    *
    * @param {nsIPrincipal} principal
@@ -733,6 +750,7 @@ export class IPProtectionPanel {
         error: errorType,
         isActivating:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
+        bandwidthUsage: this.#getBandwidthUsage(),
       });
     } else if (event.type == "IPPExceptionsManager:ExclusionChanged") {
       this.#updateSiteData();

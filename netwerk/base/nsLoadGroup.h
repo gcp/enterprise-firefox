@@ -12,7 +12,7 @@
 #include "nsCOMPtr.h"
 #include "nsWeakReference.h"
 #include "nsISupportsPriority.h"
-#include "PLDHashTable.h"
+#include "nsTHashSet.h"
 #include "mozilla/TimeStamp.h"
 
 class nsIRequestContext;
@@ -99,7 +99,7 @@ class nsLoadGroup : public nsILoadGroup,
   nsCOMPtr<nsIRequestContextService> mRequestContextService;
 
   nsCOMPtr<nsIRequest> mDefaultLoadRequest;
-  PLDHashTable mRequests;
+  nsTHashSet<RefPtr<nsIRequest>> mRequests;
 
   nsWeakPtr mObserver;
   nsWeakPtr mParentLoadGroup;

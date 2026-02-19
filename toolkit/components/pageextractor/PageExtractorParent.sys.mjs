@@ -6,7 +6,7 @@
 
 /**
  * @import { HiddenFrame } from "resource://gre/modules/HiddenFrame.sys.mjs"
- * @import { GetTextOptions } from './PageExtractor.d.ts'
+ * @import { GetTextOptions, ExtractionResult } from './PageExtractor.d.ts'
  * @import { PageExtractorChild } from './PageExtractorChild.sys.mjs'
  */
 
@@ -33,7 +33,7 @@ export class PageExtractorParent extends JSWindowActorParent {
    * @see PageExtractorChild#getReaderModeContent
    *
    * @param {boolean} force - Bypass the `isProbablyReaderable` check.
-   * @returns {Promise<{ text: string, links: string[] }>}
+   * @returns {Promise<ExtractionResult>}
    */
   getReaderModeContent(force = false) {
     return this.sendQuery("PageExtractorParent:GetReaderModeContent", force);
@@ -56,14 +56,14 @@ export class PageExtractorParent extends JSWindowActorParent {
    * @see PageExtractorChild#getText
    *
    * @param {Partial<GetTextOptions>} options
-   * @returns {Promise<{ text: string, links: string[] }>}
+   * @returns {Promise<ExtractionResult>}
    */
   async getText(options = {}) {
     if (this.#isPDF()) {
       const text = await this.browsingContext.currentWindowGlobal
         .getActor("Pdfjs")
         .getTextContent();
-      return { text, links: [] };
+      return { text, links: [], canvasSnapshots: [] };
     }
     return this.sendQuery("PageExtractorParent:GetText", options);
   }

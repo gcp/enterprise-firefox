@@ -20,8 +20,8 @@ const mockBandwidthUsage = {
   remaining: 30 * BANDWIDTH.BYTES_IN_GB,
   remainingMB: 30 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
   remainingGB: 30,
-  max: 50 * BANDWIDTH.BYTES_IN_GB,
-  maxGB: 50,
+  max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+  maxGB: BANDWIDTH.MAX_IN_GB,
   used: 20 * BANDWIDTH.BYTES_IN_GB,
   usedGB: 20,
   percent: "40",
@@ -77,71 +77,8 @@ function checkLocationAndBandwidth(statusBoxEl, location, bandwidthUsage) {
   const bandwidthEl = statusBoxEl.shadowRoot
     .querySelector(`slot[name="bandwidth"]`)
     .assignedElements()[0];
-  Assert.ok(
-    BrowserTestUtils.isVisible(bandwidthEl),
-    "bandwidth-usage should be present and visible"
-  );
 
-  Assert.equal(
-    bandwidthEl.bandwidthPercent,
-    bandwidthUsage.percent,
-    `Bandwidth should have ${bandwidthUsage.percent} % used`
-  );
-
-  Assert.equal(
-    bandwidthEl.remainingMB,
-    bandwidthUsage.remainingMB,
-    `Bandwidth should have ${bandwidthUsage.remainingMB} MB remaining`
-  );
-
-  Assert.equal(
-    bandwidthEl.remainingGB,
-    bandwidthUsage.remainingGB,
-    `Bandwidth should have ${bandwidthUsage.remainingGB} GB remaining`
-  );
-
-  Assert.equal(
-    bandwidthEl.max,
-    bandwidthUsage.max,
-    `Bandwidth should have max of ${bandwidthUsage.max} bytes`
-  );
-
-  Assert.equal(
-    bandwidthEl.maxGB,
-    bandwidthUsage.maxGB,
-    `Bandwidth should have ${bandwidthUsage.maxGB} GB remaining`
-  );
-
-  Assert.equal(
-    bandwidthEl.bandwidthUsed,
-    bandwidthUsage.used,
-    `Bandwidth should have ${bandwidthUsage.used} bytes used`
-  );
-
-  Assert.equal(
-    bandwidthEl.bandwidthUsedGB,
-    bandwidthUsage.usedGB,
-    `Bandwidth should have ${bandwidthUsage.usedGB} GB used`
-  );
-
-  Assert.equal(
-    bandwidthEl.remainingRounded,
-    bandwidthUsage.remainingRounded,
-    `Bandwidth should have ${bandwidthUsage.remainingRounded} GB remaining`
-  );
-
-  let descriptionTextArray = bandwidthEl.description.textContent.split(" ");
-  console.log(descriptionTextArray);
-  Assert.equal(
-    descriptionTextArray.filter(word => word === "GB").length,
-    bandwidthUsage.gbCount,
-    `GB used ${bandwidthUsage.gbCount} times`
-  );
-  Assert.equal(
-    descriptionTextArray.filter(word => word === "MB").length,
-    bandwidthUsage.mbCount,
-    `MB used ${bandwidthUsage.mbCount} times`
-  );
+  checkBandwidth(bandwidthEl, bandwidthUsage);
 }
 
 /**
@@ -447,15 +384,16 @@ add_task(async function test_status_card_location_disabled() {
 add_task(async function test_bandwidth_states() {
   const mockUsages = [
     {
-      remaining: 50 * BANDWIDTH.BYTES_IN_GB,
-      remainingMB: 50 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
-      remainingGB: 50,
-      max: 50 * BANDWIDTH.BYTES_IN_GB,
-      maxGB: 50,
+      remaining: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      remainingMB:
+        BANDWIDTH.MAX_IN_GB * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+      remainingGB: BANDWIDTH.MAX_IN_GB,
+      max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      maxGB: BANDWIDTH.MAX_IN_GB,
       used: 0,
       usedGB: 0,
       percent: "0",
-      remainingRounded: 50,
+      remainingRounded: BANDWIDTH.MAX_IN_GB,
       gbCount: 2,
       mbCount: 0,
     },
@@ -463,8 +401,8 @@ add_task(async function test_bandwidth_states() {
       remaining: 12.1 * BANDWIDTH.BYTES_IN_GB,
       remainingMB: 12.1 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
       remainingGB: 12.1,
-      max: 50 * BANDWIDTH.BYTES_IN_GB,
-      maxGB: 50,
+      max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      maxGB: BANDWIDTH.MAX_IN_GB,
       used: 37.9 * BANDWIDTH.BYTES_IN_GB,
       usedGB: 37.9,
       percent: "75",
@@ -476,8 +414,8 @@ add_task(async function test_bandwidth_states() {
       remaining: 4.9 * BANDWIDTH.BYTES_IN_GB,
       remainingMB: 4.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
       remainingGB: 4.9,
-      max: 50 * BANDWIDTH.BYTES_IN_GB,
-      maxGB: 50,
+      max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      maxGB: BANDWIDTH.MAX_IN_GB,
       used: 45.1 * BANDWIDTH.BYTES_IN_GB,
       usedGB: 45.1,
       percent: "90",
@@ -489,12 +427,14 @@ add_task(async function test_bandwidth_states() {
       remaining: 0.9 * BANDWIDTH.BYTES_IN_GB,
       remainingMB: 0.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
       remainingGB: 0.9,
-      max: 50 * BANDWIDTH.BYTES_IN_GB,
-      maxGB: 50,
+      max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+      maxGB: BANDWIDTH.MAX_IN_GB,
       used: 49.1 * BANDWIDTH.BYTES_IN_GB,
       usedGB: 49.1,
       percent: "90",
-      remainingRounded: 0.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB), // in MB
+      remainingRounded: Math.floor(
+        0.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB)
+      ), // in MB
       gbCount: 1,
       mbCount: 1,
     },

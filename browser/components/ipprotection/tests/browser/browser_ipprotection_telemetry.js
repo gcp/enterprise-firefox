@@ -115,6 +115,89 @@ add_task(async function user_toggle_on_and_off() {
 });
 
 /**
+ * Tests that the click upgrade button event is recorded when CTA is clicked
+ */
+add_task(async function click_upgrade_button() {
+  let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
+  Assert.ok(
+    BrowserTestUtils.isVisible(button),
+    "IP Protection widget should be added to the navbar"
+  );
+
+  lazy.IPProtectionService.setState(IPProtectionStates.READY);
+  await putServerInRemoteSettings();
+
+  let panelShownPromise = waitForPanelEvent(document, "popupshown");
+  let panelInitPromise = BrowserTestUtils.waitForEvent(
+    document,
+    "IPProtection:Init"
+  );
+  button.click();
+  await Promise.all([panelShownPromise, panelInitPromise]);
+
+  let panelView = PanelMultiView.getViewNode(
+    document,
+    IPProtectionWidget.PANEL_ID
+  );
+
+  let content = panelView.querySelector(IPProtectionPanel.CONTENT_TAGNAME);
+  let originalState = JSON.parse(
+    JSON.stringify(content.state, (key, value) =>
+      typeof value === "bigint" ? JSON.rawJSON(value.toString()) : value
+    )
+  );
+
+  Assert.ok(content, "Panel content should be present");
+
+  content.state.isSignedOut = false;
+  content.state.paused = true;
+  content.requestUpdate();
+  await content.updateComplete;
+
+  let upgradeButton = content.upgradeEl.querySelector("#upgrade-vpn-button");
+
+  Services.fog.testResetFOG();
+  let newTabPromise = BrowserTestUtils.waitForNewTab(gBrowser);
+  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
+  upgradeButton.click();
+  let newTab = await newTabPromise;
+  await panelHiddenPromise;
+
+  let upgradeEvent = Glean.ipprotection.clickUpgradeButton.testGetValue();
+  Assert.equal(upgradeEvent.length, 1, "should have recorded a toggle");
+
+  Services.fog.testResetFOG();
+  await resetStateToObj(content, originalState);
+  BrowserTestUtils.removeTab(newTab);
+});
+
+/**
+ * Tests that the error event is recorded when an error is triggered
+ */
+add_task(async function test_error_state() {
+  Services.fog.testResetFOG();
+  let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
+  Assert.ok(
+    BrowserTestUtils.isVisible(button),
+    "IP Protection widget should be added to the navbar"
+  );
+
+  let panelShownPromise = waitForPanelEvent(document, "popupshown");
+  let panelInitPromise = BrowserTestUtils.waitForEvent(
+    document,
+    "IPProtection:Init"
+  );
+  button.click();
+  await Promise.all([panelShownPromise, panelInitPromise]);
+
+  lazy.IPPProxyManager.setErrorState(ERRORS.GENERIC, ERRORS.GENERIC);
+  let errorEvent = Glean.ipprotection.error.testGetValue();
+  Assert.equal(errorEvent.length, 1, "should have recorded an error");
+  Services.fog.testResetFOG();
+  await closePanel();
+});
+
+/**
  * Tests that the toggled event is recorded when the VPN
  * turns off at browser shutdown
  */
@@ -197,83 +280,4 @@ add_task(async function toggle_off_on_shutdown() {
     BrowserTestUtils.isVisible(widget),
     "IP Protection widget should be added back to the navbar"
   );
-});
-
-/**
- * Tests that the click upgrade button event is recorded when CTA is clicked
- */
-add_task(async function click_upgrade_button() {
-  let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
-  Assert.ok(
-    BrowserTestUtils.isVisible(button),
-    "IP Protection widget should be added to the navbar"
-  );
-
-  lazy.IPProtectionService.setState(IPProtectionStates.READY);
-  await putServerInRemoteSettings();
-
-  let panelShownPromise = waitForPanelEvent(document, "popupshown");
-  let panelInitPromise = BrowserTestUtils.waitForEvent(
-    document,
-    "IPProtection:Init"
-  );
-  button.click();
-  await Promise.all([panelShownPromise, panelInitPromise]);
-
-  let panelView = PanelMultiView.getViewNode(
-    document,
-    IPProtectionWidget.PANEL_ID
-  );
-
-  let content = panelView.querySelector(IPProtectionPanel.CONTENT_TAGNAME);
-  let originalState = structuredClone(content.state);
-
-  Assert.ok(content, "Panel content should be present");
-
-  content.state.isSignedOut = false;
-  content.state.paused = true;
-  content.requestUpdate();
-  await content.updateComplete;
-
-  let upgradeButton = content.upgradeEl.querySelector("#upgrade-vpn-button");
-
-  Services.fog.testResetFOG();
-  let newTabPromise = BrowserTestUtils.waitForNewTab(gBrowser);
-  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
-  upgradeButton.click();
-  let newTab = await newTabPromise;
-  await panelHiddenPromise;
-
-  let upgradeEvent = Glean.ipprotection.clickUpgradeButton.testGetValue();
-  Assert.equal(upgradeEvent.length, 1, "should have recorded a toggle");
-
-  Services.fog.testResetFOG();
-  await resetStateToObj(content, originalState);
-  BrowserTestUtils.removeTab(newTab);
-});
-
-/**
- * Tests that the error event is recorded when an error is triggered
- */
-add_task(async function test_error_state() {
-  Services.fog.testResetFOG();
-  let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
-  Assert.ok(
-    BrowserTestUtils.isVisible(button),
-    "IP Protection widget should be added to the navbar"
-  );
-
-  let panelShownPromise = waitForPanelEvent(document, "popupshown");
-  let panelInitPromise = BrowserTestUtils.waitForEvent(
-    document,
-    "IPProtection:Init"
-  );
-  button.click();
-  await Promise.all([panelShownPromise, panelInitPromise]);
-
-  lazy.IPPProxyManager.setErrorState(ERRORS.GENERIC, ERRORS.GENERIC);
-  let errorEvent = Glean.ipprotection.error.testGetValue();
-  Assert.equal(errorEvent.length, 1, "should have recorded an error");
-  Services.fog.testResetFOG();
-  await closePanel();
 });

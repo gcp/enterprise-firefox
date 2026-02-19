@@ -572,6 +572,10 @@ pref("browser.urlbar.quicksuggest.impressionCaps.sponsoredEnabled", false);
 // at least this many characters long, it will be shown as a top pick.
 pref("browser.urlbar.quicksuggest.ampTopPickCharThreshold", 5);
 
+// Whether or not use the Nova icon size for AMP suggestion.
+// Otherwise, use standard rich-suggestion size.
+pref("browser.urlbar.quicksuggest.ampTopPickUseNovaIconSize", false);
+
 // The matching strategy for AMP suggestions. Zero is the usual default
 // exact-keyword strategy. Other values are the integers defined on
 // `AmpMatchingStrategy` in `RustSuggest.sys.mjs` (corresponding to the
@@ -2938,7 +2942,7 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 
 // Toggles the availability of the share tab button.
 // If preffed off, it makes it so that the button is no longer
-// available on the toolbar or in the customize section. Requires a 
+// available on the toolbar or in the customize section. Requires a
 // restart to reflect state changes.
 #ifndef XP_LINUX
   pref("browser.toolbars.share-button.enabled", true);
@@ -3600,7 +3604,7 @@ pref("browser.ipProtection.added", false);
 // Pref to track whether the user has upgraded to Mozilla VPN
 pref("browser.ipProtection.hasUpgraded", false);
 // Pref that enables bandwidth usage feature
-pref("browser.ipProtection.bandwidth.enabled", false);
+pref("browser.ipProtection.bandwidth.enabled", true);
 // Pref that displays egress location in VPN panel
 pref("browser.ipProtection.egressLocationEnabled", false);
 // Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds

@@ -661,6 +661,7 @@ void PannerNodeEngine::ComputeAzimuthAndElevation(const ThreeDPoint& position,
   // Divide by M_PI before multiplying by 180 so that integer power of two
   // factors of pi convert exactly.
   aElevation = fdlibm_atan2(upProjection, planeMagnitude) / M_PI * 180;
+  WebAudioUtils::FixNaN(aElevation);
   MOZ_ASSERT(aElevation <= 90);
   MOZ_ASSERT(aElevation >= -90);
 
@@ -676,6 +677,8 @@ void PannerNodeEngine::ComputeAzimuthAndElevation(const ThreeDPoint& position,
   // Back is 180, even when rightProjection is -0.
   if (aAzimuth == -180) {
     aAzimuth = 180;
+  } else {
+    WebAudioUtils::FixNaN(aAzimuth);
   }
   MOZ_ASSERT(aAzimuth <= 180);
   MOZ_ASSERT(aAzimuth > -180);

@@ -649,7 +649,7 @@ void GeckoEditableSupport::FlushIMEChanges(FlushChangesFlag aFlags) {
                                  mIMEPendingTextChange.mCausedOnlyByComposition;
   mIMETextChangedDuringFlush = false;
 
-  auto shouldAbort = [=](bool aForce) -> bool {
+  auto shouldAbort = [=, this](bool aForce) -> bool {
     if (!aForce && !mIMETextChangedDuringFlush) {
       return false;
     }
@@ -736,7 +736,7 @@ void GeckoEditableSupport::FlushIMEChanges(FlushChangesFlag aFlags) {
   }
 
   JNIEnv* const env = jni::GetGeckoThreadEnv();
-  auto flushOnException = [=]() -> bool {
+  auto flushOnException = [=, this]() -> bool {
     if (!env->ExceptionCheck()) {
       return false;
     }

@@ -8,6 +8,11 @@ const { BANDWIDTH } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
 );
 
+const mockBandwidthUsage = {
+  remaining: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+  max: BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB,
+};
+
 /**
  * Tests the warning message bar triggered by UsageChanged event
  */
@@ -21,10 +26,7 @@ add_task(async function test_warning_message() {
     isSignedOut: false,
     error: "",
     bandwidthWarning: false,
-    bandwidthUsage: {
-      remaining: 50,
-      max: 50,
-    },
+    bandwidthUsage: mockBandwidthUsage,
   });
 
   let messageBar = content.shadowRoot.querySelector("ipprotection-message-bar");
@@ -243,6 +245,7 @@ add_task(async function test_dismiss() {
     isSignedOut: false,
     error: "",
     bandwidthWarning: false,
+    bandwidthUsage: mockBandwidthUsage,
   });
 
   let messageBar = content.shadowRoot.querySelector("ipprotection-message-bar");
@@ -260,6 +263,7 @@ add_task(async function test_dismiss() {
     isSignedOut: false,
     error: "",
     bandwidthWarning: true,
+    bandwidthUsage: mockBandwidthUsage,
   });
   await messageBarLoadedPromise;
 

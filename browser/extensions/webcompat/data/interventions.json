@@ -6119,6 +6119,42 @@
       }
     ]
   },
+  "2006036": {
+    "label": "fbo.fubon.com",
+    "bugs": {
+      "2006036": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://fbo.fubon.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "all_frames": true,
+          "js": ["bug2006036-fbo.fubon.com-unblock-firefox.js"]
+        },
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
+  "2007641": {
+    "label": "papajohns.com",
+    "bugs": {
+      "2007641": {
+        "issue": "page-fails-to-load",
+        "matches": ["*://www.papajohns.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "js": ["bug2007641-www.papajohns.com-DateTimeFormat-CST-fix.js"]
+        }
+      }
+    ]
+  },
   "2010794": {
     "label": "ipn2.paymentus.com",
     "bugs": {
@@ -6132,6 +6168,24 @@
     "interventions": [
       {
         "platforms": ["all"]
+      }
+    ]
+  },
+  "2011862": {
+    "label": "copilot.zenwork.com",
+    "bugs": {
+      "2007641": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://copilot.zenwork.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "all_frames": true,
+          "js": ["bug2011862-copilot.zenwork.com-fix-chatbot.js"]
+        }
       }
     ]
   }

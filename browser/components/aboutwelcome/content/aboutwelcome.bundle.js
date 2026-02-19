@@ -1063,7 +1063,7 @@ __webpack_require__.r(__webpack_exports__);
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-const CONFIGURABLE_STYLES = ["color", "display", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "marginBlock", "marginBlockStart", "marginBlockEnd", "marginInline", "paddingBlock", "paddingBlockStart", "paddingBlockEnd", "paddingInline", "paddingInlineStart", "paddingInlineEnd", "textAlign", "whiteSpace", "width", "borderBlockStart", "borderBlockEnd", "top", "bottom", "left", "right", "inset", "insetBlock", "insetInline", "minHeight", "minWidth"];
+const CONFIGURABLE_STYLES = ["background", "color", "display", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "marginBlock", "marginBlockStart", "marginBlockEnd", "marginInline", "paddingBlock", "paddingBlockStart", "paddingBlockEnd", "paddingInline", "paddingInlineStart", "paddingInlineEnd", "textAlign", "whiteSpace", "width", "height", "borderBlockStart", "borderBlockEnd", "top", "bottom", "left", "right", "inset", "insetBlock", "insetInline", "minHeight", "minWidth"];
 const ZAP_SIZE_THRESHOLD = 160;
 
 /**
@@ -2063,11 +2063,16 @@ const CTAParagraph = props => {
     event.preventDefault();
   }, [handleAction]);
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", {
-    className: "cta-paragraph",
+    className: `cta-paragraph ${content?.info_tile ? "info-tile" : ""}`,
     style: {
       ..._lib_aboutwelcome_utils_mjs__WEBPACK_IMPORTED_MODULE_2__.AboutWelcomeUtils.getValidStyle(content?.style, _MSLocalized__WEBPACK_IMPORTED_MODULE_1__.CONFIGURABLE_STYLES)
     }
-  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
+    className: "cta-paragraph-icon-wrapper"
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
+    className: "cta-paragraph-icon",
+    style: _lib_aboutwelcome_utils_mjs__WEBPACK_IMPORTED_MODULE_2__.AboutWelcomeUtils.getValidStyle(content?.icon, _MSLocalized__WEBPACK_IMPORTED_MODULE_1__.CONFIGURABLE_STYLES)
+  })), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
     text: content.text
   }, content.text.string_name && typeof handleAction === "function" ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", {
     "data-l10n-id": content.text.string_id,

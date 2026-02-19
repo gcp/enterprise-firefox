@@ -8,7 +8,7 @@
 #define nsPersistentProperties_h_
 
 #include "nsIPersistentProperties2.h"
-#include "PLDHashTable.h"
+#include "nsTHashMap.h"
 #include "nsString.h"
 #include "nsCOMPtr.h"
 #include "mozilla/ArenaAllocator.h"
@@ -29,7 +29,7 @@ class nsPersistentProperties final : public nsIPersistentProperties {
  protected:
   nsCOMPtr<nsIUnicharInputStream> mIn;
 
-  PLDHashTable mTable;
+  nsTHashMap<nsDepCharHashKey, const char16_t*> mTable;
   mozilla::ArenaAllocator<2048, 4> mArena;
 };
 

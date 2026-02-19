@@ -811,15 +811,6 @@ size_t IdentifierMapEntry::SizeOfExcludingThis(
   return mKey.mString.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
 }
 
-// Helper structs for the content->subdoc map
-
-class SubDocMapEntry : public PLDHashEntryHdr {
- public:
-  // Both of these are strong references
-  dom::Element* mKey;  // must be first, to look like PLDHashEntryStub
-  dom::Document* mSubDocument;
-};
-
 class OnloadBlocker final : public nsIRequest {
  public:
   OnloadBlocker() = default;
@@ -2480,9 +2471,9 @@ Document::~Document() {
 
   mParentDocument = nullptr;
 
-  // Kill the subdocument map, doing this will release its strong
+  // Clear the subdocument map, doing this will release its strong
   // references, if any.
-  mSubDocuments = nullptr;
+  mSubDocuments.Clear();
 
   nsAutoScriptBlocker scriptBlocker;
 
@@ -2698,16 +2689,11 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
     tmp->mAnimationController->Traverse(&cb);
   }
 
-  if (tmp->mSubDocuments) {
-    for (auto iter = tmp->mSubDocuments->Iter(); !iter.Done(); iter.Next()) {
-      auto entry = static_cast<SubDocMapEntry*>(iter.Get());
-
-      NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mSubDocuments entry->mKey");
-      cb.NoteXPCOMChild(entry->mKey);
-      NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb,
-                                         "mSubDocuments entry->mSubDocument");
-      cb.NoteXPCOMChild(ToSupports(entry->mSubDocument));
-    }
+  for (auto& entry : tmp->mSubDocuments) {
+    NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mSubDocuments key");
+    cb.NoteXPCOMChild(entry.GetKey());
+    NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mSubDocuments value");
+    cb.NoteXPCOMChild(ToSupports(entry.GetData().get()));
   }
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCSSLoader)
@@ -2853,7 +2839,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
     tmp->mStyleSheetSetList = nullptr;
   }
 
-  tmp->mSubDocuments = nullptr;
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mSubDocuments)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFrameRequestManager)
 
@@ -3021,10 +3007,9 @@ void Document::Reset(nsIChannel* aChannel, nsILoadGroup* aLoadGroup) {
 }
 
 void Document::DisconnectNodeTree() {
-  // Delete references to sub-documents and kill the subdocument map,
-  // if any. This is not strictly needed, but makes the node tree
-  // teardown a bit faster.
-  mSubDocuments = nullptr;
+  // Delete references to sub-documents, if any. This is not strictly needed,
+  // but makes the node tree teardown a bit faster.
+  mSubDocuments.Clear();
 
   bool oldVal = mInUnlinkOrDeletion;
   mInUnlinkOrDeletion = true;
@@ -7721,65 +7706,23 @@ bool Document::RemoveFromBFCacheSync() {
   return removed;
 }
 
-static void SubDocClearEntry(PLDHashTable* table, PLDHashEntryHdr* entry) {
-  SubDocMapEntry* e = static_cast<SubDocMapEntry*>(entry);
-
-  NS_RELEASE(e->mKey);
-  if (e->mSubDocument) {
-    e->mSubDocument->SetParentDocument(nullptr);
-    NS_RELEASE(e->mSubDocument);
-  }
-}
-
-static void SubDocInitEntry(PLDHashEntryHdr* entry, const void* key) {
-  SubDocMapEntry* e =
-      const_cast<SubDocMapEntry*>(static_cast<const SubDocMapEntry*>(entry));
-
-  e->mKey = const_cast<Element*>(static_cast<const Element*>(key));
-  NS_ADDREF(e->mKey);
-
-  e->mSubDocument = nullptr;
-}
-
 nsresult Document::SetSubDocumentFor(Element* aElement, Document* aSubDoc) {
   NS_ENSURE_TRUE(aElement, NS_ERROR_UNEXPECTED);
 
   if (!aSubDoc) {
     // aSubDoc is nullptr, remove the mapping
 
-    if (mSubDocuments) {
-      mSubDocuments->Remove(aElement);
-    }
+    mSubDocuments.Remove(aElement);
   } else {
-    if (!mSubDocuments) {
-      // Create a new hashtable
+    // Ensure there's a mapping for aElement in mSubDocuments.
+    auto& slot = mSubDocuments.LookupOrInsert(aElement);
 
-      static const PLDHashTableOps hash_table_ops = {
-          PLDHashTable::HashVoidPtrKeyStub, PLDHashTable::MatchEntryStub,
-          PLDHashTable::MoveEntryStub, SubDocClearEntry, SubDocInitEntry};
-
-      mSubDocuments =
-          MakeUnique<PLDHashTable>(&hash_table_ops, sizeof(SubDocMapEntry));
-    }
-
-    // Add a mapping to the hash table
-    auto entry =
-        static_cast<SubDocMapEntry*>(mSubDocuments->Add(aElement, fallible));
-
-    if (!entry) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-
-    if (entry->mSubDocument) {
-      entry->mSubDocument->SetParentDocument(nullptr);
-
-      // Release the old sub document
-      NS_RELEASE(entry->mSubDocument);
-    }
-
-    entry->mSubDocument = aSubDoc;
-    NS_ADDREF(entry->mSubDocument);
-
+    // Replace the entry in the table with aSubDoc, and set the parent document.
+    // NOTE: The extra reference we take here, and `SetParentDocument` call we
+    // make will be reverted by `ClearParentDocumentDeleter` when the entry is
+    // removed.
+    NS_ADDREF(aSubDoc);
+    slot.reset(aSubDoc);
     aSubDoc->SetParentDocument(this);
   }
 
@@ -7787,12 +7730,9 @@ nsresult Document::SetSubDocumentFor(Element* aElement, Document* aSubDoc) {
 }
 
 Document* Document::GetSubDocumentFor(nsIContent* aContent) const {
-  if (mSubDocuments && aContent->IsElement()) {
-    auto entry = static_cast<SubDocMapEntry*>(
-        mSubDocuments->Search(aContent->AsElement()));
-
-    if (entry) {
-      return entry->mSubDocument;
+  if (aContent->IsElement()) {
+    if (auto entry = mSubDocuments.Lookup(aContent->AsElement())) {
+      return entry.Data().get();
     }
   }
 
@@ -11954,18 +11894,11 @@ void Document::Sanitize() {
 }
 
 void Document::EnumerateSubDocuments(SubDocEnumFunc aCallback) {
-  if (!mSubDocuments) {
-    return;
-  }
-
-  // PLDHashTable::Iterator can't handle modifications while iterating so we
+  // nsTHashtable::Iterator can't handle modifications while iterating so we
   // copy all entries to an array first before calling any callbacks.
   AutoTArray<RefPtr<Document>, 8> subdocs;
-  for (auto iter = mSubDocuments->Iter(); !iter.Done(); iter.Next()) {
-    const auto* entry = static_cast<SubDocMapEntry*>(iter.Get());
-    if (Document* subdoc = entry->mSubDocument) {
-      subdocs.AppendElement(subdoc);
-    }
+  for (const auto& entry : mSubDocuments.Values()) {
+    subdocs.AppendElement(entry.get());
   }
   for (auto& subdoc : subdocs) {
     if (aCallback(*subdoc) == CallState::Stop) {
@@ -11977,17 +11910,12 @@ void Document::EnumerateSubDocuments(SubDocEnumFunc aCallback) {
 void Document::CollectDescendantDocuments(
     nsTArray<RefPtr<Document>>& aDescendants,
     IncludeSubResources aIncludeSubresources, SubDocTestFunc aCallback) const {
-  if (mSubDocuments) {
-    for (auto iter = mSubDocuments->Iter(); !iter.Done(); iter.Next()) {
-      const auto* entry = static_cast<SubDocMapEntry*>(iter.Get());
-      if (Document* subdoc = entry->mSubDocument) {
-        if (aCallback(subdoc)) {
-          aDescendants.AppendElement(subdoc);
-        }
-        subdoc->CollectDescendantDocuments(aDescendants, aIncludeSubresources,
-                                           aCallback);
-      }
+  for (const auto& entry : mSubDocuments.Values()) {
+    if (aCallback(entry.get())) {
+      aDescendants.AppendElement(entry.get());
     }
+    entry->CollectDescendantDocuments(aDescendants, aIncludeSubresources,
+                                      aCallback);
   }
 
   if (aIncludeSubresources == IncludeSubResources::Yes) {
@@ -12151,11 +12079,8 @@ bool Document::CanSavePresentation(nsIRequest* aNewRequest,
     ret = false;
   }
 
-  if (aIncludeSubdocuments && mSubDocuments) {
-    for (auto iter = mSubDocuments->Iter(); !iter.Done(); iter.Next()) {
-      auto entry = static_cast<SubDocMapEntry*>(iter.Get());
-      Document* subdoc = entry->mSubDocument;
-
+  if (aIncludeSubdocuments) {
+    for (const auto& subdoc : mSubDocuments.Values()) {
       uint32_t subDocBFCacheCombo = 0;
       // The aIgnoreRequest we were passed is only for us, so don't pass it on.
       bool canCache =
@@ -12288,7 +12213,7 @@ void Document::Destroy() {
     MOZ_ASSERT(child->GetParentNode() == this);
   }
   MOZ_ASSERT(oldChildCount == GetChildCount());
-  MOZ_ASSERT(!mSubDocuments || mSubDocuments->EntryCount() == 0);
+  MOZ_ASSERT(mSubDocuments.IsEmpty());
 
   mInUnlinkOrDeletion = oldVal;
 

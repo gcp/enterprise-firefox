@@ -548,6 +548,8 @@ restore-from-backup-title = Let’s get { -brand-short-name } back how you like 
 restore-from-backup-subtitle = Recover all your bookmarks, history, and other data to get back to browsing.
 restore-from-backup-secondary-button = Don’t restore
 
+multiple-backups-info-tile = <strong>Multiple backup files found.</strong> The most recent file is selected. Restore other profiles in <a data-l10n-name="settings-label">Settings.</a>
+
 ## Restored from Backup spotlight
 
 restored-from-backup-success-title = We’re back! Your { -brand-short-name } data has been restored.

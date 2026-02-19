@@ -661,7 +661,8 @@ static constexpr nsAttrValue::EnumTableEntry
 
 namespace {
 
-static PLDHashTable* sEventListenerManagersHash;
+static StaticAutoPtr<nsTHashMap<const nsINode*, RefPtr<EventListenerManager>>>
+    sEventListenerManagersHash;
 
 // A global hashtable to for keeping the arena alive for cross docGroup node
 // adoption.
@@ -695,36 +696,6 @@ class DOMEventListenerManagersHashReporter final : public nsIMemoryReporter {
 };
 
 NS_IMPL_ISUPPORTS(DOMEventListenerManagersHashReporter, nsIMemoryReporter)
-
-class EventListenerManagerMapEntry : public PLDHashEntryHdr {
- public:
-  explicit EventListenerManagerMapEntry(const void* aKey) : mKey(aKey) {}
-
-  ~EventListenerManagerMapEntry() {
-    NS_ASSERTION(!mListenerManager, "caller must release and disconnect ELM");
-  }
-
- protected:          // declared protected to silence clang warnings
-  const void* mKey;  // must be first, to look like PLDHashEntryStub
-
- public:
-  RefPtr<EventListenerManager> mListenerManager;
-};
-
-static void EventListenerManagerHashInitEntry(PLDHashEntryHdr* entry,
-                                              const void* key) {
-  // Initialize the entry with placement new
-  new (entry) EventListenerManagerMapEntry(key);
-}
-
-static void EventListenerManagerHashClearEntry(PLDHashTable* table,
-                                               PLDHashEntryHdr* entry) {
-  EventListenerManagerMapEntry* lm =
-      static_cast<EventListenerManagerMapEntry*>(entry);
-
-  // Let the EventListenerManagerMapEntry clean itself up...
-  lm->~EventListenerManagerMapEntry();
-}
 
 class SameOriginCheckerImpl final : public nsIChannelEventSink,
                                     public nsIInterfaceRequestor {
@@ -1086,13 +1057,8 @@ nsresult nsContentUtils::Init() {
   if (!InitializeEventTable()) return NS_ERROR_FAILURE;
 
   if (!sEventListenerManagersHash) {
-    static const PLDHashTableOps hash_table_ops = {
-        PLDHashTable::HashVoidPtrKeyStub, PLDHashTable::MatchEntryStub,
-        PLDHashTable::MoveEntryStub, EventListenerManagerHashClearEntry,
-        EventListenerManagerHashInitEntry};
-
     sEventListenerManagersHash =
-        new PLDHashTable(&hash_table_ops, sizeof(EventListenerManagerMapEntry));
+        new nsTHashMap<const nsINode*, RefPtr<EventListenerManager>>();
 
     RegisterStrongMemoryReporter(new DOMEventListenerManagersHashReporter());
   }
@@ -2259,7 +2225,7 @@ void nsContentUtils::Shutdown() {
   sUserDefinedEvents = nullptr;
 
   if (sEventListenerManagersHash) {
-    NS_ASSERTION(sEventListenerManagersHash->EntryCount() == 0,
+    NS_ASSERTION(sEventListenerManagersHash->Count() == 0,
                  "Event listener manager hash not empty at shutdown!");
 
     // See comment above.
@@ -2271,8 +2237,7 @@ void nsContentUtils::Shutdown() {
     // it could leave dangling references in DOMClassInfo's preserved
     // wrapper table.
 
-    if (sEventListenerManagersHash->EntryCount() == 0) {
-      delete sEventListenerManagersHash;
+    if (sEventListenerManagersHash->Count() == 0) {
       sEventListenerManagersHash = nullptr;
     }
   }
@@ -5871,13 +5836,12 @@ void nsContentUtils::UnmarkGrayJSListenersInCCGenerationDocuments() {
     return;
   }
 
-  for (auto i = sEventListenerManagersHash->Iter(); !i.Done(); i.Next()) {
-    auto entry = static_cast<EventListenerManagerMapEntry*>(i.Get());
-    nsINode* n = static_cast<nsINode*>(entry->mListenerManager->GetTarget());
+  for (EventListenerManager* mgr : sEventListenerManagersHash->Values()) {
+    nsINode* n = static_cast<nsINode*>(mgr->GetTarget());
     if (n && n->IsInComposedDoc() &&
         nsCCUncollectableMarker::InGeneration(
             n->OwnerDoc()->GetMarkedCCGeneration())) {
-      entry->mListenerManager->MarkForCC();
+      mgr->MarkForCC();
     }
   }
 }
@@ -5890,11 +5854,9 @@ void nsContentUtils::TraverseListenerManager(
     return;
   }
 
-  auto entry = static_cast<EventListenerManagerMapEntry*>(
-      sEventListenerManagersHash->Search(aNode));
+  auto entry = sEventListenerManagersHash->Lookup(aNode);
   if (entry) {
-    CycleCollectionNoteChild(cb, entry->mListenerManager.get(),
-                             "[via hash] mListenerManager");
+    CycleCollectionNoteChild(cb, entry->get(), "[via hash] mListenerManager");
   }
 }
 
@@ -5907,20 +5869,15 @@ EventListenerManager* nsContentUtils::GetListenerManagerForNode(
     return nullptr;
   }
 
-  auto entry = static_cast<EventListenerManagerMapEntry*>(
-      sEventListenerManagersHash->Add(aNode, fallible));
+  auto& entry = sEventListenerManagersHash->LookupOrInsert(aNode);
 
   if (!entry) {
-    return nullptr;
-  }
-
-  if (!entry->mListenerManager) {
-    entry->mListenerManager = new EventListenerManager(aNode);
+    entry = new EventListenerManager(aNode);
 
     aNode->SetFlags(NODE_HAS_LISTENERMANAGER);
   }
 
-  return entry->mListenerManager;
+  return entry;
 }
 
 EventListenerManager* nsContentUtils::GetExistingListenerManagerForNode(
@@ -5936,10 +5893,9 @@ EventListenerManager* nsContentUtils::GetExistingListenerManagerForNode(
     return nullptr;
   }
 
-  auto entry = static_cast<EventListenerManagerMapEntry*>(
-      sEventListenerManagersHash->Search(aNode));
+  auto entry = sEventListenerManagersHash->Lookup(aNode);
   if (entry) {
-    return entry->mListenerManager;
+    return entry.Data();
   }
 
   return nullptr;
@@ -5975,17 +5931,12 @@ already_AddRefed<DOMArena> nsContentUtils::TakeEntryFromDOMArenaTable(
 /* static */
 void nsContentUtils::RemoveListenerManager(nsINode* aNode) {
   if (sEventListenerManagersHash) {
-    auto entry = static_cast<EventListenerManagerMapEntry*>(
-        sEventListenerManagersHash->Search(aNode));
-    if (entry) {
-      RefPtr<EventListenerManager> listenerManager;
-      listenerManager.swap(entry->mListenerManager);
-      // Remove the entry and *then* do operations that could cause further
-      // modification of sEventListenerManagersHash.  See bug 334177.
-      sEventListenerManagersHash->RawRemove(entry);
-      if (listenerManager) {
-        listenerManager->Disconnect();
-      }
+    // Remove the entry and *then* do operations that could cause further
+    // modification of sEventListenerManagersHash.  See bug 334177.
+    Maybe<RefPtr<EventListenerManager>> listenerManager =
+        sEventListenerManagersHash->Extract(aNode);
+    if (listenerManager && *listenerManager) {
+      (*listenerManager)->Disconnect();
     }
   }
 }

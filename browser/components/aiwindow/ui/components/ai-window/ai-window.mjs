@@ -1086,7 +1086,8 @@ export class AIWindow extends MozLitElement {
       await this.#updateConversation();
       await this.#fetchAIResponse(userMsg.content.body, {
         skipUserDispatch: true,
-        memoriesEnabled: withMemories ?? userMsg.memoriesEnabled,
+        memoriesEnabled:
+          withMemories ?? this.#memoriesToggled ?? this.memoriesPref,
       });
     } catch (e) {
       console.error("ai-window: retry failed", e);

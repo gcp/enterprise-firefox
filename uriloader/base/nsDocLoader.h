@@ -249,33 +249,19 @@ class nsDocLoader : public nsIDocumentLoader,
     MOZ_COUNTED_DTOR(nsStatusInfo)
   };
 
-  struct nsRequestInfo : public PLDHashEntryHdr {
-    explicit nsRequestInfo(const void* key)
-        : mKey(key),
-          mCurrentProgress(0),
+  struct nsRequestInfo {
+    explicit nsRequestInfo()
+        : mCurrentProgress(0),
           mMaxProgress(0),
           mUploading(false),
-          mLastStatus(nullptr) {
-      MOZ_COUNT_CTOR(nsRequestInfo);
-    }
+          mLastStatus(nullptr) {}
 
-    MOZ_COUNTED_DTOR(nsRequestInfo)
-
-    nsIRequest* Request() {
-      return static_cast<nsIRequest*>(const_cast<void*>(mKey));
-    }
-
-    const void* mKey;  // Must be first for the PLDHashTable stubs to work
     int64_t mCurrentProgress;
     int64_t mMaxProgress;
     bool mUploading;
 
     mozilla::UniquePtr<nsStatusInfo> mLastStatus;
   };
-
-  static void RequestInfoHashInitEntry(PLDHashEntryHdr* entry, const void* key);
-  static void RequestInfoHashClearEntry(PLDHashTable* table,
-                                        PLDHashEntryHdr* entry);
 
   // IMPORTANT: The ownership implicit in the following member
   // variables has been explicitly checked and set using nsCOMPtr
@@ -304,7 +290,7 @@ class nsDocLoader : public nsIDocumentLoader,
   int64_t mCurrentTotalProgress;
   int64_t mMaxTotalProgress;
 
-  PLDHashTable mRequestInfoHash;
+  nsTHashMap<nsIRequest*, nsRequestInfo> mRequestInfoHash;
   int64_t mCompletedTotalProgress;
 
   mozilla::LinkedList<nsStatusInfo> mStatusInfoList;
@@ -347,8 +333,6 @@ class nsDocLoader : public nsIDocumentLoader,
   bool mIsLoadingJavascriptURI = false;
 
   bool mNotifyAboutBackgroundRequests;
-
-  static const PLDHashTableOps sRequestInfoHashOps;
 
   // A list of kids that are in the middle of their onload calls and will let
   // us know once they're done.  We don't want to fire onload for "normal"

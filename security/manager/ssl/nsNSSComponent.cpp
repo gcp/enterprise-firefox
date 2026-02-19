@@ -274,15 +274,18 @@ nsNSSComponent::nsNSSComponent()
   MOZ_ASSERT(mInstanceCount == 0,
              "nsNSSComponent is a singleton, but instantiated multiple times!");
   ++mInstanceCount;
+
+  MOZ_ALWAYS_SUCCEEDS(NS_CreateBackgroundTaskQueue(
+      "NSS task queue", getter_AddRefs(mNSSTaskQueue)));
 }
+
+bool sPrepareForShutdownRan = false;
 
 nsNSSComponent::~nsNSSComponent() {
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("nsNSSComponent::dtor\n"));
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(sPrepareForShutdownRan);
 
-  // All cleanup code requiring services needs to happen in xpcom_shutdown
-
-  PrepareForShutdown();
   nsSSLIOLayerHelpers::GlobalCleanup();
   --mInstanceCount;
 
@@ -465,8 +468,6 @@ class LoadLoadableCertsTask final : public Runnable {
 
   ~LoadLoadableCertsTask() = default;
 
-  nsresult Dispatch();
-
  private:
   NS_IMETHOD Run() override;
   nsresult LoadLoadableRoots();
@@ -474,18 +475,6 @@ class LoadLoadableCertsTask final : public Runnable {
   bool mImportEnterpriseRoots;
   nsAutoCString mGreBinDir;
 };
-
-nsresult LoadLoadableCertsTask::Dispatch() {
-  // The stream transport service (note: not the socket transport service) can
-  // be used to perform background tasks or I/O that would otherwise block the
-  // main thread.
-  nsCOMPtr<nsIEventTarget> target(
-      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID));
-  if (!target) {
-    return NS_ERROR_FAILURE;
-  }
-  return target->Dispatch(this, NS_DISPATCH_NORMAL);
-}
 
 NS_IMETHODIMP
 LoadLoadableCertsTask::Run() {
@@ -536,34 +525,33 @@ LoadLoadableCertsTask::Run() {
   return NS_OK;
 }
 
-class BackgroundLoadOSClientCertsModuleTask final : public CryptoTask {
+class LoadOrUnloadOSClientCertsTask final : public Runnable {
  public:
-  explicit BackgroundLoadOSClientCertsModuleTask() {}
+  explicit LoadOrUnloadOSClientCertsTask(bool load)
+      : Runnable("LoadOrUnloadOSClientCertsTask"), mLoad(load) {}
+
+  ~LoadOrUnloadOSClientCertsTask() = default;
 
  private:
-  virtual nsresult CalculateResult() override {
-    bool success = LoadOSClientCertsModule();
-    return success ? NS_OK : NS_ERROR_FAILURE;
-  }
-
-  virtual void CallCallback(nsresult rv) override {
-    MOZ_LOG(gPIPNSSLog, LogLevel::Debug,
-            ("loading OS client certs module %s",
-             NS_SUCCEEDED(rv) ? "succeeded" : "failed"));
-    nsCOMPtr<nsIObserverService> observerService =
-        mozilla::services::GetObserverService();
-    if (observerService) {
-      observerService->NotifyObservers(
-          nullptr, "psm:load-os-client-certs-module-task-ran", nullptr);
-    }
-  }
+  NS_IMETHOD Run() override;
+  bool mLoad;  // true if loading the module, false if unloading it.
 };
 
-void AsyncLoadOrUnloadOSClientCertsModule(bool load) {
-  if (load) {
-    RefPtr<BackgroundLoadOSClientCertsModuleTask> task =
-        new BackgroundLoadOSClientCertsModuleTask();
-    (void)task->Dispatch();
+NS_IMETHODIMP LoadOrUnloadOSClientCertsTask::Run() {
+  if (mLoad) {
+    bool success = LoadOSClientCertsModule();
+    MOZ_LOG(gPIPNSSLog, LogLevel::Debug,
+            ("loading OS client certs module %s",
+             success ? "succeeded" : "failed"));
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("load osclientcerts module task callback", []() {
+          nsCOMPtr<nsIObserverService> observerService =
+              mozilla::services::GetObserverService();
+          if (observerService) {
+            observerService->NotifyObservers(
+                nullptr, "psm:load-os-client-certs-module-task-ran", nullptr);
+          }
+        }));
   } else {
     UniqueSECMODModule osClientCertsModule(
         SECMOD_FindModule(kOSClientCertsModuleName.get()));
@@ -571,6 +559,8 @@ void AsyncLoadOrUnloadOSClientCertsModule(bool load) {
       SECMOD_UnloadUserModule(osClientCertsModule.get());
     }
   }
+
+  return NS_OK;
 }
 
 nsresult nsNSSComponent::BlockUntilLoadableCertsLoaded() {
@@ -1621,7 +1611,7 @@ nsresult nsNSSComponent::InitializeNSS() {
     RefPtr<LoadLoadableCertsTask> loadLoadableCertsTask(
         new LoadLoadableCertsTask(this, importEnterpriseRoots,
                                   std::move(greBinDir)));
-    rv = loadLoadableCertsTask->Dispatch();
+    rv = mNSSTaskQueue->Dispatch(loadLoadableCertsTask.forget());
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
     if (NS_FAILED(rv)) {
       return rv;
@@ -1648,11 +1638,15 @@ void nsNSSComponent::PrepareForShutdown() {
 
   // Unload osclientcerts so it drops any held resources and stops its
   // background thread.
-  AsyncLoadOrUnloadOSClientCertsModule(false);
+  RefPtr<LoadOrUnloadOSClientCertsTask> task =
+      new LoadOrUnloadOSClientCertsTask(false);
+  (void)mNSSTaskQueue->Dispatch(task.forget());
 
   // We don't actually shut down NSS - XPCOM does, after all threads have been
   // joined and the component manager has been shut down (and so there shouldn't
   // be any XPCOM objects holding NSS resources).
+
+  sPrepareForShutdownRan = true;
 }
 
 nsresult nsNSSComponent::Init() {
@@ -1737,7 +1731,9 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
     } else if (prefName.Equals("security.osclientcerts.autoload")) {
       bool loadOSClientCertsModule =
           StaticPrefs::security_osclientcerts_autoload();
-      AsyncLoadOrUnloadOSClientCertsModule(loadOSClientCertsModule);
+      RefPtr<LoadOrUnloadOSClientCertsTask> task =
+          new LoadOrUnloadOSClientCertsTask(loadOSClientCertsModule);
+      (void)mNSSTaskQueue->Dispatch(task.forget());
     } else if (prefName.EqualsLiteral("security.pki.mitm_canary_issuer")) {
       MutexAutoLock lock(mMutex);
       mMitmCanaryIssuer.Truncate();
@@ -1941,6 +1937,16 @@ nsNSSComponent::AsyncClearSSLExternalAndInternalSessionCache(
   }
   DoClearSSLExternalAndInternalSessionCache();
   promise.forget(aPromise);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsNSSComponent::GetNssTaskQueue(nsISerialEventTarget** result) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!NS_IsMainThread()) {
+    return NS_ERROR_NOT_SAME_THREAD;
+  }
+  *result = do_AddRef(mNSSTaskQueue).take();
   return NS_OK;
 }
 

@@ -175,11 +175,18 @@ export class ChatConversation {
    * @param {string} contentBody - The user message content
    * @param {URL?} [pageUrl=null] - The current page url when message was submitted
    * @param {UserRoleOpts} [userOpts=new UserRoleOpts()] - User message options
+   * @param {object} [userContext={}] - Contextual information for the user message, such as real time info and relevant memories
    */
-  addUserMessage(contentBody, pageUrl = null, userOpts = new UserRoleOpts()) {
+  addUserMessage(
+    contentBody,
+    pageUrl = null,
+    userOpts = new UserRoleOpts(),
+    userContext = {}
+  ) {
     const content = {
       type: "text",
       body: contentBody,
+      userContext,
     };
 
     let currentTurn = this.currentTurnIndex();
@@ -272,14 +279,22 @@ export class ChatConversation {
       this.addSystemMessage(SYSTEM_PROMPT_TYPE.TEXT, systemPrompt);
     }
 
-    // Add real-time context
-    await this.getRealTimeInfo(engineInstance);
-
-    if (userOpts?.memoriesEnabled) {
-      await this.getMemoriesContext(prompt, engineInstance);
+    let userContext = {};
+    const realTimeContext = await this.getRealTimeInfo(engineInstance);
+    if (realTimeContext) {
+      userContext[realTimeContext] = realTimeContext;
     }
 
-    this.addUserMessage(prompt, pageUrl, userOpts);
+    if (userOpts?.memoriesEnabled) {
+      const memoriesContext = await this.getMemoriesContext(
+        prompt,
+        engineInstance
+      );
+      if (memoriesContext) {
+        userContext[memoriesContext] = memoriesContext;
+      }
+    }
+    this.addUserMessage(prompt, pageUrl, userOpts, userContext);
 
     return this;
   }
@@ -362,34 +377,37 @@ export class ChatConversation {
    *
    * @param {openAIEngine} engineInstance - The initialized engine instance
    * @param {RealTimeApiFunction} [getRealTimeMapping=constructRealTimeInfoInjectionMessage]
-   * Function that returns promise that resolves with real time info mapping
+   *
+   * @returns {Promise<string|null>} - Promise that resolves with real time info or null
    */
   async getRealTimeInfo(
     engineInstance,
     getRealTimeMapping = constructRealTimeInfoInjectionMessage
   ) {
     const realTimeInfoMapping = await getRealTimeMapping();
-    if (!realTimeInfoMapping) {
-      return;
-    }
-
-    let realTimePromptRaw = await engineInstance.loadPrompt(
-      MODEL_FEATURES.REAL_TIME_CONTEXT_DATE
-    );
-    if (realTimeInfoMapping.hasTabInfo) {
-      const realTimeTabPromptRaw = await engineInstance.loadPrompt(
-        MODEL_FEATURES.REAL_TIME_CONTEXT_TAB
+    if (realTimeInfoMapping) {
+      let realTimePromptRaw = await engineInstance.loadPrompt(
+        MODEL_FEATURES.REAL_TIME_CONTEXT_DATE
       );
-      realTimePromptRaw += realTimeTabPromptRaw;
-    } else {
-      delete realTimeInfoMapping.url;
-      delete realTimeInfoMapping.title;
-      delete realTimeInfoMapping.description;
-    }
-    delete realTimeInfoMapping.hasTabInfo;
+      if (realTimeInfoMapping.hasTabInfo) {
+        const realTimeTabPromptRaw = await engineInstance.loadPrompt(
+          MODEL_FEATURES.REAL_TIME_CONTEXT_TAB
+        );
+        realTimePromptRaw += realTimeTabPromptRaw;
+      } else {
+        delete realTimeInfoMapping.url;
+        delete realTimeInfoMapping.title;
+        delete realTimeInfoMapping.description;
+      }
+      delete realTimeInfoMapping.hasTabInfo;
 
-    const realTimePrompt = renderPrompt(realTimePromptRaw, realTimeInfoMapping);
-    this.addSystemMessage(SYSTEM_PROMPT_TYPE.REAL_TIME, realTimePrompt);
+      const realTimePrompt = renderPrompt(
+        realTimePromptRaw,
+        realTimeInfoMapping
+      );
+      return realTimePrompt ?? null;
+    }
+    return null;
   }
 
   /**
@@ -413,7 +431,8 @@ export class ChatConversation {
    * @param {message} message
    * @param {openAIEngine} engineInstance
    * @param {MemoriesApiFunction} [constructMemories=constructRelevantMemoriesContextMessage]
-   * Function that returns promise that resolves with memories data
+   *
+   * @returns {Promise<string|null>} - Promise that resolves with relevant memories or null
    */
   async getMemoriesContext(
     message,
@@ -421,11 +440,7 @@ export class ChatConversation {
     constructMemories = constructRelevantMemoriesContextMessage
   ) {
     const memoriesContext = await constructMemories(message, engineInstance);
-    if (!memoriesContext?.content) {
-      return;
-    }
-
-    this.addSystemMessage(SYSTEM_PROMPT_TYPE.MEMORIES, memoriesContext.content);
+    return memoriesContext?.content ?? null;
   }
 
   /**
@@ -477,31 +492,47 @@ export class ChatConversation {
    * @returns {Array<{ role: string, content: string }>}
    */
   getMessagesInOpenAiFormat() {
-    return this.#messages
-      .filter(message => {
-        return !(
-          message.role === MESSAGE_ROLE.ASSISTANT && !message?.content?.body
-        );
-      })
-      .map(message => {
-        const msg = {
-          role: getRoleLabel(message.role).toLowerCase(),
-          content: message.content?.body ?? message.content,
-        };
+    const filteredMsgs = this.#messages.filter(message => {
+      return !(
+        message.role === MESSAGE_ROLE.ASSISTANT && !message?.content?.body
+      );
+    });
+    const msgsForAPI = filteredMsgs.map(message => {
+      const msg = {
+        role: getRoleLabel(message.role).toLowerCase(),
+        content: message.content?.body ?? message.content,
+      };
 
-        if (msg.content.tool_calls) {
-          msg.tool_calls = msg.content.tool_calls;
-          msg.content = "";
-        }
+      if (msg.content.tool_calls) {
+        msg.tool_calls = msg.content.tool_calls;
+        msg.content = "";
+      }
 
-        if (msg.role === "tool") {
-          msg.tool_call_id = message.content.tool_call_id;
-          msg.name = message.content.name;
-          msg.content = JSON.stringify(message.content.body);
-        }
+      if (msg.role === "tool") {
+        msg.tool_call_id = message.content.tool_call_id;
+        msg.name = message.content.name;
+        msg.content = JSON.stringify(message.content.body);
+      }
 
-        return msg;
-      });
+      return msg;
+    });
+
+    // Inject contextual messages immediately before the last user message, like real time info and relevant memories as USER role messages
+    const lastUserMsgIdx = filteredMsgs.findLastIndex(
+      msg => msg.role == MESSAGE_ROLE.USER
+    );
+
+    if (lastUserMsgIdx > -1) {
+      const contextMsgs = Object.values(
+        filteredMsgs[lastUserMsgIdx].content.userContext
+      ).map(contextMsg => ({
+        role: getRoleLabel(MESSAGE_ROLE.USER).toLowerCase(),
+        content: contextMsg,
+      }));
+      msgsForAPI.splice(lastUserMsgIdx, 0, ...contextMsgs);
+    }
+
+    return msgsForAPI;
   }
 
   #updateActiveBranchTipMessageId() {

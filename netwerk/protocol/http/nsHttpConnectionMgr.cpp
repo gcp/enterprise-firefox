@@ -3125,7 +3125,7 @@ bool nsHttpConnectionMgr::ShouldThrottle(nsHttpTransaction* aTrans) {
   bool forActiveTab = tabId == mCurrentBrowserId;
   bool throttled = aTrans->EligibleForThrottling();
 
-  bool stop = [=]() {
+  bool stop = [&]() {
     if (mActiveTabTransactionsExist) {
       if (!tabId) {
         // Chrome initiated and unidentified transactions just respect

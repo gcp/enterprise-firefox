@@ -1816,7 +1816,7 @@ bool gfxPlatformFontList::FindAndAddFamiliesLocked(
   NS_ASSERTION(mFontFamilies.Count() != 0,
                "system font list was not initialized correctly");
 
-  auto isBlockedByVisibilityLevel = [=](gfxFontFamily* aFamily) -> bool {
+  auto isBlockedByVisibilityLevel = [=, this](gfxFontFamily* aFamily) -> bool {
     bool visible = IsVisibleToCSS(*aFamily, visibilityLevel);
     if (visible || (allowHidden && aFamily->IsHidden())) {
       return false;
@@ -2052,7 +2052,7 @@ gfxFontEntry* gfxPlatformFontList::GetOrCreateFontEntryLocked(
     fontlist::Face* aFace, const fontlist::Family* aFamily) {
   return mFontEntries
       .LookupOrInsertWith(aFace,
-                          [=] { return CreateFontEntry(aFace, aFamily); })
+                          [=, this] { return CreateFontEntry(aFace, aFamily); })
       .get();
 }
 

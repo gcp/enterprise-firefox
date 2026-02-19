@@ -3072,7 +3072,7 @@ export var Policies = {
   },
 
   SecurityDevices: {
-    onProfileAfterChange(manager, param) {
+    async onProfileAfterChange(manager, param) {
       let pkcs11db = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
         Ci.nsIPKCS11ModuleDB
       );
@@ -3083,7 +3083,7 @@ export var Policies = {
         if (param.Delete) {
           for (let deviceName of param.Delete) {
             try {
-              pkcs11db.deleteModule(deviceName);
+              await pkcs11db.deleteModule(deviceName);
             } catch (e) {
               // Ignoring errors here since it might stick around in policy
               // after removing. Alternative would be to listModules and
@@ -3100,7 +3100,7 @@ export var Policies = {
       }
       for (let deviceName in securityDevices) {
         let foundModule = false;
-        for (let module of pkcs11db.listModules()) {
+        for (let module of await pkcs11db.listModules()) {
           if (module && module.libName === securityDevices[deviceName]) {
             foundModule = true;
             break;
@@ -3110,7 +3110,12 @@ export var Policies = {
           continue;
         }
         try {
-          pkcs11db.addModule(deviceName, securityDevices[deviceName], 0, 0);
+          await pkcs11db.addModule(
+            deviceName,
+            securityDevices[deviceName],
+            0,
+            0
+          );
         } catch (ex) {
           lazy.log.error(`Unable to add security device ${deviceName}`);
           lazy.log.debug(ex);

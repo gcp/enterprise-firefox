@@ -972,12 +972,12 @@ auto DocumentLoadListener::Open(nsDocShellLoadState* aLoadState,
             bool handled = aValue.ResolveValue();
             if (handled) {
               self->DisconnectListeners(NS_ERROR_ABORT, NS_ERROR_ABORT);
-              mParentChannelListener = nullptr;
+              self->mParentChannelListener = nullptr;
             } else {
-              nsresult rv = mChannel->AsyncOpen(openInfo);
+              nsresult rv = self->mChannel->AsyncOpen(openInfo);
               if (NS_FAILED(rv)) {
                 self->DisconnectListeners(rv, rv);
-                mParentChannelListener = nullptr;
+                self->mParentChannelListener = nullptr;
               }
             }
           }

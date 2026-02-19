@@ -67,11 +67,17 @@ void NotificationCallback::HandleActivation(LPCWSTR invokedArgs) {
 
   // Runs `{program path} [--profile {profile path}] [--notification-windowsTag
   // {tag}]`.
-  CreateProcessW(programPath.c_str(), cmdLine.get(), nullptr, nullptr, false,
-                 DETACHED_PROCESS | NORMAL_PRIORITY_CLASS, nullptr, nullptr,
-                 &si, &pi);
-
-  NOTIFY_LOG(mozilla::LogLevel::Info, (L"Invoked %s", cmdLine.get()));
+  if (!CreateProcessW(programPath.c_str(), cmdLine.get(), nullptr, nullptr,
+                      false, DETACHED_PROCESS | NORMAL_PRIORITY_CLASS, nullptr,
+                      nullptr, &si, &pi)) {
+    MOZ_WIN_EVENT_LOG_ERROR_MESSAGE(MOZ_NOTIFICATION_SERVER_NAME,
+                                    L"NotificationCallback::HandleActivation: "
+                                    L"Failed to exec program. Error was %d",
+                                    GetLastError());
+    return;
+  } else {
+    NOTIFY_LOG(mozilla::LogLevel::Info, (L"Invoked %s", cmdLine.get()));
+  }
 
   // Transfer `SetForegroundWindow` permission to the launched application.
 
@@ -80,6 +86,13 @@ void NotificationCallback::HandleActivation(LPCWSTR invokedArgs) {
       HandlePipeMessages(pipe);
     }
   });
+  // Close handles when we're done with them
+  if (pi.hThread) {
+    CloseHandle(pi.hThread);
+  }
+  if (pi.hProcess) {
+    CloseHandle(pi.hProcess);
+  }
 }
 
 mozilla::Maybe<ToastArgs> NotificationCallback::ParseToastArguments(
@@ -129,7 +142,7 @@ NotificationCallback::BuildRunCommand(
   childArgv.push_back(programPath.c_str());
 
   if (maybeArgs.isSome()) {
-    const ToastArgs& args = maybeArgs.value();
+    const ToastArgs& args = maybeArgs.ref();
     if (!args.profile.empty()) {
       childArgv.push_back(L"--profile");
       childArgv.push_back(args.profile.c_str());

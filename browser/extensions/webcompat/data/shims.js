@@ -409,6 +409,7 @@ const AVAILABLE_SHIMS = [
       "thenationaldesk.com",
       "foxbaltimore.com",
       "local12.com",
+      "aucklandfc.co.nz",
     ],
     matches: [
       "*://www.googletagservices.com/tag/js/gpt.js*",

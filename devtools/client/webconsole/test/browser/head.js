@@ -1886,3 +1886,26 @@ async function getImageSizeFromClipboard() {
     }
   );
 }
+
+/**
+ * Perform default setup for URL classifier tests (eg used for ETP warnings).
+ *
+ * @param {object=} options
+ * @param {boolean=} options.enableTrackingProtection
+ *        If true, sets the preference privacy.trackingprotection.enabled=true.
+ *        the test. Defaults to true.
+ */
+async function setupUrlClassifierTest(options = {}) {
+  const { UrlClassifierTestUtils } = ChromeUtils.importESModule(
+    "resource://testing-common/UrlClassifierTestUtils.sys.mjs"
+  );
+  await UrlClassifierTestUtils.addTestTrackers();
+  registerCleanupFunction(function () {
+    UrlClassifierTestUtils.cleanupTestTrackers();
+  });
+
+  const { enableTrackingProtection = true } = options;
+  if (enableTrackingProtection) {
+    await pushPref("privacy.trackingprotection.enabled", true);
+  }
+}

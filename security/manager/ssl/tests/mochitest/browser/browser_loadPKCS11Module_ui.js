@@ -14,7 +14,12 @@ const gMockPKCS11ModuleDB = {
   expectedModuleName: "",
   throwOnAddModule: false,
 
-  addModule(moduleName, libraryFullPath, cryptoMechanismFlags, cipherFlags) {
+  async addModule(
+    moduleName,
+    libraryFullPath,
+    cryptoMechanismFlags,
+    cipherFlags
+  ) {
     this.addModuleCallCount++;
     Assert.equal(
       moduleName,
@@ -38,15 +43,11 @@ const gMockPKCS11ModuleDB = {
     }
   },
 
-  deleteModule() {
-    Assert.ok(false, `deleteModule: should not be called`);
+  async deleteModule() {
+    throw new Error("not expecting deleteModule() to be called");
   },
 
-  getInternal() {
-    throw new Error("not expecting getInternal() to be called");
-  },
-
-  listModules() {
+  async listModules() {
     throw new Error("not expecting listModules() to be called");
   },
 
