@@ -13,9 +13,6 @@ transforms:
 kind-dependencies:
     - repackage
 
-task-defaults:
-    run-on-repo-type: [hg, git]
-
 only-for-build-platforms:
     - linux64-shippable/opt
     - linux64-aarch64-shippable/opt
@@ -40,8 +37,12 @@ tasks:
     mar-signing:
         from-deps:
             group-by: single-with-filters
-        shipping-phase: promote
+        run-on-projects: [enterprise-firefox]
+        run-on-git-branches: [enterprise-main]
         treeherder-group: ms
         description-suffix: 'mar signing'
         required_signoffs:
             - mar-signing
+        index:
+            # type and job-name filled in by transforms
+            product: firefox

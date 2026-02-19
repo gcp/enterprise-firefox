@@ -505,6 +505,9 @@ def target_tasks_enterprise_firefox_with_tests(
         if not build_platform or not build_type:
             return True
 
+        if shippable and "enterprise" not in build_platform:
+            return False
+
         family = platform_family(build_platform)
         # We need to know whether this test is against a "regular" opt build
         # (which is to say, not shippable, asan, tsan, or any other opt build
