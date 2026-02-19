@@ -699,6 +699,10 @@ file-perm:
 
 perfdocs-verify:
     description: Verifies Performance Testing documentation
+    # perfdocs will always warn because we are not scheduling the builds it
+    # likes, so dont make it surfaced on GitHub Checks
+    attributes:
+        required_checks: false
     treeherder:
         symbol: text(perfdocs)
     run:
