@@ -31,7 +31,7 @@ const ONBOARDING_MESSAGE_MASK_PREF =
 const ENTITLEMENT_CACHE_PREF = "browser.ipProtection.entitlementCache";
 const IPP_ADDED_PREF = "browser.ipProtection.added";
 const IPP_STATE_CACHE_PREF = "browser.ipProtection.stateCache";
-const IPP_PANEL_OPEN_COUNT_PREF = "browser.ipProtection.panelOpenCount";
+const IPP_PANEL_HAS_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
 const IPP_CACHE_DISABLED_PREF = "browser.ipProtection.cacheDisabled";
 
 add_setup(async function ippSetup() {
@@ -43,7 +43,7 @@ add_setup(async function ippSetup() {
     Services.prefs.clearUserPref(ONBOARDING_MESSAGE_MASK_PREF);
     Services.prefs.clearUserPref(IPP_ADDED_PREF);
     Services.prefs.clearUserPref(IPP_STATE_CACHE_PREF);
-    Services.prefs.clearUserPref(IPP_PANEL_OPEN_COUNT_PREF);
+    Services.prefs.clearUserPref(IPP_PANEL_HAS_OPENED_PREF);
   });
 });
 

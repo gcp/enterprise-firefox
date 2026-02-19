@@ -848,7 +848,7 @@ add_task(async function test_ipprotection_panel_closed() {
 
   // Clean up prefs
   Services.prefs.clearUserPref("browser.ipProtection.added");
-  Services.prefs.clearUserPref("browser.ipProtection.panelOpenCount");
+  Services.prefs.clearUserPref("browser.ipProtection.everOpenedPanel");
 
   IPProtection.uninit();
   await SpecialPowers.popPrefEnv();

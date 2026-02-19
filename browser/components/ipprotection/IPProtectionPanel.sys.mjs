@@ -42,6 +42,7 @@ import {
 const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
 const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
+const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -333,15 +334,10 @@ export class IPProtectionPanel {
       this.#createPanel(panelView);
     }
 
-    // TODO: Stop counting after all onboarding messages have been shown - Bug 1997332
-    let currentCount = Services.prefs.getIntPref(
-      "browser.ipProtection.panelOpenCount"
-    );
-    let updatedCount = currentCount + 1;
-    Services.prefs.setIntPref(
-      "browser.ipProtection.panelOpenCount",
-      updatedCount
-    );
+    let hasUserEverOpenedPanel = Services.prefs.getBoolPref(USER_OPENED_PREF);
+    if (!hasUserEverOpenedPanel) {
+      Services.prefs.setBoolPref(USER_OPENED_PREF, true);
+    }
   }
 
   /**
