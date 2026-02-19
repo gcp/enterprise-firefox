@@ -1281,14 +1281,17 @@ export class UrlbarInput extends HTMLElement {
     this.userTypedValue = null;
     // Nullify search mode before setURI so it won't try to restore it.
     this.searchMode = null;
-    if (this.#isAddressbar) {
-      this.setURI({
-        dueToTabSwitch: true,
-        hideSearchTerms: true,
-      });
-    } else {
+    if (!this.#isAddressbar) {
       this.value = "";
+      this.toggleAttribute("usertyping", false);
+      return;
     }
+
+    this.setURI({
+      dueToTabSwitch: true,
+      hideSearchTerms: true,
+    });
+
     if (this.value && this.focused) {
       this.select();
     }

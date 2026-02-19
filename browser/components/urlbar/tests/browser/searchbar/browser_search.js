@@ -5,6 +5,7 @@
 
 const CANONIZE_MODIFIERS =
   AppConstants.platform == "macosx" ? { metaKey: true } : { ctrlKey: true };
+const UNKNOWN_REASON = SearchService.CHANGE_REASON.UNKNOWN;
 
 let searchbar;
 let engine1;
@@ -30,9 +31,19 @@ add_setup(async function () {
   engine2 = SearchService.getEngineById("engine2");
 });
 
+function revertUsingEscape() {
+  Assert.ok(searchbar.value, "Searchbar is not empty");
+  SearchbarTestUtils.promisePopupOpen(window, () => searchbar.focus());
+  SearchbarTestUtils.promisePopupClose(window, () =>
+    EventUtils.synthesizeKey("KEY_Escape")
+  );
+  EventUtils.synthesizeKey("KEY_Escape");
+  Assert.ok(!searchbar.value, "Searchbar was cleared");
+}
+
 add_task(async function test_simple() {
   // This pref should not affect the searchbar.
-  SpecialPowers.pushPrefEnv({
+  await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.openintab", true]],
   });
 
@@ -47,7 +58,7 @@ add_task(async function test_simple() {
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
 
   searchbar.handleRevert();
-  SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_no_canonization() {
@@ -109,7 +120,6 @@ add_task(async function test_newtab_pref() {
 
 // See bug 2013883.
 add_task(async function test_switch_engine() {
-  let goButton = searchbar.querySelector(".urlbar-go-button");
   let searchTerm = "test5";
   let expectedUrl = engine1.getSubmission(searchTerm).uri.spec;
   let expectedUrl2 = engine2.getSubmission(searchTerm).uri.spec;
@@ -122,14 +132,14 @@ add_task(async function test_switch_engine() {
   Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Search successful");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
 
-  await SearchService.setDefault(engine2, SearchService.CHANGE_REASON.UNKNOWN);
+  await SearchService.setDefault(engine2, UNKNOWN_REASON);
 
-  EventUtils.synthesizeMouseAtCenter(goButton, {});
+  EventUtils.synthesizeMouseAtCenter(searchbar.goButton, {});
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
   Assert.equal(gBrowser.currentURI.spec, expectedUrl2, "Used engine2");
 
   searchbar.handleRevert();
-  await SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
+  await SearchService.setDefault(engine1, UNKNOWN_REASON);
 });
 
 add_task(async function test_paste_and_go() {
@@ -147,4 +157,54 @@ add_task(async function test_paste_and_go() {
   Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Started the search");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
   searchbar.handleRevert();
+});
+
+add_task(async function test_revert_and_go_visibility() {
+  let goButton = searchbar.goButton;
+  let searchTerm = "test7";
+  let expectedUrl = engine1.getSubmission(searchTerm).uri.spec;
+
+  Assert.ok(!BrowserTestUtils.isVisible(goButton), "Go button is not visible");
+  searchbar.focus();
+  EventUtils.sendString(searchTerm);
+  Assert.ok(BrowserTestUtils.isVisible(goButton), "Go button becomes visible");
+
+  EventUtils.synthesizeKey("KEY_Enter");
+  await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+  Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Search successful");
+  Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
+
+  revertUsingEscape();
+  Assert.ok(!BrowserTestUtils.isVisible(goButton), "Go button is invisible");
+});
+
+add_task(async function test_privateDefault() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.search.separatePrivateDefault", true],
+      ["browser.search.separatePrivateDefault.ui.enabled", true],
+    ],
+  });
+  let searchTerm = "test8";
+  let expectedUrl = engine2.getSubmission(searchTerm).uri.spec;
+  info("Changing private engine.");
+  await SearchService.setDefaultPrivate(engine2, UNKNOWN_REASON);
+
+  let win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  let searchbarPrivateWin = win.document.querySelector("#searchbar-new");
+
+  info("Searching in private window.");
+  searchbarPrivateWin.focus();
+  EventUtils.sendString(searchTerm, win);
+  EventUtils.synthesizeKey("KEY_Enter", {}, win);
+  await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser);
+  Assert.equal(
+    win.gBrowser.currentURI.spec,
+    expectedUrl,
+    "Used private engine"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+  await SearchService.setDefaultPrivate(engine1, UNKNOWN_REASON);
+  await SpecialPowers.popPrefEnv();
 });
