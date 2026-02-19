@@ -1697,6 +1697,42 @@
       "required": ["Title", "URL"]
     },
 
+    "Sync": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "Addons": {
+          "type": "boolean"
+        },
+        "Addresses": {
+          "type": "boolean"
+        },
+        "Bookmarks": {
+          "type": "boolean"
+        },
+        "History": {
+          "type": "boolean"
+        },
+        "OpenTabs": {
+          "type": "boolean"
+        },
+        "Passwords": {
+          "type": "boolean"
+        },
+        "PaymentMethods": {
+          "type": "boolean"
+        },
+        "Settings": {
+          "type": "boolean"
+        },
+        "Locked": {
+          "type": "boolean"
+        }
+      }
+    },
+
     "TranslateEnabled": {
       "type": "boolean"
     },

@@ -33,7 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
 
-const PREF_LOGLEVEL = "browser.policies.loglevel";
+export const PREF_LOGLEVEL = "browser.policies.loglevel";
 const BROWSER_DOCUMENT_URL = AppConstants.BROWSER_CHROME_URL;
 const ABOUT_CONTRACT = "@mozilla.org/network/protocol/about;1?what=";
 
@@ -3410,6 +3410,11 @@ export var PoliciesUtils = {
   restoreDefaultPref(prefName) {
     const values = this._savedPrefs[prefName];
 
+    if (!values) {
+      // No default values available.
+      return;
+    }
+
     let defaults = Services.prefs.getDefaultBranch("");
     switch (typeof values.defaultValue) {
       case "number":
@@ -3925,4 +3930,18 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
     realMIMEInfo.alwaysAskBeforeHandling = mimeInfo.ask;
   }
   lazy.gHandlerService.store(realMIMEInfo);
+}
+
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
+  });
+  Policies.Sync = {
+    async onBeforeAddons(manager, param) {
+      await lazy.SyncPolicy.applySettings(manager, param);
+    },
+    async onRemove(manager, _) {
+      await lazy.SyncPolicy.restoreSettings(manager);
+    },
+  };
 }

@@ -970,6 +970,16 @@ Sync11Service.prototype = {
 
   // configures/enabled/turns-on sync. There must be an FxA user signed in.
   async configure() {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      !Services.policies.isAllowed("change-sync-state")
+    ) {
+      // This should never hit. If the Sync policy locks the sync state all calls to this method are guarded.
+      this._log.error(
+        "Sync is disabled and locked by the Sync policy and can only be enabled by a policy update."
+      );
+      return;
+    }
     // We don't, and must not, throw if sync is already configured, because we
     // might end up being called as part of a "reconnect" flow. We also want to
     // avoid checking the FxA user is the same as the pref because the email
@@ -992,6 +1002,17 @@ Sync11Service.prototype = {
   // resets/turns-off sync.
   async startOver() {
     this._log.trace("Invoking Service.startOver.");
+
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      !Services.policies.isAllowed("change-sync-state")
+    ) {
+      // This should never hit. If the Sync policy locks the sync state all calls to this method are guarded.
+      this._log.error(
+        "Sync is enabled and locked by the Sync policy and can only be disabled by a policy update."
+      );
+      return;
+    }
     await this._stopTracking();
     this.status.resetSync();
 
