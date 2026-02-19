@@ -77,7 +77,7 @@ export const SearchUITestUtils = new (class {
       let expected = {
         provider_id: engineId ?? "other",
         provider_name: engineName,
-        source: lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES[source],
+        source,
         overridden_by_third_party: overriddenByThirdParty.toString(),
       };
 
@@ -95,11 +95,12 @@ export const SearchUITestUtils = new (class {
       "Should have the expected event telemetry data for sap.counts"
     );
 
+    let legacySource = lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES[source];
     let histogram = Services.telemetry.getKeyedHistogramById("SEARCH_COUNTS");
 
     let histogramKey = overriddenByThirdParty
-      ? `${engineId}-addon.${source}`
-      : `${engineId ? "" : "other-"}${engineName}.${source}`;
+      ? `${engineId}-addon.${legacySource}`
+      : `${engineId ? "" : "other-"}${engineName}.${legacySource}`;
 
     let expectedSum;
     let expectedSnapshotKeys = [];
