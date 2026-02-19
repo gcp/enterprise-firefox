@@ -1,10 +1,5 @@
 [DEFAULT]
-prefs = [
-  "browser.newtab.preload=false",
-  "browser.search.suggest.enabled=false",
-  "browser.urlbar.suggest.searches=false",
-  "browser.smartwindow.endpoint=http://localhost:0/v1"
-]
+prefs = ["browser.newtab.preload=false"]
 support-files = [
   "head.js",
   "test_chat_search_button.html",

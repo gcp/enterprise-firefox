@@ -10,12 +10,7 @@ const { AIWindowUI } = ChromeUtils.importESModule(
 // Ensure Window Switcher button is visible when AI Window is enabled in prefs
 add_task(async function test_window_switcher_button_visibility() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
-      ["browser.smartwindow.enabled", false],
-    ],
+    set: [["browser.smartwindow.enabled", false]],
   });
 
   let button = document.getElementById("ai-window-toggle");
@@ -42,12 +37,7 @@ add_task(async function test_window_switcher_button_visibility() {
 // if (browser.smartwindow.enabled) Classic Window should switch to AI Window on click
 add_task(async function test_switch_to_ai_window() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
-      ["browser.smartwindow.enabled", true],
-    ],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   const restoreSignIn = skipSignIn();
@@ -94,12 +84,7 @@ add_task(async function test_switch_to_ai_window() {
 // if (browser.smartwindow.enabled) AI Window should switch to Classic Window on click
 add_task(async function test_switch_to_classic_window() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
-      ["browser.smartwindow.enabled", true],
-    ],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   if (!document.documentElement.hasAttribute("ai-window")) {
@@ -144,9 +129,6 @@ add_task(async function test_switch_to_classic_window() {
 add_task(async function test_switcher_position_horizontal_tabs() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", false],
     ],
@@ -176,9 +158,6 @@ add_task(async function test_switcher_position_horizontal_tabs() {
 add_task(async function test_switcher_position_vertical_tabs() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", true],
     ],
@@ -211,9 +190,6 @@ add_task(async function test_switcher_position_vertical_tabs() {
 add_task(async function test_switcher_repositions_on_pref_change() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", false],
     ],
@@ -358,12 +334,7 @@ add_task(async function test_onAccountLogout_switches_windows() {
   );
 
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
-      ["browser.aiwindow.enabled", true],
-    ],
+    set: [["browser.aiwindow.enabled", true]],
   });
 
   document.documentElement.setAttribute("ai-window", "");
@@ -386,9 +357,6 @@ add_task(async function test_onAccountLogout_switches_windows() {
 add_task(async function test_hide_sidebar_when_switching_to_classic_window() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.search.suggest.enabled", false],
-      ["browser.urlbar.suggest.searches", false],
-      ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.enabled", true],
       ["browser.smartwindow.firstrun.hasCompleted", true],
     ],
