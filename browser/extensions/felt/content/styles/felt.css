@@ -7,9 +7,9 @@
 @import url("chrome://global/skin/design-system/tokens-brand.css");
 
 :root {
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   min-width: 727px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   min-height: 744px;
 }
 
@@ -35,15 +35,15 @@ body {
 
 .felt-logo__container {
   display: flex;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 310px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   height: 602px;
   justify-content: center;
   align-items: center;
   background-image: url("chrome://felt/content/assets/enterprise-icon-cropped.svg");
   background-repeat: no-repeat;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   background-size: contain;
   background-position: center;
 }
@@ -72,9 +72,9 @@ body {
   content: url("chrome://felt/content/assets/enterprise-wordmark.svg");
   -moz-context-properties: fill;
   fill: currentColor;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 265px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   height: 117px;
 }
 
@@ -82,7 +82,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 265px;
 }
 
@@ -114,7 +114,7 @@ moz-input-text::part(label) {
 
 .felt-login__sso {
   display: flex;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 400px;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   padding: 60px 5px;

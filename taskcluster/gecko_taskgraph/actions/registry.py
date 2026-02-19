@@ -322,11 +322,17 @@ def sanity_check_task_scope(callback, parameters, graph_config):
     else:
         raise Exception(f"No action with cb_name {callback}")
 
-    base_repo_param = "{}base_repository".format(graph_config["project-repo-param-prefix"])
+    base_repo_param = "{}base_repository".format(
+        graph_config["project-repo-param-prefix"]
+    )
     parsed_base_url = parse(parameters[base_repo_param])
-    head_repo_param = "{}head_repository".format(graph_config["project-repo-param-prefix"])
+    head_repo_param = "{}head_repository".format(
+        graph_config["project-repo-param-prefix"]
+    )
     parsed_head_url = parse(parameters[head_repo_param])
-    action_scope = f"assume:{parsed_head_url.taskcluster_role_prefix}:action:{action.permission}"
+    action_scope = (
+        f"assume:{parsed_head_url.taskcluster_role_prefix}:action:{action.permission}"
+    )
     pr_action_scope = f"assume:{parsed_base_url.taskcluster_role_prefix}:pr-action:{action.permission}"
 
     # the scope should appear literally; no need for a satisfaction check. The use of

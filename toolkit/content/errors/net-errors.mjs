@@ -328,9 +328,18 @@ export const NET_ERRORS = [
       dataL10nId: "fp-neterror-offline-intro",
       dataL10nArgs: { hostname: null },
     },
-    descriptionParts: lazy.AppConstants.MOZ_ENTERPRISE ? [[
-        [{ tag: "p", dataL10nId: "neterror-blocked-by-policy-contact-admin" }]
-      ],] : [],
+    descriptionParts: lazy.AppConstants.MOZ_ENTERPRISE
+      ? [
+          [
+            [
+              {
+                tag: "p",
+                dataL10nId: "neterror-blocked-by-policy-contact-admin",
+              },
+            ],
+          ],
+        ]
+      : [],
     buttons: {
       showTryAgain: false,
       showGoBack: false,
