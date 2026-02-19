@@ -809,8 +809,8 @@ class UrlbarInputTestUtils {
    * Open the input field context menu and run a task on it.
    *
    * @param {ChromeWindow} win the current window
-   * @param {Function} task a task function to run, gets the contextmenu popup
-   *        as argument.
+   * @param {(popup: MozMenuPopup) => Promise<void>|void} task
+   *   A task function to run. Gets the contextmenu popup as argument.
    */
   async withContextMenu(win, task) {
     let textBox = this.#urlbar(win).querySelector("moz-input-box");
@@ -840,6 +840,54 @@ class UrlbarInputTestUtils {
         await closePromise;
       }
     }
+  }
+
+  /**
+   * Opens the moz-urlbar context menu by synthesizing a click.
+   * Activates a menu item that is specified by an id.
+   *
+   * @param {ChromeWindow} win
+   *   The current window.
+   * @param {string} anonid
+   *   Identifier of a menu item of the url bar context menu.
+   * @returns {Promise<void>}
+   *   The menuitem that has the corresponding identifier.
+   */
+  async activateContextMenuItem(win, anonid) {
+    await this.withContextMenu(win, popup => {
+      let mozInputBox = popup.parentNode;
+      let menuitem = mozInputBox.getMenuItem(anonid);
+      this.Assert.ok(
+        lazy.BrowserTestUtils.isVisible(menuitem),
+        "Menu item is visible"
+      );
+      this.Assert.ok(
+        lazy.BrowserTestUtils.isVisible(menuitem),
+        "Menu item is visible"
+      );
+      this.Assert.ok(!menuitem.disabled, "Menu item enabled");
+      menuitem.closest("menupopup").activateItem(menuitem);
+    });
+  }
+
+  /**
+   * Opens the moz-urlbar context menu by synthesizing a click.
+   * Returns a menu item that is specified by an id.
+   *
+   * @param {ChromeWindow} win
+   *   The current window.
+   * @param {string} anonid
+   *   Identifier of a menu item of the url bar context menu.
+   * @returns {Promise<MozMenuItem>}
+   *   The menuitem that has the corresponding identifier.
+   */
+  async getContextMenuItem(win, anonid) {
+    let menuitem;
+    await this.withContextMenu(win, popup => {
+      let mozInputBox = popup.parentNode;
+      menuitem = mozInputBox.getMenuItem(anonid);
+    });
+    return menuitem;
   }
 
   /**

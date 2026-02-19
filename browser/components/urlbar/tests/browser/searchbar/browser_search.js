@@ -46,7 +46,7 @@ add_task(async function test_simple() {
   Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Search successful");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
 
-  searchbar.value = "";
+  searchbar.handleRevert();
   SpecialPowers.popPrefEnv();
 });
 
@@ -60,7 +60,7 @@ add_task(async function test_no_canonization() {
   let expectedUrl = engine1.getSubmission(searchTerm).uri.spec;
   Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Search successful");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
-  searchbar.value = "";
+  searchbar.handleRevert();
 });
 
 add_task(async function test_newtab_alt() {
@@ -79,7 +79,7 @@ add_task(async function test_newtab_alt() {
   Assert.equal(newBrowser.currentURI.spec, expectedUrl, "Search successful");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
 
-  searchbar.value = "";
+  searchbar.handleRevert();
   BrowserTestUtils.removeTab(newTab);
 });
 
@@ -102,7 +102,7 @@ add_task(async function test_newtab_pref() {
   Assert.equal(newBrowser.currentURI.spec, expectedUrl, "Search successful");
   Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
 
-  searchbar.value = "";
+  searchbar.handleRevert();
   BrowserTestUtils.removeTab(newTab);
   SpecialPowers.popPrefEnv();
 });
@@ -128,6 +128,23 @@ add_task(async function test_switch_engine() {
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
   Assert.equal(gBrowser.currentURI.spec, expectedUrl2, "Used engine2");
 
-  searchbar.value = "";
+  searchbar.handleRevert();
   await SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
+});
+
+add_task(async function test_paste_and_go() {
+  // Search for a URL to make sure it doesn't simply open it.
+  let searchTerm = "https://example.com/test6/";
+  let expectedUrl = engine1.getSubmission(searchTerm).uri.spec;
+
+  await SimpleTest.promiseClipboardChange(searchTerm, () => {
+    clipboardHelper.copyString(searchTerm);
+  });
+
+  await SearchbarTestUtils.activateContextMenuItem(window, "paste-and-go");
+  await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+
+  Assert.equal(gBrowser.currentURI.spec, expectedUrl, "Started the search");
+  Assert.equal(searchbar.value, searchTerm, "Search term was persisted");
+  searchbar.handleRevert();
 });
