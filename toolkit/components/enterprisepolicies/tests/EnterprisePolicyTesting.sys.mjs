@@ -61,10 +61,12 @@ export var EnterprisePolicyTesting = {
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
 
+      const expires_in = 3600
+      const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
       const tokenData = {
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
-        expires_in: 3600,
+        expires_at,
         token_type: "Bearer",
       };
 
@@ -80,7 +82,7 @@ export var EnterprisePolicyTesting = {
       Services.felt.setTokens(
         tokenData.access_token,
         tokenData.refresh_token,
-        tokenData.expires_in
+        tokenData.expires_at
       );
 
       registerCleanupFunction(async () => {
