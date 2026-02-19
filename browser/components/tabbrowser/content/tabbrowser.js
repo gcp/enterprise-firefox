@@ -3834,14 +3834,16 @@
      * @param {boolean} [options.selectTab]
      * @returns {MozSplitViewWrapper}
      */
-    adoptSplitView(container, { elementIndex, tabIndex } = {}) {
+    adoptSplitView(container, { elementIndex, tabIndex, selectTab } = {}) {
       if (container.ownerDocument == document) {
         return container;
       }
 
+      let oldSelectedTab =
+        selectTab && container.ownerGlobal.gBrowser.selectedTab;
       let newTabs = [];
 
-      if (!tabIndex && elementIndex) {
+      if (typeof elementIndex == "number") {
         tabIndex = this.#elementIndexToTabIndex(elementIndex);
       }
 
@@ -3855,6 +3857,7 @@
         tab.removedByAdoption = true;
         let adoptedTab = this.adoptTab(tab, {
           tabIndex,
+          selectTab: tab === oldSelectedTab,
         });
         adoptedTab.addedByAdoption = true;
         newTabs.push(adoptedTab);
