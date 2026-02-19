@@ -496,6 +496,12 @@ export class LoginManagerStorage_json {
     this.modifyLogin(login, propBag);
   }
 
+  async recordPasswordUseAsync(login) {
+    let result = this.recordPasswordUse(login);
+    // Emulate being async:
+    return Promise.resolve(result);
+  }
+
   async recordBreachAlertDismissal(loginGUID) {
     this._store.ensureDataReady();
     const dismissedBreachAlertsByLoginGUID =

@@ -75,6 +75,12 @@ export class LoginManagerStorage extends LoginManagerStorage_json {
     );
   }
 
+  async recordPasswordUseAsync(login) {
+    let result = this.recordPasswordUse(login);
+    // Emulate being async:
+    return Promise.resolve(result);
+  }
+
   /**
    * Returns a promise resolving to an array of all saved logins that can be decrypted.
    *
