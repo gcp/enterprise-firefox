@@ -2639,7 +2639,7 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
       NS_WARNING("HTMLEditor::InsertPaddingBRElementIfNeeded() failed");
       return insertPaddingBRElementOrError.propagateErr();
     }
-    trackingNewCaretPosition.FlushAndStopTracking();
+    trackingNewCaretPosition.Flush(StopTracking::Yes);
     if (!newCaretPosition.IsInTextNode()) {
       insertPaddingBRElementOrError.unwrap().MoveCaretPointTo(
           newCaretPosition, {SuggestCaret::OnlyIfHasSuggestion});
