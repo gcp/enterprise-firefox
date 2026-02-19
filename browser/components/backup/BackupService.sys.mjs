@@ -649,13 +649,15 @@ export class BackupService extends EventTarget {
    * failed backup attempts since the last successful backup.
    *
    * Backoff formula:
-   *   2^(retryCount) * 60
+   *
+   *   ``2^(retryCount) * 60``
    *
    * Example:
+   *
    *   If 2 backup attempts have failed since the last successful backup,
    *   the next attempt will occur after:
    *
-   *     2^2 * 60 = 240 seconds (4 minutes)
+   *   ``2^2 * 60 = 240 seconds (4 minutes)``
    *
    * This differs from minimumTimeBetweenBackupsSeconds, which is used to determine
    * the time between successful backups.
@@ -5005,8 +5007,9 @@ export class BackupService extends EventTarget {
    * in an object for processing in the frontend.
    *
    * Assumptions:
-   * - Intended to be called before `about:welcome` opens.
-   * - Clears any existing `lastBackupFileName` and `backupFileToRestore`
+   *
+   * - Intended to be called before ``about:welcome`` opens.
+   * - Clears any existing ``lastBackupFileName`` and ``backupFileToRestore``
    *   in the internal state prior to searching.
    *
    * @param {object} [options] - Configuration options.
