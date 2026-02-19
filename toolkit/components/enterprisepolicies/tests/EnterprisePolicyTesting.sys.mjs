@@ -61,7 +61,7 @@ export var EnterprisePolicyTesting = {
       await this._httpd.start(-1);
       const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
 
-      const expires_in = 3600
+      const expires_in = 3600;
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
       const tokenData = {
         access_token: "test_access_token",
