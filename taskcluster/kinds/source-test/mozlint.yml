@@ -221,6 +221,11 @@ stylelint:
 
 typescript:
     description: TypeScript checker
+    # tsc chokes TS1005 on preprocessed files, and neither // @ts-ignore or
+    # adding them to the exclusion list avoids the reported error,
+    # so dont make it surfaced on GitHub Checks
+    attributes:
+        required_checks: false
     treeherder:
         symbol: js(TSC)
         tier: 3
