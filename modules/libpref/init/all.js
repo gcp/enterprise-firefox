@@ -726,6 +726,8 @@ pref("nglayout.enable_drag_images", true);
 // URI fixup prefs
 pref("browser.fixup.alternate.prefix", "www.");
 pref("browser.fixup.alternate.protocol", "https");
+// The suffix is localized, and should be read using
+// Services.locale.urlFixupSuffix.
 pref("browser.fixup.alternate.suffix", ".com");
 pref("browser.fixup.fallback-to-https", true);
 
@@ -3402,9 +3404,6 @@ pref("browser.safebrowsing.downloads.remote.block_dangerous",            true);
 pref("browser.safebrowsing.downloads.remote.block_dangerous_host",       true);
 pref("browser.safebrowsing.downloads.remote.block_potentially_unwanted", true);
 pref("browser.safebrowsing.downloads.remote.block_uncommon",             true);
-
-// Global Cache
-pref("browser.safebrowsing.globalCache.enabled", false);
 
 // Android SafeBrowsing's configuration is in ContentBlocking.java, keep in sync.
 #ifndef MOZ_WIDGET_ANDROID

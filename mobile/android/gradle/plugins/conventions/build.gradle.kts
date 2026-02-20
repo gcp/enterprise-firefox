@@ -4,6 +4,11 @@
 
 plugins {
     alias(libs.plugins.kotlin.dsl)
+    alias(libs.plugins.kotlin.serialization)
+}
+
+dependencies {
+    implementation(libs.kaml)
 }
 
 val mozconfig = gradle.extra["mozconfig"] as Map<*, *>

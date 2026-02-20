@@ -1634,6 +1634,10 @@ JSObject* BrowsingContext::ReadStructuredClone(JSContext* aCx,
   // destroyed before we try to return a raw JSObject*, so create it in its own
   // scope.
   if (RefPtr<BrowsingContext> context = Get(id)) {
+    if (!context->Group()->IsKnownForChildID(aHolder->GetOriginChildID())) {
+      return nullptr;
+    }
+
     if (!GetOrCreateDOMReflector(aCx, context, &val) || !val.isObject()) {
       return nullptr;
     }

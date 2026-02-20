@@ -2229,7 +2229,7 @@ class FunctionCompiler {
     // Load the table elements and load the element
     auto* elements = loadTableElements(tableIndex);
     auto* element = MWasmLoadTableElement::New(alloc(), elements, address32,
-                                               table.elemType);
+                                               table.elemType());
     curBlock_->add(element);
     return element;
   }
@@ -2246,7 +2246,7 @@ class FunctionCompiler {
 
     // Load the previous value
     auto* prevValue = MWasmLoadTableElement::New(alloc(), elements, address32,
-                                                 table.elemType);
+                                                 table.elemType());
     curBlock_->add(prevValue);
 
     // Compute the value's location for the post barrier
@@ -8103,7 +8103,7 @@ bool FunctionCompiler::emitTableGet() {
 
   const TableDesc& table = codeMeta().tables[tableIndex];
 
-  if (table.elemType.tableRepr() == TableRepr::Ref) {
+  if (table.elemType().tableRepr() == TableRepr::Ref) {
     MDefinition* ret = tableGetAnyRef(tableIndex, address);
     if (!ret) {
       return false;
@@ -8194,7 +8194,7 @@ bool FunctionCompiler::emitTableSet() {
 
   const TableDesc& table = codeMeta().tables[tableIndex];
 
-  if (table.elemType.tableRepr() == TableRepr::Ref) {
+  if (table.elemType().tableRepr() == TableRepr::Ref) {
     return tableSetAnyRef(tableIndex, address, value, bytecodeOffset);
   }
 

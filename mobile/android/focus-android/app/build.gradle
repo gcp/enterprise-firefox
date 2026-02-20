@@ -98,7 +98,8 @@ android {
 
             // If building locally, just use debug signing. In official automation builds, the
             // files are signed using a separate service and not within gradle.
-            if (!gradle.mozconfig.substs.MOZ_AUTOMATION) {
+            // Also skip during buildconfig linting.
+            if (!gradle.mozconfig.substs.MOZ_AUTOMATION && !System.getenv("MOZ_BUILD_CONFIG_LINT") == "1") {
                 signingConfig = signingConfigs.debug
             }
 
@@ -658,6 +659,7 @@ tasks.register('printVariants') {
             build_type: variant.buildType.name,
             name: variant.name,
     ]}}
+    def outputFile = new File(projectDir, "build/printVariants.json")
     doLast {
         // AndroidTest is a special case not included above
         variants.get().add([
@@ -668,7 +670,10 @@ tasks.register('printVariants') {
             build_type: 'androidTest',
             name: 'androidTest',
         ])
-        println 'variants: ' + JsonOutput.toJson(variants.get())
+        def json = JsonOutput.toJson(variants.get())
+        outputFile.parentFile.mkdirs()
+        outputFile.text = json
+        logger.debug("Wrote variant info to $outputFile")
     }
 }
 

@@ -54,7 +54,7 @@ work = "2.11.1"
 accompanist = "0.37.3"
 firebase-messaging = "25.0.1"
 installreferrer = "2.2"
-ksp = "2.3.5"
+ksp = "2.3.6"
 material = "1.13.0"
 osslicenses-plugin = "0.10.10"
 play-review = "2.0.2"
@@ -65,6 +65,7 @@ protobuf = "4.33.2" # Keep Protobuf in sync with the version used by AppServices
 
 # Gradle plugins
 dependency-analysis = "3.5.1"
+kaml = "0.61.0"
 jacoco = "0.8.14"
 kotlin-dsl = "6.4.1"
 protobuf-plugin = "0.9.6"
@@ -91,7 +92,7 @@ androidx-test-orchestrator = "1.6.1"
 androidx-test-runner = "1.7.0"
 androidx-test-uiautomator = "2.3.0"
 junit4 = "4.13.2"
-junit6 = "6.0.2"
+junit6 = "6.0.3"
 leakcanary = "2.14"
 mockito = "5.21.0"
 mockk = "1.14.9"
@@ -108,6 +109,7 @@ okio = "3.15.0"
 sentry = "8.32.0"
 zxing = "3.5.4"
 lifecycle-runtime-testing = "2.10.0"
+material3 = "1.4.0"
 
 [libraries]
 # AGP
@@ -228,6 +230,7 @@ protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite",
 mlkit-prompt = { group = "com.google.mlkit", name = "genai-prompt", version = "1.0.0-alpha1" }
 
 # Gradle plugins
+kaml = { group = "com.charleskorn.kaml", name = "kaml", version.ref = "kaml" }
 semanticdb-java = { group = "com.sourcegraph", name = "semanticdb-javac", version.ref = "semanticdb-javac" }
 semanticdb-kotlin = { group = "com.github.mozsearch", name = "semanticdb-kotlinc", version.ref = "semanticdb-kotlinc" }
 tomlj = { group = "org.tomlj", name = "tomlj", version.ref = "tomlj" }
@@ -286,6 +289,7 @@ okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
 sentry = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 androidx-lifecycle-runtime-testing = { group = "androidx.lifecycle", name = "lifecycle-runtime-testing", version.ref = "lifecycle-runtime-testing" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 [plugins]
 dependency-analysis = { id = "com.autonomousapps.dependency-analysis", version.ref = "dependency-analysis" }
@@ -293,6 +297,7 @@ detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version.ref = "kotlin-dsl" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 python-envs-plugin = {id = "com.jetbrains.python.envs", version.ref = "python-envs-plugin"}
 protobuf-plugin = {id = "com.google.protobuf", version.ref = "protobuf-plugin"}

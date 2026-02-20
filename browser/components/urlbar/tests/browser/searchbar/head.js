@@ -29,5 +29,7 @@ add_setup(async () => {
 });
 
 registerCleanupFunction(async () => {
+  document.getElementById("searchbar-new").handleRevert();
+  await SearchbarTestUtils.promisePopupClose(window);
   await gCUITestUtils.removeSearchBar();
 });

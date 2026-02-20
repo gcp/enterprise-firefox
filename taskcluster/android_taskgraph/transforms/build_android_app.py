@@ -99,6 +99,7 @@ def add_shippable_secrets(config, tasks):
                     ("faketoken", ".adjust_token"),
                     ("faketoken", ".mls_token"),
                     ("https://fake@sentry.prod.mozaws.net/368", ".sentry_token"),
+                    ("0", ".gps_integrity_token"),
                 )
             ])
 
@@ -111,6 +112,7 @@ def _get_secrets_keys_and_target_files(task):
         ("sentry_dsn", ".sentry_token"),
         ("mls", ".mls_token"),
         ("nimbus_url", ".nimbus"),
+        ("gps_integrity_token", ".gps_integrity_token"),
     ]
 
     if task["name"].startswith("fenix-"):

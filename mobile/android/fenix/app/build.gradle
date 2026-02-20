@@ -113,7 +113,8 @@ android {
 
 	// If building locally, just use debug signing. In official automation builds, the
 	// files are signed using a separate service and not within gradle.
-        if (!gradle.mozconfig.substs.MOZ_AUTOMATION) {
+	// Also skip during buildconfig linting.
+        if (!gradle.mozconfig.substs.MOZ_AUTOMATION && !System.getenv("MOZ_BUILD_CONFIG_LINT") == "1") {
             signingConfig = signingConfigs.debug
         }
 
@@ -248,7 +249,7 @@ android {
                 include "arm64-v8a"
             } else {
                 include "armeabi-v7a", "arm64-v8a", "x86_64"
-                if (gradle.mozconfig.substs.MOZILLA_OFFICIAL) {
+                if (gradle.mozconfig.substs.MOZILLA_OFFICIAL || System.getenv("MOZ_BUILD_CONFIG_LINT") == "1") {
                     universalApk true
                 }
             }
@@ -626,6 +627,7 @@ dependencies {
     implementation project(':components:lib-state')
     implementation project(':components:lib-accelerometer-sensormanager')
     implementation project(':components:lib-integrity-googleplay')
+    implementation project(':components:lib-llm-mlpa')
     implementation project(':components:lib-shake')
 
     implementation ComponentsDependencies.mozilla_appservices_syncmanager
@@ -810,6 +812,7 @@ tasks.register('printVariants') {
             build_type: variant.buildType.name,
             name: variant.name,
     ]}}
+    def outputFile = new File(projectDir, "build/printVariants.json")
     doLast {
         // AndroidTest is a special case not included above
         variants.get().add([
@@ -820,7 +823,10 @@ tasks.register('printVariants') {
             build_type: 'androidTest',
             name: 'androidTest',
         ])
-        println 'variants: ' + JsonOutput.toJson(variants.get())
+        def json = JsonOutput.toJson(variants.get())
+        outputFile.parentFile.mkdirs()
+        outputFile.text = json
+        logger.debug("Wrote variant info to $outputFile")
     }
 }
 

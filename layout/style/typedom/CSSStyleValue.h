@@ -64,7 +64,7 @@ class CSSStyleValue : public nsISupports, public nsWrapperCache {
                        nsTArray<RefPtr<CSSStyleValue>>& aRetVal,
                        ErrorResult& aRv);
 
-  void Stringify(nsAString& aRetVal) const;
+  void Stringify(nsACString& aRetVal) const;
 
   // end of CSSStyleValue Web IDL declarations
 

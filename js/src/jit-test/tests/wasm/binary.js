@@ -122,13 +122,11 @@ if (wasmCompactImportsEnabled()) {
             { a: { b: () => {}, c: new WebAssembly.Global({ value: "i32", mutable: true }) } },
         );
 
-        // TODO: Allow zero-length compact import sections.
-
-        // // Zero-length sections are acceptable
-        // wasmEval(
-        //     moduleWithSections([v2vSigSection, importSection([{ module: "a", items: []}])]),
-        //     { a: { b: () => {}, c: new WebAssembly.Global({ value: "i32", mutable: true }) } },
-        // );
+        // Zero-length sections are acceptable
+        wasmEval(
+            moduleWithSections([v2vSigSection, importSection([{ module: "a", items: []}])]),
+            { a: { b: () => {}, c: new WebAssembly.Global({ value: "i32", mutable: true }) } },
+        );
     }
 
     // Encoding 2: deduplicated module name and externtype
@@ -142,29 +140,27 @@ if (wasmCompactImportsEnabled()) {
             { a: { b: () => {}, c: () => {} } },
         );
 
-        // TODO: Allow zero-length compact import sections.
-
-        // // Zero-length sections are acceptable. There should not be any side
+        // Zero-length sections are acceptable. There should not be any side
         // effects from parsing the externtype before learning that there are
         // zero items!
-        // wasmEval(
-        //     moduleWithSections([v2vSigSection, importSection([{
-        //         module: "a",
-        //         type: externtype({ funcTypeIndex: 0 }),
-        //         items: [],
-        //     }])]),
-        // );
-        // assertErrorMessage(() => wasmEval(
-        //     moduleWithSections([
-        //         v2vSigSection,
-        //         importSection([{
-        //             module: "a",
-        //             type: externtype({ tableType: tableType(FuncRefCode, limits({ min: 0 })) }),
-        //             items: [],
-        //         }]),
-        //         generalElemSection([{ mode: "active", table: 0, offset: 0, indices: [] }]),
-        //     ]),
-        // ), WebAssembly.CompileError, "table index out of range");
+        wasmEval(
+            moduleWithSections([v2vSigSection, importSection([{
+                module: "a",
+                type: externtype({ funcTypeIndex: 0 }),
+                items: [],
+            }])]),
+        );
+        assertErrorMessage(() => wasmEval(
+            moduleWithSections([
+                v2vSigSection,
+                importSection([{
+                    module: "a",
+                    type: externtype({ tableType: tableType(FuncRefCode, limits({ min: 0 })) }),
+                    items: [],
+                }]),
+                elemSection([{ mode: "active", table: 0, offset: 0, indices: [] }]),
+            ]),
+        ), WebAssembly.CompileError, /table index out of range|active elem segment requires a table/);
     }
 }
 

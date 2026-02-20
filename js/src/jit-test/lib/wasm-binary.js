@@ -865,7 +865,6 @@ function elemSection(elemSegments) {
         );
         const b2 = segment.exprs === undefined ? 0 : 1;
         const flag = (b0 << 0) | (b1 << 1) | (b2 << 2);
-        console.log("flag", flag);
 
         body.push(flag);
         if (segment.table !== undefined) {

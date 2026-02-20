@@ -739,6 +739,24 @@ export const NET_ERRORS = [
     hasNoUserFix: false,
   },
   {
+    id: "vpnFailure",
+    errorCode: "vpnFailure",
+    category: "net",
+    bodyTitleL10nId: "proxyConnectFailure-title",
+    introContent: {
+      dataL10nId: "fp-neterror-vpn-error-description",
+    },
+
+    buttons: {
+      showTryAgain: true,
+    },
+    customNetError: {
+      titleL10nId: "fp-neterror-vpn-error-title",
+    },
+    image: "chrome://global/skin/illustrations/no-connection.svg",
+    hasNoUserFix: false,
+  },
+  {
     id: "proxyResolveFailure",
     errorCode: "proxyResolveFailure",
     category: "net",

@@ -18,7 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 /**
  * Tests that clicking toolbar button opens the panel,
  * the panel contains a `<ipprotection-content>` element,
- * and the browser.ipProtection.panelOpenCount pref is set
+ * and the browser.ipProtection.everOpenedPanel pref is set
  */
 add_task(async function click_toolbar_button() {
   let button = document.getElementById(lazy.IPProtectionWidget.WIDGET_ID);
@@ -27,25 +27,24 @@ add_task(async function click_toolbar_button() {
     lazy.IPProtectionWidget.PANEL_ID
   );
 
-  let panelOpenCount = Services.prefs.getIntPref(
-    "browser.ipProtection.panelOpenCount",
-    0
+  let everOpenedPanel = Services.prefs.getBoolPref(
+    "browser.ipProtection.everOpenedPanel",
+    false
   );
+
+  Assert.ok(!everOpenedPanel, "everOpenedPanel should be false");
 
   let panelShownPromise = waitForPanelEvent(document, "popupshown");
   // Open the panel
   button.click();
   await panelShownPromise;
 
-  let panelOpenCountAfter = Services.prefs.getIntPref(
-    "browser.ipProtection.panelOpenCount",
-    0
+  everOpenedPanel = Services.prefs.getBoolPref(
+    "browser.ipProtection.everOpenedPanel",
+    false
   );
-  Assert.equal(
-    panelOpenCountAfter,
-    panelOpenCount + 1,
-    "panelOpenCount should increase by 1 when the panel is opened"
-  );
+
+  Assert.ok(everOpenedPanel, "everOpenedPanel should be true");
 
   let component = panelView.querySelector(
     lazy.IPProtectionPanel.CONTENT_TAGNAME
@@ -68,7 +67,7 @@ add_task(async function click_toolbar_button() {
   EventUtils.synthesizeKey("KEY_Escape");
   await panelHiddenPromise;
 
-  Services.prefs.clearUserPref("browser.ipProtection.panelOpenCount");
+  Services.prefs.clearUserPref("browser.ipProtection.everOpenedPanel");
 });
 
 /**

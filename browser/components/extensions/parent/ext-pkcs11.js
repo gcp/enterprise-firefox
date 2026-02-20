@@ -16,9 +16,6 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.nsIPKCS11ModuleDB
 );
 
-// eslint-disable-next-line mozilla/reject-importGlobalProperties
-Cu.importGlobalProperties(["PathUtils"]);
-
 var { DefaultMap } = ExtensionUtils;
 
 const findModuleByPath = async function (path) {

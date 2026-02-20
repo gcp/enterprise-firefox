@@ -453,14 +453,14 @@ dictionary SynthesizeEventOptions {
   // Set this to true to ensure that the event is dispatched to this DOM window
   // or one of its children.
   boolean toWindow = false;
+  // Controls Event.isSynthesized value that helps identifying test related events.
+  boolean isDOMEventSynthesized = true;
 };
 
 // Mozilla-specific stuff
 dictionary SynthesizeMouseEventOptions : SynthesizeEventOptions {
   // Indicates whether the event should ignore viewport bounds during dispatch.
   boolean ignoreRootScrollFrame = false;
-  // Controls Event.isSynthesized value that helps identifying test related events.
-  boolean isDOMEventSynthesized = true;
   // Controls WidgetMouseEvent.mReason value.
   boolean isWidgetEventSynthesized = false;
 };

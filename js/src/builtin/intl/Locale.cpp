@@ -217,7 +217,8 @@ class SepKeywordIterator {
 
 enum class LocaleHourCycle { H11, H12, H23, H24 };
 
-static constexpr std::string_view HourCycleToString(LocaleHourCycle hourCycle) {
+static constexpr std::string_view LocaleHourCycleToString(
+    LocaleHourCycle hourCycle) {
 #ifndef USING_ENUM
   using enum LocaleHourCycle;
 #else
@@ -258,7 +259,8 @@ static JSLinearString* ToUnicodeValue(JSContext* cx,
 
 enum class LocaleCaseFirst { Upper, Lower, False };
 
-static constexpr std::string_view CaseFirstToString(LocaleCaseFirst caseFirst) {
+static constexpr std::string_view LocaleCaseFirstToString(
+    LocaleCaseFirst caseFirst) {
 #ifndef USING_ENUM
   using enum LocaleCaseFirst;
 #else
@@ -635,7 +637,7 @@ static bool Locale(JSContext* cx, unsigned argc, Value* vp) {
     }
 
     // Step 21.
-    static constexpr auto hourCycles = MapOptions<HourCycleToString>(
+    static constexpr auto hourCycles = MapOptions<LocaleHourCycleToString>(
         LocaleHourCycle::H11, LocaleHourCycle::H12, LocaleHourCycle::H23,
         LocaleHourCycle::H24);
     mozilla::Maybe<LocaleHourCycle> hourCycle{};
@@ -652,7 +654,7 @@ static bool Locale(JSContext* cx, unsigned argc, Value* vp) {
     }
 
     // Step 23.
-    static constexpr auto caseFirsts = MapOptions<CaseFirstToString>(
+    static constexpr auto caseFirsts = MapOptions<LocaleCaseFirstToString>(
         LocaleCaseFirst::Upper, LocaleCaseFirst::Lower, LocaleCaseFirst::False);
     mozilla::Maybe<LocaleCaseFirst> caseFirst{};
     if (!GetStringOption(cx, options, cx->names().caseFirst, caseFirsts,

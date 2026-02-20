@@ -1,8 +1,10 @@
 .. -*- Mode: rst; fill-column: 80; -*-
 
-=====================
-Architecture overview
-=====================
+.. _geckoview-architecture-overview:
+
+========================
+GeckoView Architecture
+========================
 
 .. contents:: Table of Contents
    :depth: 2
@@ -27,6 +29,8 @@ apps. Android apps that embed Gecko this way are usually referred to by
 GeckoView powers all currently active Mozilla browsers on Android, like Firefox
 for Android and Firefox Focus.
 
+.. _geckoview-api:
+
 API
 ===
 
@@ -47,6 +51,8 @@ browser (e.g. there is no concept of "tab" in GeckoView).
 The GeckoView API tries to retain as little data as possible, delegating most
 data storage to apps. Notable exceptions to this rule are: permissions,
 extensions and cookies.
+
+.. _view-runtime-and-session:
 
 View, Runtime and Session
 -------------------------
@@ -69,6 +75,8 @@ There are three main classes in the GeckoView API:
   ``GeckoSession`` in the app. Normally, only ``GeckoSession`` s associated to
   a ``GeckoView`` are actually *alive*, i.e. can receive events, fire timers,
   etc.
+
+.. _delegates:
 
 Delegates
 ---------
@@ -480,6 +488,8 @@ by principal. See also `Setting Permissions`_.
 To learn more about principals see `this talk by Bobby Holley
 <https://www.youtube.com/watch?v=28FPetl5Fl4>`_.
 
+.. _window-model:
+
 Window model
 ------------
 
@@ -495,6 +505,8 @@ Internally, Gecko uses ``window`` s for other things other than
 ``GeckoSession``, so we have to sometime be careful about knowing which windows
 belong to GeckoView and which don't. For example, the background extension page
 is implemented as a ``window`` object that doesn't paint to a surface.
+
+.. _eventdispatcher:
 
 EventDispatcher
 ---------------
@@ -522,6 +534,8 @@ In Java, events are fired in the same thread where the listener was registered,
 which allows us to ensure that events are received in a consistent order and
 data is kept consistent, so that we by and large don't have to worry about
 multi-threaded issues.
+
+.. _jni:
 
 JNI
 ---
@@ -628,7 +642,7 @@ And finally, the Java implementation calls the session delegate.
     });
   }
 
-.. _permissions:
+.. _geckoview-permissions:
 
 Permissions
 -----------

@@ -54,13 +54,18 @@ void StructuredCloneData::WriteIPCParams(IPC::MessageWriter* aWriter) {
 bool StructuredCloneData::ReadIPCParams(IPC::MessageReader* aReader) {
   MOZ_ASSERT(!mBuffer, "StructuredCloneData was previously initialized");
 
+  GeckoChildID originChildID =
+      aReader->GetActor()
+          ? aReader->GetActor()->ToplevelProtocol()->OtherChildIDMaybeInvalid()
+          : kInvalidGeckoChildID;
+
   uint32_t version;
   JSStructuredCloneData data(JS::StructuredCloneScope::DifferentProcess);
   if (!ReadParam(aReader, &version) || !ReadParam(aReader, &data)) {
     return false;
   }
 
-  Adopt(std::move(data), version);
+  Adopt(std::move(data), version, originChildID);
 
   if (!std::apply(
           [&](auto&... member) { return ReadParams(aReader, member...); },

@@ -1929,6 +1929,7 @@ void GCRuntime::beginSweepPhase(JS::GCReason reason, AutoGCSession& session) {
    * fail, rather than nest badly and leave the unmarked newborn to be swept.
    */
 
+  MOZ_ASSERT(preparedForSweepInThisSlice);
   MOZ_ASSERT(!abortSweepAfterCurrentGroup);
   MOZ_ASSERT(!markOnBackgroundThreadDuringSweeping);
 
@@ -2628,6 +2629,16 @@ void GCRuntime::prepareForSweepSlice(JS::GCReason reason) {
   // Trace wrapper rooters before marking if we might start sweeping in
   // this slice.
   rt->mainContextFromOwnThread()->traceWrapperGCRooters(marker().tracer());
+
+  // Incremental marking validation re-runs all marking non-incrementally
+  // in the first sweep slice, which requires collecting the nursery.
+
+  if (state() == State::Mark &&
+      hasZealMode(ZealMode::IncrementalMarkingValidator)) {
+    collectNurseryFromMajorGC(JS::GCReason::EVICT_NURSERY);
+  }
+
+  preparedForSweepInThisSlice = true;
 }
 
 // Ensure barriers are disabled if required when entering a sweep slice and
@@ -2654,6 +2665,7 @@ class js::gc::AutoUpdateBarriersForSweeping {
 };
 
 IncrementalProgress GCRuntime::performSweepActions(SliceBudget& budget) {
+  MOZ_ASSERT(preparedForSweepInThisSlice);
   MOZ_ASSERT_IF(storeBuffer().isEnabled(),
                 !storeBuffer().mayHavePointersToDeadCells());
 

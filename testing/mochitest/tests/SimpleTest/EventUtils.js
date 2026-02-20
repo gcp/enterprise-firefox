@@ -1063,6 +1063,7 @@ function synthesizeTouchAtPoint(aLeft, aTop, aEvent = {}, aWindow = window) {
     {
       isAsyncEnabled: aEvent.asyncEnabled || false,
       isPen: aEvent.mozInputSource === "pen",
+      isDOMEventSynthesized: aEvent.isSynthesized,
     },
   ];
 

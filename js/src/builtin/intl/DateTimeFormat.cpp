@@ -2719,40 +2719,39 @@ static bool FormatDateTime(JSContext* cx,
   return FormatDateTime(cx, df, date.time, result);
 }
 
-using FieldType = js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
-
-static FieldType GetFieldTypeForPartType(mozilla::intl::DateTimePartType type) {
+static JSString* DateTimePartTypeToString(
+    JSContext* cx, mozilla::intl::DateTimePartType type) {
   switch (type) {
     case mozilla::intl::DateTimePartType::Literal:
-      return &JSAtomState::literal;
+      return cx->names().literal;
     case mozilla::intl::DateTimePartType::Era:
-      return &JSAtomState::era;
+      return cx->names().era;
     case mozilla::intl::DateTimePartType::Year:
-      return &JSAtomState::year;
+      return cx->names().year;
     case mozilla::intl::DateTimePartType::YearName:
-      return &JSAtomState::yearName;
+      return cx->names().yearName;
     case mozilla::intl::DateTimePartType::RelatedYear:
-      return &JSAtomState::relatedYear;
+      return cx->names().relatedYear;
     case mozilla::intl::DateTimePartType::Month:
-      return &JSAtomState::month;
+      return cx->names().month;
     case mozilla::intl::DateTimePartType::Day:
-      return &JSAtomState::day;
+      return cx->names().day;
     case mozilla::intl::DateTimePartType::Hour:
-      return &JSAtomState::hour;
+      return cx->names().hour;
     case mozilla::intl::DateTimePartType::Minute:
-      return &JSAtomState::minute;
+      return cx->names().minute;
     case mozilla::intl::DateTimePartType::Second:
-      return &JSAtomState::second;
+      return cx->names().second;
     case mozilla::intl::DateTimePartType::Weekday:
-      return &JSAtomState::weekday;
+      return cx->names().weekday;
     case mozilla::intl::DateTimePartType::DayPeriod:
-      return &JSAtomState::dayPeriod;
+      return cx->names().dayPeriod;
     case mozilla::intl::DateTimePartType::TimeZoneName:
-      return &JSAtomState::timeZoneName;
+      return cx->names().timeZoneName;
     case mozilla::intl::DateTimePartType::FractionalSecondDigits:
-      return &JSAtomState::fractionalSecond;
+      return cx->names().fractionalSecond;
     case mozilla::intl::DateTimePartType::Unknown:
-      return &JSAtomState::unknown;
+      return cx->names().unknown;
   }
 
   MOZ_CRASH(
@@ -2760,15 +2759,15 @@ static FieldType GetFieldTypeForPartType(mozilla::intl::DateTimePartType type) {
       "by iterator");
 }
 
-static FieldType GetFieldTypeForPartSource(
-    mozilla::intl::DateTimePartSource source) {
+static JSString* DateTimePartSourceToString(
+    JSContext* cx, mozilla::intl::DateTimePartSource source) {
   switch (source) {
     case mozilla::intl::DateTimePartSource::Shared:
-      return &JSAtomState::shared;
+      return cx->names().shared;
     case mozilla::intl::DateTimePartSource::StartRange:
-      return &JSAtomState::startRange;
+      return cx->names().startRange;
     case mozilla::intl::DateTimePartSource::EndRange:
-      return &JSAtomState::endRange;
+      return cx->names().endRange;
   }
 
   MOZ_CRASH(
@@ -2790,9 +2789,8 @@ static PlainObject* CreateDateTimePart(JSContext* cx,
                                        DateTimeSource dateTimeSource) {
   Rooted<IdValueVector> properties(cx, cx);
 
-  FieldType typeName = GetFieldTypeForPartType(part.mType);
-  if (!properties.emplaceBack(NameToId(cx->names().type),
-                              StringValue(cx->names().*typeName))) {
+  auto* type = DateTimePartTypeToString(cx, part.mType);
+  if (!properties.emplaceBack(NameToId(cx->names().type), StringValue(type))) {
     return nullptr;
   }
 
@@ -2802,9 +2800,9 @@ static PlainObject* CreateDateTimePart(JSContext* cx,
   }
 
   if (dateTimeSource == DateTimeSource::Yes) {
-    FieldType sourceName = GetFieldTypeForPartSource(part.mSource);
+    auto* source = DateTimePartSourceToString(cx, part.mSource);
     if (!properties.emplaceBack(NameToId(cx->names().source),
-                                StringValue(cx->names().*sourceName))) {
+                                StringValue(source))) {
       return nullptr;
     }
   }

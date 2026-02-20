@@ -4,6 +4,8 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
 });
 
@@ -13,6 +15,11 @@ const { topChromeWindow } = window.browsingContext;
  * Initializes ASRouter and call appropriate trigger functions
  */
 async function init() {
+  if (!lazy.AIWindow.isAIWindowActive(topChromeWindow)) {
+    window.location.href = topChromeWindow.BROWSER_NEW_TAB_URL;
+    return;
+  }
+
   await lazy.ASRouter.waitForInitialized;
   triggerSwitcherButtonCallout();
 }

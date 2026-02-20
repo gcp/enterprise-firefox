@@ -286,6 +286,7 @@ projects:
     upstream_dependencies:
     - components:browser-errorpages
     - components:browser-state
+    - components:compose-base
     - components:concept-awesomebar
     - components:concept-base
     - components:concept-engine
@@ -298,6 +299,7 @@ projects:
     - components:support-test
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
     - components:ui-icons
   components:compose-base:
     description: A component containing base Composable components based on Acorn
@@ -1096,6 +1098,12 @@ projects:
     - components:ui-icons
     - components:ui-tabcounter
     - components:ui-widgets
+  components:feature-protection-dashboard:
+    description: Feature that will store global tracking protection information.
+    path: components/feature/protection-dashboard
+    publish: true
+    upstream_dependencies:
+    - components:tooling-lint
   components:feature-push:
     description: Feature that implements push notifications with a supported push
       service.
@@ -1790,11 +1798,16 @@ projects:
     - components:support-test
     - components:tooling-lint
   components:lib-llm-mlpa:
-    description: A off-device implementation of the LLM concept that uses the MLPA
-      proxy server
+    description: An implmentation of  that is backed by MLPA
     path: components/lib/llm-mlpa
     publish: true
     upstream_dependencies:
+    - components:concept-base
+    - components:concept-fetch
+    - components:concept-integrity
+    - components:concept-llm
+    - components:support-base
+    - components:support-test
     - components:tooling-lint
   components:lib-publicsuffixlist:
     description: A library for reading and using the public suffix list.

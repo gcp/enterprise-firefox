@@ -4637,6 +4637,7 @@ static bool NeedsKeepAlive(MInstruction* slotsOrElements, MInstruction* use) {
       case MDefinition::Opcode::GuardElementsArePacked:
       case MDefinition::Opcode::InArray:
       case MDefinition::Opcode::SpectreMaskIndex:
+      case MDefinition::Opcode::Add:
       case MDefinition::Opcode::DebugEnterGCUnsafeRegion:
       case MDefinition::Opcode::DebugLeaveGCUnsafeRegion:
         break;
@@ -4679,10 +4680,6 @@ bool jit::AddKeepAliveInstructions(MIRGraph& graph) {
         case MDefinition::Opcode::Elements:
         case MDefinition::Opcode::ArrayBufferViewElements:
           MOZ_ASSERT(ins->numOperands() == 1);
-          ownerObject = ins->getOperand(0);
-          break;
-        case MDefinition::Opcode::ArrayBufferViewElementsWithOffset:
-          MOZ_ASSERT(ins->numOperands() == 2);
           ownerObject = ins->getOperand(0);
           break;
         case MDefinition::Opcode::Slots:

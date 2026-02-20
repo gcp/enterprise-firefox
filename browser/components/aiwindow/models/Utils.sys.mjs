@@ -824,11 +824,66 @@ export class openAIEngine {
    * @private
    */
   _is401Error(error) {
-    if (!error || !error.message) {
+    if (!error) {
       return false;
     }
 
-    return error.message.includes("401 status code");
+    return error.status === 401 || error.message?.includes("401 status code");
+  }
+
+  /**
+   * Helper async generator to handle 401 authentication errors and retry with new token for streaming requests.
+   *
+   * @param {Map<string, any>} options  OpenAI formatted messages with streaming and tooling options to be sent to the LLM
+   * @yields {object}                   LLM streaming response chunks
+   */
+  async *_runWithGeneratorAuth(options) {
+    try {
+      const generator = this.engineInstance.runWithGenerator(options);
+      for await (const chunk of generator) {
+        yield chunk;
+      }
+    } catch (ex) {
+      if (!this._is401Error(ex)) {
+        throw ex;
+      }
+
+      console.warn(
+        "LLM streaming request returned a 401 - revoking our token and retrying"
+      );
+
+      const fxAccounts = getFxAccountsSingleton();
+      const oldToken = options.fxAccountToken;
+      if (oldToken) {
+        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
+      }
+
+      await this._recreateEngine();
+
+      const newToken = await openAIEngine.getFxAccountToken();
+      const updatedOptions = { ...options, fxAccountToken: newToken };
+
+      try {
+        const generator = this.engineInstance.runWithGenerator(updatedOptions);
+        for await (const chunk of generator) {
+          yield chunk;
+        }
+      } catch (retryEx) {
+        if (!this._is401Error(retryEx)) {
+          throw retryEx;
+        }
+
+        console.warn(
+          "Retry LLM streaming request still returned a 401 - revoking our token and failing"
+        );
+
+        if (newToken) {
+          await fxAccounts.removeCachedOAuthToken({ token: newToken });
+        }
+
+        throw retryEx;
+      }
+    }
   }
 
   /**
@@ -836,10 +891,10 @@ export class openAIEngine {
    * Will eventually use `usage` from the LiteLLM API response for token telemetry
    *
    * @param {Map<string, any>} options  OpenAI formatted messages with streaming and tooling options to be sent to the LLM
-   * @returns {object}                  LLM response
+   * @returns {AsyncGenerator}          LLM streaming response
    */
   runWithGenerator(options) {
-    return this.engineInstance.runWithGenerator(options);
+    return this._runWithGeneratorAuth(options);
   }
 }
 

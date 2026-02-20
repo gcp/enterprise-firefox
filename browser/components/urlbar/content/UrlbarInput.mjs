@@ -201,7 +201,13 @@ export class UrlbarInput extends HTMLElement {
   #gBrowserListenersAdded = false;
   #breakoutBlockerCount = 0;
   #isAddressbar = false;
-  #sapName = "";
+  /**
+   * The search access point name of the UrlbarInput for use with telemetry or
+   * logging, e.g. `urlbar`, `searchbar`.
+   *
+   * @type {"searchbar"|"smartbar"|"urlbar"}
+   */
+  #sapName;
   _userTypedValue = "";
   _actionOverrideKeyCount = 0;
   _lastValidURLStr = "";
@@ -276,7 +282,9 @@ export class UrlbarInput extends HTMLElement {
    * Initialization that happens once on the first connect.
    */
   #init() {
-    this.#sapName = this.getAttribute("sap-name");
+    this.#sapName = /** @type {"searchbar"|"smartbar"|"urlbar"} */ (
+      this.getAttribute("sap-name")
+    );
     this.#isAddressbar = this.#sapName == "urlbar";
 
     // This listener must be added before connecting the fragment
@@ -558,10 +566,6 @@ export class UrlbarInput extends HTMLElement {
     return this.#lazy.addSearchEngineHelper;
   }
 
-  /**
-   * The search access point name of the UrlbarInput for use with telemetry or
-   * logging, e.g. `urlbar`, `searchbar`.
-   */
   get sapName() {
     return this.#sapName;
   }
@@ -1277,14 +1281,17 @@ export class UrlbarInput extends HTMLElement {
     this.userTypedValue = null;
     // Nullify search mode before setURI so it won't try to restore it.
     this.searchMode = null;
-    if (this.#isAddressbar) {
-      this.setURI({
-        dueToTabSwitch: true,
-        hideSearchTerms: true,
-      });
-    } else {
+    if (!this.#isAddressbar) {
       this.value = "";
+      this.toggleAttribute("usertyping", false);
+      return;
     }
+
+    this.setURI({
+      dueToTabSwitch: true,
+      hideSearchTerms: true,
+    });
+
     if (this.value && this.focused) {
       this.select();
     }
@@ -2827,13 +2834,13 @@ export class UrlbarInput extends HTMLElement {
    *
    * @param {Event} event
    *   The event that triggered this query.
-   * @returns {string}
+   * @returns {keyof typeof lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES}
    *   The source name.
    */
   getSearchSource(event) {
     if (this.#isAddressbar) {
       if (this._isHandoffSession) {
-        return "urlbar-handoff";
+        return "urlbar_handoff";
       }
 
       const isOneOff =
@@ -2844,7 +2851,7 @@ export class UrlbarInput extends HTMLElement {
         // oneoff_urlbar and oneoff_searchbar). The extra information is not
         // necessary; the intent is the same regardless of whether the user is
         // in search mode when they do a key-modified click/enter on a one-off.
-        return "urlbar-searchmode";
+        return "urlbar_searchmode";
       }
 
       let state = this.getBrowserState(this.window.gBrowser.selectedBrowser);
@@ -2853,7 +2860,7 @@ export class UrlbarInput extends HTMLElement {
         // persisted. However when the user modifies the search term, the boolean
         // will become false. Thus, we check the presence of the search terms to
         // know whether or not search terms ever persisted in the address bar.
-        return "urlbar-persisted";
+        return "urlbar_persisted";
       }
     }
     return this.#sapName;
@@ -3662,7 +3669,7 @@ export class UrlbarInput extends HTMLElement {
 
   /**
    * If appropriate, this prefixes a search string with 'www.' and suffixes it
-   * with browser.fixup.alternate.suffix prior to navigating.
+   * with Services.locale.urlFixupSuffix prior to navigating.
    *
    * @param {Event} event
    *   The event that triggered this query.
@@ -3682,7 +3689,8 @@ export class UrlbarInput extends HTMLElement {
       return null;
     }
 
-    let suffix = Services.prefs.getCharPref("browser.fixup.alternate.suffix");
+    let suffix = Services.locale.urlFixupSuffix;
+    Glean.urlfixup.suffix.get("urlbar", suffix).add(1);
     if (!suffix.endsWith("/")) {
       suffix += "/";
     }

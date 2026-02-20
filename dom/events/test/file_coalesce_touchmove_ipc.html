@@ -25,6 +25,7 @@
   async function fireLotsOfSingleTouchMoves() {
     var ret = new Promise(function(resolve) {
       SpecialPowers.loadChromeScript(function() {
+        const kAllowToCoalesceTouchMovesOption = { isAsyncEnabled: true, isDOMEventSynthesized: false };
         var element = this.actorParent.rootFrameLoader.ownerElement;
         var rect = element.getBoundingClientRect();
         var win = element.ownerDocument.defaultView;
@@ -35,20 +36,20 @@
           identifier: 0,
           offsetX: x,
           offsetY: y,
-        }]);
+        }], 0, kAllowToCoalesceTouchMovesOption);
         while (y != endY) {
           win.synthesizeTouchEvent("touchmove", [{
             identifier: 0,
             offsetX: x,
             offsetY: y,
-          }]);
+          }], 0, kAllowToCoalesceTouchMovesOption);
           ++y;
         }
         win.synthesizeTouchEvent("touchend", [{
           identifier: 0,
           offsetX: x,
           offsetY: y,
-        }]);
+        }], 0, kAllowToCoalesceTouchMovesOption);
       });
 
       touchmoveEvents = [];
@@ -65,6 +66,7 @@
   async function fireTwoSingleTouches() {
     var ret = new Promise(function(resolve) {
       SpecialPowers.loadChromeScript(function() {
+        const kAllowToCoalesceTouchMovesOption = { isAsyncEnabled: true, isDOMEventSynthesized: false };
         var element = this.actorParent.rootFrameLoader.ownerElement;
         var rect = element.getBoundingClientRect();
         var win = element.ownerDocument.defaultView;
@@ -75,22 +77,22 @@
           identifier: 0,
           offsetX: x,
           offsetY: startY,
-        }]);
+        }], 0, kAllowToCoalesceTouchMovesOption);
         win.synthesizeTouchEvent("touchmove", [{
           identifier: 0,
           offsetX: x,
-          offsetY: startY,
-        }]);
+          offsetY: startY + 10,
+        }], 0, kAllowToCoalesceTouchMovesOption);
         win.synthesizeTouchEvent("touchmove", [{
           identifier: 0,
           offsetX: x,
-          offsetY: startY + 1,
-        }]);
+          offsetY: startY + 20,
+        }], 0, kAllowToCoalesceTouchMovesOption);
         win.synthesizeTouchEvent("touchend", [{
           identifier: 0,
           offsetX: x,
           offsetY: endY,
-        }]);
+        }], 0, kAllowToCoalesceTouchMovesOption);
       });
 
       touchmoveEvents = [];
@@ -107,6 +109,7 @@
   async function fireLotsOfMultiTouchMoves() {
     var ret = new Promise(function(resolve) {
       SpecialPowers.loadChromeScript(function() {
+        const kAllowToCoalesceTouchMovesOption = { isAsyncEnabled: true, isDOMEventSynthesized: false };
         var element = this.actorParent.rootFrameLoader.ownerElement;
         var rect = element.getBoundingClientRect();
         var win = element.ownerDocument.defaultView;
@@ -124,7 +127,7 @@
             offsetX: x + 1,
             offsetY: startY + 1,
           },
-        ]);
+        ], 0, kAllowToCoalesceTouchMovesOption);
 
         while (startY != endY) {
           win.synthesizeTouchEvent("touchmove", [
@@ -138,7 +141,7 @@
               offsetX: x + 1,
               offsetY: startY + 1,
             },
-          ]);
+          ], 0, kAllowToCoalesceTouchMovesOption);
           ++startY;
         }
 
@@ -153,7 +156,7 @@
             offsetX: x + 1,
             offsetY: endY + 1,
           },
-        ]);
+        ], 0, kAllowToCoalesceTouchMovesOption);
 
       });
 

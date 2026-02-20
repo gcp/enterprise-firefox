@@ -16,8 +16,8 @@ interface ReportBody {
 ();
 };
 
-[Pref="dom.reporting.enabled",
- Exposed=(Window,Worker)]
+// Not exposed to Window for webcompat reasons
+[Exposed=(Window,Worker), LegacyNoInterfaceObject]
 interface Report {
   [Default] object toJSON
 ();
@@ -45,8 +45,8 @@ dictionary ReportingObserverOptions {
 
 typedef sequence<Report> ReportList;
 
-[Pref="dom.reporting.enabled",
- Exposed=Window]
+// Not exposed to Window for webcompat reasons
+[Exposed=Window, LegacyNoInterfaceObject]
 interface DeprecationReportBody : ReportBody {
   [Default] object toJSON();
 

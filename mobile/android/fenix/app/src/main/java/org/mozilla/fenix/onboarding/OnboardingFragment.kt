@@ -82,6 +82,7 @@ class OnboardingFragment : Fragment() {
             openLink = this::launchSandboxCustomTab,
             showManagePrivacyPreferencesDialog = this::showPrivacyPreferencesDialog,
             settings = requireContext().settings(),
+            startGlean = ::startGlean,
         )
     }
 
@@ -469,20 +470,7 @@ class OnboardingFragment : Fragment() {
         )
     }
 
-    private fun onFinish(onboardingPageUiData: OnboardingPageUiData?) {
-        // onboarding page UI data can be null if there was no pages to display
-        if (onboardingPageUiData != null) {
-            val sequenceId = pagesToDisplay.telemetrySequenceId()
-            val sequencePosition = pagesToDisplay.sequencePosition(onboardingPageUiData.type)
-
-            telemetryRecorder.onOnboardingComplete(
-                sequenceId = sequenceId,
-                sequencePosition = sequencePosition,
-            )
-        }
-
-        requireComponents.fenixOnboarding.finish()
-
+    private fun startGlean() {
         val settings = requireContext().settings()
         viewLifecycleOwner.lifecycleScope.launch {
             initializeGlean(
@@ -498,12 +486,39 @@ class OnboardingFragment : Fragment() {
             Pings.onboardingOptOut.submit()
         }
 
+        // The marketing telemetry may be enabled after finishing onboarding.
         startMetricsIfEnabled(
             logger = logger,
             analytics = requireComponents.analytics,
             isTelemetryEnabled = settings.isTelemetryEnabled,
-            isMarketingTelemetryEnabled = settings.isMarketingTelemetryEnabled,
+            isMarketingTelemetryEnabled = false,
             isDailyUsagePingEnabled = settings.isDailyUsagePingEnabled,
+        )
+    }
+
+    private fun onFinish(onboardingPageUiData: OnboardingPageUiData?) {
+        // onboarding page UI data can be null if there was no pages to display
+        if (onboardingPageUiData != null) {
+            val sequenceId = pagesToDisplay.telemetrySequenceId()
+            val sequencePosition = pagesToDisplay.sequencePosition(onboardingPageUiData.type)
+
+            telemetryRecorder.onOnboardingComplete(
+                sequenceId = sequenceId,
+                sequencePosition = sequencePosition,
+            )
+        }
+
+        requireComponents.fenixOnboarding.finish()
+
+        val settings = requireContext().settings()
+
+        // Telemetry and daily usage ping get enabled after ToU acceptance.
+        startMetricsIfEnabled(
+            logger = logger,
+            analytics = requireComponents.analytics,
+            isTelemetryEnabled = false,
+            isMarketingTelemetryEnabled = settings.isMarketingTelemetryEnabled,
+            isDailyUsagePingEnabled = false,
         )
 
         findNavController().nav(

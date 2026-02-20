@@ -228,19 +228,19 @@ class ElementStyle {
    * Add a rule if it's one we care about. Filters out duplicates and
    * inherited styles with no inherited properties.
    *
-   * @param  {object} options
+   * @param  {object} appliedStyle
    *         Options for creating the Rule, see the Rule constructor.
    * @param  {Array} existingRules
    *         Rules to reuse if possible. If a rule is reused, then it
    *         it will be deleted from this array.
    * @return {boolean} true if we added the rule.
    */
-  #maybeAddRule(options, existingRules) {
+  #maybeAddRule(appliedStyle, existingRules) {
     // If we've already included this domRule (for example, when a
     // common selector is inherited), ignore it.
     if (
-      options.system ||
-      (options.rule && this.rules.some(rule => rule.domRule === options.rule))
+      appliedStyle.rule &&
+      this.rules.some(rule => rule.domRule === appliedStyle.rule)
     ) {
       return false;
     }
@@ -250,21 +250,21 @@ class ElementStyle {
     // If we're refreshing and the rule previously existed, reuse the
     // Rule object.
     if (existingRules) {
-      const ruleIndex = existingRules.findIndex(r => r.matches(options));
+      const ruleIndex = existingRules.findIndex(r => r.matches(appliedStyle));
       if (ruleIndex >= 0) {
         rule = existingRules[ruleIndex];
-        rule.refresh(options);
+        rule.refresh(appliedStyle);
         existingRules.splice(ruleIndex, 1);
       }
     }
 
     // If this is a new rule, create its Rule object.
     if (!rule) {
-      rule = new Rule(this, options);
+      rule = new Rule(this, appliedStyle);
     }
 
     // Ignore inherited rules with no visible properties.
-    if (options.inherited && !rule.hasAnyVisibleProperties()) {
+    if (appliedStyle.inherited && !rule.hasAnyVisibleProperties()) {
       return false;
     }
 

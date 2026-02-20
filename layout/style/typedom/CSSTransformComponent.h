@@ -65,7 +65,7 @@ class CSSTransformComponent : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<DOMMatrix> ToMatrix(ErrorResult& aRv);
 
-  void Stringify(nsString& aRetVal);
+  void Stringify(nsACString&);
 
   // end of CSSTransformComponent Web IDL declarations
 

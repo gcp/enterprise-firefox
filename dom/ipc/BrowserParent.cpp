@@ -2232,6 +2232,7 @@ void BrowserParent::SendRealTouchMoveEvent(
 
   AutoTArray<int32_t, kMaxTouchMoveIdentifiers> changedTouches;
   bool preventCompression = !StaticPrefs::dom_events_compress_touchmove() ||
+                            aEvent.mFlags.mIsSynthesizedForTests ||
                             // Ensure the very first touchmove isn't overridden
                             // by the second one, so that web pages can get
                             // accurate coordinates for the first touchmove.

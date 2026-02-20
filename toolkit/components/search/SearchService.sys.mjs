@@ -950,27 +950,34 @@ export const SearchService = new (class SearchService {
   }
 
   /**
-   * Moves a visible search engine.
+   * Moves a search engine in the list. This method can account for both visible
+   * and hidden engines.
    *
    * @param {SearchEngine} engine
    *   The engine to move.
    * @param {number} newIndex
    *   The engine's new index in the set of visible engines.
+   * @param {boolean} [skipHidden]
+   *   If set, this skips moving hidden engines. This is for the case of the old
+   *   preferences UI which hides engines from the user's view, and so we need
+   *   to take them into account when adjusting indexes.
    *
-   * @throws {Cr.NS_ERROR_INVALID_ARG}
+   * @throws {RangeError}
    *   If newIndex is out of bounds.
-   * @throws {Cr.NS_ERROR_FAILURE}
-   *   If the engine is hidden.
+   * @throws {TypeError}
+   *   If the engine is not a search engine.
+   * @throws {Error}
+   *   If the engine is hidden or can't be found.
    */
-  async moveEngine(engine, newIndex) {
+  async moveEngine(engine, newIndex, skipHidden = false) {
     await this.init();
-    if (newIndex > this.#sortedEngines.length || newIndex < 0) {
+    if (newIndex >= this.#sortedEngines.length || newIndex < 0) {
       throw new RangeError("newIndex out of bounds");
     }
     if (!(engine instanceof lazy.SearchEngine)) {
       throw new TypeError("engine is not a SearchEngine instance");
     }
-    if (engine.hidden) {
+    if (skipHidden && engine.hidden) {
       throw new Error("Unable to move a hidden engine");
     }
 
@@ -979,28 +986,30 @@ export const SearchService = new (class SearchService {
       throw new Error("Unable to find engine to move");
     }
 
-    // Our callers only take into account non-hidden engines when calculating
-    // newIndex, but we need to move it in the array of all engines, so we
-    // need to adjust newIndex accordingly. To do this, we count the number
-    // of hidden engines in the list before the engine that we're taking the
-    // place of. We do this by first finding newIndexEngine (the engine that
-    // we were supposed to replace) and then iterating through the complete
-    // engine list until we reach it, increasing newIndex for each hidden
-    // engine we find on our way there.
-    //
-    // This could be further simplified by having our caller pass in
-    // newIndexEngine directly instead of newIndex.
-    var newIndexEngine = this.#sortedVisibleEngines[newIndex];
-    if (!newIndexEngine) {
-      throw new Error("Unable to find engine to replace");
-    }
-
-    for (var i = 0; i < this.#sortedEngines.length; ++i) {
-      if (newIndexEngine == this.#sortedEngines[i]) {
-        break;
+    if (skipHidden) {
+      // These callers only take into account non-hidden engines when calculating
+      // newIndex, but we need to move it in the array of all engines, so we
+      // need to adjust newIndex accordingly. To do this, we count the number
+      // of hidden engines in the list before the engine that we're taking the
+      // place of. We do this by first finding newIndexEngine (the engine that
+      // we were supposed to replace) and then iterating through the complete
+      // engine list until we reach it, increasing newIndex for each hidden
+      // engine we find on our way there.
+      //
+      // This could be further simplified by having our caller pass in
+      // newIndexEngine directly instead of newIndex.
+      var newIndexEngine = this.#sortedVisibleEngines[newIndex];
+      if (!newIndexEngine) {
+        throw new Error("Unable to find engine to replace");
       }
-      if (this.#sortedEngines[i].hidden) {
-        newIndex++;
+
+      for (var i = 0; i < this.#sortedEngines.length; ++i) {
+        if (newIndexEngine == this.#sortedEngines[i]) {
+          break;
+        }
+        if (this.#sortedEngines[i].hidden) {
+          newIndex++;
+        }
       }
     }
 

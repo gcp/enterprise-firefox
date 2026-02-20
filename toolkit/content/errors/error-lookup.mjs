@@ -134,7 +134,6 @@ export function resolveAdvancedConfig(advancedConfig, l10nArgValues) {
  * @returns {object} Fully resolved error configuration
  */
 export function getResolvedErrorConfig(id, l10nArgValues) {
-  id = l10nArgValues.offline ? "NS_ERROR_OFFLINE" : id;
   const baseConfig = getErrorConfig(id);
 
   const introContentHandler = Array.isArray(baseConfig.introContent)

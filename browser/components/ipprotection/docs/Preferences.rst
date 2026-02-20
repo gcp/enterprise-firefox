@@ -69,5 +69,5 @@ Diagnostics
 ``browser.ipProtection.log`` (boolean, default: ``false``)
   Enable/disable logging.
 
-``browser.ipProtection.panelOpenCount`` (integer, default: ``0``)
-  Counts the number of times the VPN panel is opened.
+``browser.ipProtection.everOpenedPanel`` (boolean, default: ``false``)
+  Tracks if the user has ever opened the VPN panel

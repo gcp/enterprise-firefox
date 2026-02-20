@@ -17,6 +17,8 @@ prefs = [
 
 ["browser_searchbarOverflow.js"]
 
+["browser_searchbar_addEngine.js"]
+
 ["browser_searchbar_customizing_nobreakout.js"]
 
 ["browser_searchbar_dragdrop.js"]

@@ -402,18 +402,37 @@ add_task(
 
 add_task(
   async function test_smartbar_shows_suggestions_on_input_above_in_sidebar() {
-    const win = await BrowserTestUtils.openNewBrowserWindow();
+    const win = await openAIWindow();
     AIWindowUI.toggleSidebar(win);
     const browser = win.document.getElementById("ai-window-browser");
 
-    await BrowserTestUtils.waitForCondition(() => {
-      const aiWindow = browser.contentDocument.querySelector("ai-window");
-      return aiWindow;
-    }, "Sidebar should be loaded");
-    await promiseSmartbarSuggestionsOpen(browser, () =>
-      typeInSmartbar(browser, "test")
+    await BrowserTestUtils.waitForCondition(
+      () => browser.contentDocument.querySelector("ai-window"),
+      "Sidebar ai-window should be loaded"
     );
-    await assertSmartbarSuggestionsVisible(browser, true, "top");
+
+    const sidebarAIWindow = browser.contentDocument.querySelector("ai-window");
+    await BrowserTestUtils.waitForCondition(
+      () => sidebarAIWindow.shadowRoot?.querySelector("#ai-window-smartbar"),
+      "Sidebar smartbar should be rendered"
+    );
+
+    const smartbar = sidebarAIWindow.shadowRoot.querySelector(
+      "#ai-window-smartbar"
+    );
+
+    await promiseSmartbarSuggestionsOpen(browser, async () => {
+      smartbar.value = "test";
+      smartbar.startQuery({ searchString: "test" });
+      await smartbar.lastQueryContextPromise;
+    });
+
+    Assert.ok(smartbar.view.isOpen, "Suggestions view should be open");
+    Assert.equal(
+      smartbar.getAttribute("suggestions-position"),
+      "top",
+      "Suggestions position should be: top"
+    );
 
     await BrowserTestUtils.closeWindow(win);
   }

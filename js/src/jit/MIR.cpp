@@ -6936,10 +6936,6 @@ AliasSet MArrayBufferViewElements::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
 }
 
-AliasSet MArrayBufferViewElementsWithOffset::getAliasSet() const {
-  return AliasSet::Load(AliasSet::ObjectFields);
-}
-
 AliasSet MGuardHasAttachedArrayBuffer::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot);
 }

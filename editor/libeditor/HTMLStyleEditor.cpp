@@ -452,7 +452,7 @@ nsresult HTMLEditor::SetInlinePropertiesAroundRanges(
           }
         }
         // Otherwise, use the range computed with the tracking original range.
-        trackRange.FlushAndStopTracking();
+        trackRange.Flush(StopTracking::Yes);
         domRange->SetStartAndEnd(range.StartRef().ToRawRangeBoundary(),
                                  range.EndRef().ToRawRangeBoundary());
       };
@@ -2070,7 +2070,7 @@ HTMLEditor::SplitAncestorStyledInlineElementsAtRangeEdges(
       NS_WARNING("HTMLEditor::SplitAncestorStyledInlineElementsAt() failed");
       return result;
     }
-    tracker.FlushAndStopTracking();
+    tracker.Flush(StopTracking::Yes);
     if (result.inspect().Handled()) {
       auto startOfRange = result.inspect().AtSplitPoint<EditorDOMPoint>();
       if (!startOfRange.IsSet()) {
@@ -2105,7 +2105,7 @@ HTMLEditor::SplitAncestorStyledInlineElementsAtRangeEdges(
       NS_WARNING("HTMLEditor::SplitAncestorStyledInlineElementsAt() failed");
       return result;
     }
-    tracker.FlushAndStopTracking();
+    tracker.Flush(StopTracking::Yes);
     if (result.inspect().Handled()) {
       auto endOfRange = result.inspect().AtSplitPoint<EditorDOMPoint>();
       if (!endOfRange.IsSet()) {
@@ -2294,7 +2294,7 @@ HTMLEditor::SplitAncestorStyledInlineElementsAt(
       return splitNodeResult;
     }
     SplitNodeResult unwrappedSplitNodeResult = splitNodeResult.unwrap();
-    trackPointToPutCaret.FlushAndStopTracking();
+    trackPointToPutCaret.Flush(StopTracking::Yes);
     unwrappedSplitNodeResult.MoveCaretPointTo(
         pointToPutCaret, {SuggestCaret::OnlyIfHasSuggestion});
 
@@ -2343,7 +2343,7 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::ClearStyleAt(
     NS_WARNING("HTMLEditor::SplitAncestorStyledInlineElementsAt() failed");
     return splitNodeResult.propagateErr();
   }
-  trackPointToPutCaret.FlushAndStopTracking();
+  trackPointToPutCaret.Flush(StopTracking::Yes);
   SplitNodeResult unwrappedSplitNodeResult = splitNodeResult.unwrap();
   unwrappedSplitNodeResult.MoveCaretPointTo(
       pointToPutCaret, *this,
@@ -2429,7 +2429,7 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::ClearStyleAt(
     NS_WARNING("HTMLEditor::SplitAncestorStyledInlineElementsAt() failed");
     return splitResultAtStartOfNextNode.propagateErr();
   }
-  trackPointToPutCaret2.FlushAndStopTracking();
+  trackPointToPutCaret2.Flush(StopTracking::Yes);
   SplitNodeResult unwrappedSplitResultAtStartOfNextNode =
       splitResultAtStartOfNextNode.unwrap();
   unwrappedSplitResultAtStartOfNextNode.MoveCaretPointTo(
@@ -3590,7 +3590,7 @@ nsresult HTMLEditor::RemoveInlinePropertiesAsSubAction(
 
       auto FlushAndStopTrackingAndShrinkSelectionRange =
           [&]() MOZ_CAN_RUN_SCRIPT {
-            trackSelectionRange.FlushAndStopTracking();
+            trackSelectionRange.Flush(StopTracking::Yes);
             if (NS_WARN_IF(!selectionRange->IsPositioned())) {
               return;
             }

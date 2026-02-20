@@ -106,6 +106,8 @@ class AccessibilityRow extends Component {
     };
   }
 
+  #flashMutationTimer = null;
+
   componentDidMount() {
     const {
       member: { selected, object },
@@ -154,8 +156,6 @@ class AccessibilityRow extends Component {
       this.flashValue();
     }
   }
-
-  #flashMutationTimer = null;
 
   scrollIntoView() {
     const row = findDOMNode(this);

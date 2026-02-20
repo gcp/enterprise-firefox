@@ -36,7 +36,6 @@ import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainLooperTestRule
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,9 +82,6 @@ import org.mozilla.fenix.components.appstate.search.SearchState as AppSearchStat
 class FenixSearchMiddlewareTest {
     @get:Rule
     val gleanTestRule = GleanTestRule(testContext)
-
-    @get:Rule
-    val mainLooperRule = MainLooperTestRule()
 
     private val engine: Engine = mockk {
         every { speculativeCreateSession(any(), any()) } just Runs
@@ -185,7 +181,14 @@ class FenixSearchMiddlewareTest {
         val (middleware, store) = buildMiddlewareAndAddToSearchStore()
         every { middleware.buildSearchSuggestionsProvider(any()) } returns mockk(relaxed = true)
 
-        store.dispatch(SearchStarted(null, false, false, false))
+        store.dispatch(
+            SearchStarted(
+                null,
+                isUserSelected = false,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = false,
+            ),
+        )
 
         assertNull(Toolbar.buttonTapped.testGetValue())
     }
@@ -252,8 +255,14 @@ class FenixSearchMiddlewareTest {
         every { settings.shouldShowSearchSuggestions } returns true
         val defaultSearchEngine = fakeSearchEnginesState().selectedOrDefaultSearchEngine
 
-        store.dispatch(SearchStarted(defaultSearchEngine, false, false, true))
-        mainLooperRule.idle()
+        store.dispatch(
+            SearchStarted(
+                defaultSearchEngine,
+                isUserSelected = false,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = true,
+            ),
+        )
 
         searchActionsCaptor.assertLastAction(SearchSuggestionsVisibilityUpdated::class) {
             assertTrue(it.visible)
@@ -267,7 +276,14 @@ class FenixSearchMiddlewareTest {
         every { settings.shouldShowSearchSuggestions } returns true
         val defaultSearchEngine = fakeSearchEnginesState().selectedOrDefaultSearchEngine
 
-        store.dispatch(SearchStarted(defaultSearchEngine, false, false, true))
+        store.dispatch(
+            SearchStarted(
+                defaultSearchEngine,
+                isUserSelected = false,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = true,
+            ),
+        )
 
         searchActionsCaptor.assertLastAction(SearchSuggestionsVisibilityUpdated::class) {
             assertTrue(it.visible)
@@ -336,8 +352,15 @@ class FenixSearchMiddlewareTest {
         }
         every { middleware.buildSearchSuggestionsProvider(any()) } returns expectedSearchSuggestionsProvider
 
-        store.dispatch(SearchStarted(null, false, false, false)) // this triggers observing the search engine updates
-        mainLooperRule.idle()
+        // this triggers observing the search engine updates
+        store.dispatch(
+            SearchStarted(
+                null,
+                isUserSelected = false,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = false,
+            ),
+        )
 
         searchActionsCaptor.assertLastAction(SearchShortcutEngineSelected::class) {
             assertEquals(newSearchEngineSelection, it.engine)
@@ -436,9 +459,15 @@ class FenixSearchMiddlewareTest {
         val (_, store) = buildMiddlewareAndAddToSearchStore(appStore = appStore)
 
         appStore.dispatch(AppAction.SearchAction.SearchStarted())
-        store.dispatch(SearchStarted(defaultSearchEngine, false, false, false))
+        store.dispatch(
+            SearchStarted(
+                defaultSearchEngine,
+                isUserSelected = false,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = false,
+            ),
+        )
         appStore.dispatch(SearchEngineSelected(searchEngineClicked, true))
-        mainLooperRule.idle()
 
         assertEquals(Bookmarks(searchEngineClicked), store.state.searchEngineSource)
         assertNotNull(store.state.defaultEngine)

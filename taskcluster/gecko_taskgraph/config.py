@@ -41,7 +41,6 @@ graph_config_schema = LegacySchema({
             str: {
                 Required("product"): str,
                 Required("target-tasks-method"): str,
-                Optional("is-rc"): bool,
                 Optional("rebuild-kinds"): [str],
                 Optional("version-bump"): bool,
                 Optional("partial-updates"): bool,

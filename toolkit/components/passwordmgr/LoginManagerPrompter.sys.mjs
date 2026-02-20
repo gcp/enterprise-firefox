@@ -421,7 +421,7 @@ export class LoginManagerPrompter {
       ) {
         // We only want to touch the login's use count and last used time.
         lazy.log.debug(`Touch matched login: ${loginToUpdate.guid}.`);
-        Services.logins.recordPasswordUse(
+        await Services.logins.recordPasswordUseAsync(
           loginToUpdate,
           PrivateBrowsingUtils.isBrowserPrivate(browser),
           loginToUpdate.username ? "FormPassword" : "FormLogin",

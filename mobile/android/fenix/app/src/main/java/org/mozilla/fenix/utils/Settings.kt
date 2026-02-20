@@ -902,7 +902,7 @@ class Settings(
      */
     var isLnaBlockingEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_lna_blocking_enabled),
-        default = { FxNimbus.features.lnaBlocking.value().blocking },
+        default = Config.channel.isNightlyOrDebug,
     )
 
     /**
@@ -910,7 +910,7 @@ class Settings(
      */
     var isLnaTrackerBlockingEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_lna_tracker_blocking_enabled),
-        default = { FxNimbus.features.lnaBlocking.value().blockTrackers },
+        default = false,
     )
 
     /**
@@ -922,7 +922,7 @@ class Settings(
      */
     var isLnaFeatureEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_lna_feature_enabled),
-        default = { FxNimbus.features.lnaBlocking.value().enabled },
+        default = Config.channel.isNightlyOrDebug,
     )
 
     /**

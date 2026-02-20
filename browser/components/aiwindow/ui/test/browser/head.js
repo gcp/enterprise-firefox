@@ -185,6 +185,8 @@ function readRequestBody(request) {
 
 function startMockOpenAI({
   streamChunks = ["Hello from mock."],
+  toolCall = null,
+  followupChunks = ["Tool complete."],
   onRequest,
 } = {}) {
   const server = new HttpServer();
@@ -207,10 +209,13 @@ function startMockOpenAI({
     onRequest?.(body);
 
     const wantsStream = !!body.stream;
-    const streamChunksToUse = streamChunks;
+    const tools = Array.isArray(body.tools) ? body.tools : [];
+    const askedForTools = tools.length;
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const hasToolResult = messages.some(m => m && m.role === "tool");
     const timestamp = Math.floor(Date.now() / 1000);
 
-    if (wantsStream) {
+    const startSSE = () => {
       response.setStatusLine(request.httpVersion, 200, "OK");
       response.setHeader(
         "Content-Type",
@@ -220,29 +225,122 @@ function startMockOpenAI({
       response.setHeader("Cache-Control", "no-cache", false);
       response.setHeader("Access-Control-Allow-Origin", "*", false);
       response.processAsync();
+    };
 
-      streamChunksToUse.forEach((chunk, index) => {
-        response.write(
-          `data: ${JSON.stringify({
-            id: `chatcmpl-aiwindow-stream-${index}`,
-            object: "chat.completion.chunk",
-            created: timestamp,
-            model: "aiwindow-mock",
-            choices: [
-              {
-                index: 0,
-                delta: { content: chunk },
-                finish_reason:
-                  index === streamChunksToUse.length - 1 ? "stop" : null,
-              },
-            ],
-          })}\n\n`
-        );
+    const sendSSE = obj => {
+      response.write(`data: ${JSON.stringify(obj)}\n\n`);
+    };
+
+    if (wantsStream && toolCall && askedForTools && !hasToolResult) {
+      startSSE();
+
+      sendSSE({
+        id: "chatcmpl-aiwindow-stream-tool-1",
+        object: "chat.completion.chunk",
+        created: timestamp,
+        model: "aiwindow-mock",
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: "",
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_1",
+                  type: "function",
+                  function: {
+                    name: toolCall.name,
+                    arguments: toolCall.args ?? "{}",
+                  },
+                },
+              ],
+            },
+            finish_reason: null,
+          },
+        ],
+      });
+
+      sendSSE({
+        id: "chatcmpl-aiwindow-stream-tool-2",
+        object: "chat.completion.chunk",
+        created: timestamp,
+        model: "aiwindow-mock",
+        choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
       });
 
       response.write("data: [DONE]\n\n");
       response.finish();
+      return;
     }
+
+    if (wantsStream && toolCall && askedForTools && hasToolResult) {
+      startSSE();
+
+      followupChunks.forEach((chunk, index) => {
+        sendSSE({
+          id: `chatcmpl-aiwindow-stream-tool-followup-${index}`,
+          object: "chat.completion.chunk",
+          created: timestamp,
+          model: "aiwindow-mock",
+          choices: [
+            {
+              index: 0,
+              delta: { content: chunk },
+              finish_reason:
+                index === followupChunks.length - 1 ? "stop" : null,
+            },
+          ],
+        });
+      });
+
+      response.write("data: [DONE]\n\n");
+      response.finish();
+      return;
+    }
+
+    if (wantsStream) {
+      startSSE();
+
+      streamChunks.forEach((chunk, index) => {
+        sendSSE({
+          id: `chatcmpl-aiwindow-stream-${index}`,
+          object: "chat.completion.chunk",
+          created: timestamp,
+          model: "aiwindow-mock",
+          choices: [
+            {
+              index: 0,
+              delta: { content: chunk },
+              finish_reason: index === streamChunks.length - 1 ? "stop" : null,
+            },
+          ],
+        });
+      });
+
+      response.write("data: [DONE]\n\n");
+      response.finish();
+      return;
+    }
+
+    // Non-streaming fallback for conversation starters, title generation, etc.
+    response.setStatusLine(request.httpVersion, 200, "OK");
+    response.setHeader("Content-Type", "application/json", false);
+    response.write(
+      JSON.stringify({
+        id: "chatcmpl-aiwindow-non-stream",
+        object: "chat.completion",
+        created: timestamp,
+        model: "aiwindow-mock",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "Mock response" },
+            finish_reason: "stop",
+          },
+        ],
+      })
+    );
   });
 
   server.start(-1);

@@ -7042,7 +7042,7 @@ bool BaseCompiler::emitTableGet() {
 
   replaceTableAddressWithClampedInt32(
       codeMeta_.tables[tableIndex].addressType());
-  if (codeMeta_.tables[tableIndex].elemType.tableRepr() == TableRepr::Ref) {
+  if (codeMeta_.tables[tableIndex].elemType().tableRepr() == TableRepr::Ref) {
     return emitTableGetAnyRef(tableIndex);
   }
   pushI32(tableIndex);
@@ -7093,7 +7093,7 @@ bool BaseCompiler::emitTableSet() {
     replaceTableAddressWithClampedInt32(AddressType::I64);
     pushAny(value);
   }
-  if (codeMeta_.tables[tableIndex].elemType.tableRepr() == TableRepr::Ref) {
+  if (codeMeta_.tables[tableIndex].elemType().tableRepr() == TableRepr::Ref) {
     return emitTableSetAnyRef(tableIndex);
   }
   pushI32(tableIndex);

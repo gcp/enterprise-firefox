@@ -198,7 +198,10 @@ nsINode* nsCoreUtils::GetDOMNodeFromDOMPoint(nsINode* aNode, uint32_t aOffset) {
   if (aNode && aNode->IsElement()) {
     if (aNode->IsTextControlElement()) {
       // Offsets in text controls refer to the control itself.
-      // TODO: Should we try to return the anonymous text node itself?
+      // TODO(bug 2017248): Return the anonymous text node itself. This is
+      // currently not a problem because the caret code is managed by
+      // HyperTextAccessible, but would be a problem if this was rewritten to
+      // use TextLeafPoint.
       return aNode;
     }
 
