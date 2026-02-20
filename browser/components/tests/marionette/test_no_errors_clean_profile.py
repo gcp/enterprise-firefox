@@ -82,6 +82,7 @@ known_errors = [
         "message": "Error updating FxA account info:, InvalidAuthError: Unhandled reauthentication",
     },
     {"message": "FeltExtension: _refreshSession()"},
+    {"message": "Unable to update user icon in badge without user information"},
 ]
 
 # Same rules apply here - please don't add anything! - but headless runs
