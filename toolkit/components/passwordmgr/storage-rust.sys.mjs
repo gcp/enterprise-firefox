@@ -416,6 +416,12 @@ export class LoginManagerRustStorage {
     this.#storageAdapter.touch(oldStoredLogin.guid);
   }
 
+  async recordPasswordUseAsync(login) {
+    let result = this.recordPasswordUse(login);
+    // Emulate being async:
+    return Promise.resolve(result);
+  }
+
   async recordBreachAlertDismissal(_loginGUID) {
     throw Components.Exception(
       "recordBreachAlertDismissal",

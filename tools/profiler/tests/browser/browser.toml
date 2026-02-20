@@ -13,6 +13,9 @@ support-files = ["simple.html"]
 ["browser_test_feature_js_sourceindex.js"]
 support-files = ["simple.html", "tracing.html"]
 
+["browser_test_feature_js_sources_deduplication.js"]
+support-files = ["simple.html", "test_dedup_script.js"]
+
 ["browser_test_feature_js_sources_retrieval.js"]
 support-files = [
   "simple.html",

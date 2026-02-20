@@ -2599,7 +2599,7 @@ inline bool OpIter<Policy>::readCallIndirect(uint32_t* funcTypeIndex,
     }
     return fail("table index out of range for call_indirect");
   }
-  if (!codeMeta_.tables[*tableIndex].elemType.isFuncHierarchy()) {
+  if (!codeMeta_.tables[*tableIndex].elemType().isFuncHierarchy()) {
     return fail("indirect calls must go through a table of 'funcref'");
   }
 
@@ -2648,7 +2648,7 @@ inline bool OpIter<Policy>::readReturnCallIndirect(uint32_t* funcTypeIndex,
     }
     return fail("table index out of range for return_call_indirect");
   }
-  if (!codeMeta_.tables[*tableIndex].elemType.isFuncHierarchy()) {
+  if (!codeMeta_.tables[*tableIndex].elemType().isFuncHierarchy()) {
     return fail("indirect calls must go through a table of 'funcref'");
   }
 
@@ -2948,8 +2948,8 @@ inline bool OpIter<Policy>::readMemOrTableCopy(bool isMem,
         *srcMemOrTableIndex >= codeMeta_.tables.length()) {
       return fail("table index out of range for table.copy");
     }
-    ValType dstElemType = codeMeta_.tables[*dstMemOrTableIndex].elemType;
-    ValType srcElemType = codeMeta_.tables[*srcMemOrTableIndex].elemType;
+    ValType dstElemType = codeMeta_.tables[*dstMemOrTableIndex].elemType();
+    ValType srcElemType = codeMeta_.tables[*srcMemOrTableIndex].elemType();
     if (!checkIsSubtypeOf(srcElemType, dstElemType)) {
       return false;
     }
@@ -3074,7 +3074,7 @@ inline bool OpIter<Policy>::readMemOrTableInit(bool isMem, uint32_t* segIndex,
       return fail("table.init segment index out of range");
     }
     if (!checkIsSubtypeOf(codeMeta_.elemSegmentTypes[*segIndex],
-                          codeMeta_.tables[*dstMemOrTableIndex].elemType)) {
+                          codeMeta_.tables[*dstMemOrTableIndex].elemType())) {
       return false;
     }
   }
@@ -3110,7 +3110,7 @@ inline bool OpIter<Policy>::readTableFill(uint32_t* tableIndex, Value* start,
   if (!popWithType(ToValType(table.addressType()), len)) {
     return false;
   }
-  if (!popWithType(table.elemType, val)) {
+  if (!popWithType(table.elemType(), val)) {
     return false;
   }
   return popWithType(ToValType(table.addressType()), start);
@@ -3154,7 +3154,7 @@ inline bool OpIter<Policy>::readTableGet(uint32_t* tableIndex, Value* address) {
     return false;
   }
 
-  infalliblePush(table.elemType);
+  infalliblePush(table.elemType());
   return true;
 }
 
@@ -3175,7 +3175,7 @@ inline bool OpIter<Policy>::readTableGrow(uint32_t* tableIndex,
   if (!popWithType(ToValType(table.addressType()), delta)) {
     return false;
   }
-  if (!popWithType(table.elemType, initValue)) {
+  if (!popWithType(table.elemType(), initValue)) {
     return false;
   }
 
@@ -3197,7 +3197,7 @@ inline bool OpIter<Policy>::readTableSet(uint32_t* tableIndex, Value* address,
 
   const TableDesc& table = codeMeta_.tables[*tableIndex];
 
-  if (!popWithType(table.elemType, value)) {
+  if (!popWithType(table.elemType(), value)) {
     return false;
   }
 

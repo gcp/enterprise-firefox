@@ -150,7 +150,8 @@ void js::intl::ListFormatObject::setOptions(const ListFormatOptions& options) {
   setFixedSlot(OPTIONS, PackedListFormatOptions::pack(options));
 }
 
-static constexpr std::string_view TypeToString(ListFormatOptions::Type type) {
+static constexpr std::string_view ListFormatTypeToString(
+    ListFormatOptions::Type type) {
 #ifndef USING_ENUM
   using enum ListFormatOptions::Type;
 #else
@@ -167,7 +168,7 @@ static constexpr std::string_view TypeToString(ListFormatOptions::Type type) {
   MOZ_CRASH("invalid list format type");
 }
 
-static constexpr std::string_view StyleToString(
+static constexpr std::string_view ListFormatStyleToString(
     ListFormatOptions::Style style) {
 #ifndef USING_ENUM
   using enum ListFormatOptions::Style;
@@ -260,7 +261,7 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
     // Steps 5-6. (Performed in ResolveLocale)
 
     // Steps 7-8.
-    static constexpr auto types = MapOptions<TypeToString>(
+    static constexpr auto types = MapOptions<ListFormatTypeToString>(
         ListFormatOptions::Type::Conjunction,
         ListFormatOptions::Type::Disjunction, ListFormatOptions::Type::Unit);
     if (!GetStringOption(cx, options, cx->names().type, types,
@@ -270,7 +271,7 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
     }
 
     // Steps 9-10.
-    static constexpr auto styles = MapOptions<StyleToString>(
+    static constexpr auto styles = MapOptions<ListFormatStyleToString>(
         ListFormatOptions::Style::Long, ListFormatOptions::Style::Short,
         ListFormatOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
@@ -689,7 +690,7 @@ static bool listFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
     return false;
   }
 
-  auto* type = NewStringCopy<CanGC>(cx, TypeToString(lfOptions.type));
+  auto* type = NewStringCopy<CanGC>(cx, ListFormatTypeToString(lfOptions.type));
   if (!type) {
     return false;
   }
@@ -697,7 +698,8 @@ static bool listFormat_resolvedOptions(JSContext* cx, const CallArgs& args) {
     return false;
   }
 
-  auto* style = NewStringCopy<CanGC>(cx, StyleToString(lfOptions.style));
+  auto* style =
+      NewStringCopy<CanGC>(cx, ListFormatStyleToString(lfOptions.style));
   if (!style) {
     return false;
   }

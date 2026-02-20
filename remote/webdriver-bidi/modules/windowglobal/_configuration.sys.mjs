@@ -29,7 +29,7 @@ class _ConfigurationModule extends WindowGlobalBiDiModule {
     this.#geolocationConfiguration = undefined;
     this.#preloadScripts = new Set();
 
-    Services.obs.addObserver(this, "document-element-inserted");
+    Services.obs.addObserver(this, "content-document-global-created");
   }
 
   destroy() {
@@ -38,15 +38,15 @@ class _ConfigurationModule extends WindowGlobalBiDiModule {
       this.#resolveBlockerPromise();
     }
 
-    Services.obs.removeObserver(this, "document-element-inserted");
+    Services.obs.removeObserver(this, "content-document-global-created");
 
     this.#preloadScripts = null;
     this.#geolocationConfiguration = undefined;
   }
 
   async observe(subject, topic) {
-    if (topic === "document-element-inserted") {
-      const window = subject?.defaultView;
+    if (topic === "content-document-global-created") {
+      const window = subject;
       // Ignore events without a window.
       if (window !== this.messageHandler.window) {
         return;

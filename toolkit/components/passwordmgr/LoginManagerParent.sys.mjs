@@ -983,8 +983,8 @@ export class LoginManagerParent extends JSWindowActorParent {
       dismissedPrompt,
     }
   ) {
-    function recordLoginUse(login) {
-      Services.logins.recordPasswordUse(
+    async function recordLoginUse(login) {
+      await Services.logins.recordPasswordUseAsync(
         login,
         browser && lazy.PrivateBrowsingUtils.isBrowserPrivate(browser),
         login.username ? "FormLogin" : "FormPassword",
@@ -1034,7 +1034,7 @@ export class LoginManagerParent extends JSWindowActorParent {
         lazy.log(
           "The filled login matches the form submission. Nothing to change."
         );
-        recordLoginUse(loginsForGuid[0]);
+        await recordLoginUse(loginsForGuid[0]);
         return;
       }
     }
@@ -1059,7 +1059,7 @@ export class LoginManagerParent extends JSWindowActorParent {
         existingLogin = logins[0];
 
         if (existingLogin.password == formLogin.password) {
-          recordLoginUse(existingLogin);
+          await recordLoginUse(existingLogin);
           lazy.log(
             "Not prompting to save/change since we have no username and the only saved password matches the new password."
           );
@@ -1121,7 +1121,7 @@ export class LoginManagerParent extends JSWindowActorParent {
           this.possibleValues
         );
       } else {
-        recordLoginUse(existingLogin);
+        await recordLoginUse(existingLogin);
       }
 
       return;

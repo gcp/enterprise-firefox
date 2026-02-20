@@ -198,7 +198,7 @@ void js::intl::DisplayNamesObject::setOptions(
   setFixedSlot(OPTIONS, PackedDisplayNamesOptions::pack(options));
 }
 
-static constexpr std::string_view StyleToString(
+static constexpr std::string_view DisplayNamesStyleToString(
     DisplayNamesOptions::Style style) {
 #ifndef USING_ENUM
   using enum DisplayNamesOptions::Style;
@@ -218,7 +218,8 @@ static constexpr std::string_view StyleToString(
   MOZ_CRASH("invalid display names style");
 }
 
-static constexpr std::string_view TypeToString(DisplayNamesOptions::Type type) {
+static constexpr std::string_view DisplayNamesTypeToString(
+    DisplayNamesOptions::Type type) {
 #ifndef USING_ENUM
   using enum DisplayNamesOptions::Type;
 #else
@@ -381,7 +382,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
 
   // Steps 6-7.
   if (kind == DisplayNamesKind::Standard) {
-    static constexpr auto styles = MapOptions<StyleToString>(
+    static constexpr auto styles = MapOptions<DisplayNamesStyleToString>(
         DisplayNamesOptions::Style::Long, DisplayNamesOptions::Style::Short,
         DisplayNamesOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
@@ -389,7 +390,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
       return false;
     }
   } else {
-    static constexpr auto styles = MapOptions<StyleToString>(
+    static constexpr auto styles = MapOptions<DisplayNamesStyleToString>(
         DisplayNamesOptions::Style::Long, DisplayNamesOptions::Style::Short,
         DisplayNamesOptions::Style::Narrow,
         DisplayNamesOptions::Style::Abbreviated);
@@ -402,7 +403,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
   // Step 8.
   mozilla::Maybe<DisplayNamesOptions::Type> type{};
   if (kind == DisplayNamesKind::EnableMozExtensions) {
-    static constexpr auto types = MapOptions<TypeToString>(
+    static constexpr auto types = MapOptions<DisplayNamesTypeToString>(
         DisplayNamesOptions::Type::Language, DisplayNamesOptions::Type::Region,
         DisplayNamesOptions::Type::Script, DisplayNamesOptions::Type::Currency,
         DisplayNamesOptions::Type::Calendar,
@@ -414,7 +415,7 @@ static bool DisplayNames(JSContext* cx, const CallArgs& args,
       return false;
     }
   } else {
-    static constexpr auto types = MapOptions<TypeToString>(
+    static constexpr auto types = MapOptions<DisplayNamesTypeToString>(
         DisplayNamesOptions::Type::Language, DisplayNamesOptions::Type::Region,
         DisplayNamesOptions::Type::Script, DisplayNamesOptions::Type::Currency,
         DisplayNamesOptions::Type::Calendar,
@@ -657,7 +658,7 @@ class StringUtf8Chars final {
 static void ReportInvalidOptionError(JSContext* cx,
                                      DisplayNamesOptions::Type type,
                                      Handle<JSLinearString*> option) {
-  auto sv = TypeToString(type);
+  auto sv = DisplayNamesTypeToString(type);
   MOZ_ASSERT(sv.data()[sv.length()] == '\0', "string must be zero-terminated");
 
   if (auto str = QuoteString(cx, option, '"')) {
@@ -951,7 +952,8 @@ static bool displayNames_resolvedOptions(JSContext* cx, const CallArgs& args) {
     return false;
   }
 
-  auto* style = NewStringCopy<CanGC>(cx, StyleToString(dnOptions.style));
+  auto* style =
+      NewStringCopy<CanGC>(cx, DisplayNamesStyleToString(dnOptions.style));
   if (!style) {
     return false;
   }
@@ -959,7 +961,8 @@ static bool displayNames_resolvedOptions(JSContext* cx, const CallArgs& args) {
     return false;
   }
 
-  auto* type = NewStringCopy<CanGC>(cx, TypeToString(dnOptions.type));
+  auto* type =
+      NewStringCopy<CanGC>(cx, DisplayNamesTypeToString(dnOptions.type));
   if (!type) {
     return false;
   }

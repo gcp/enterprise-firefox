@@ -24,7 +24,7 @@ add_task(async function test_new_chat_button_sidebar() {
       ],
     });
 
-    const win = await BrowserTestUtils.openNewBrowserWindow();
+    const win = await openAIWindow();
     AIWindowUI.toggleSidebar(win);
 
     // Wait for sidebar to be ready

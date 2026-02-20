@@ -2020,6 +2020,18 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealTouchMoveEvent(
       const auto PostponeDispatchingTouchMove = [&]() {
         return sConsecutiveTouchMoveCount > 1;
       };
+      // Tests do not want to coalesces the consecutive touch events.
+      // XXX: Maybe we should add another flag to WidgetEvent::mFlags to allow
+      // move events to be coalesced, so that the content process can ignore
+      // unexpected events synthesized by the OS and avoid intermittent
+      // failures.
+      if (aEvent.mFlags.mIsSynthesizedForTests) {
+        ProcessPendingCoalescedTouchData();
+        if (!RecvRealTouchEvent(aEvent, aGuid, aInputBlockId, aApzResponse)) {
+          return IPC_FAIL_NO_REASON(this);
+        }
+        return IPC_OK();
+      }
       if (mCoalescedTouchData.IsEmpty() ||
           mCoalescedTouchData.CanCoalesce(aEvent, aGuid, aInputBlockId,
                                           aApzResponse)) {

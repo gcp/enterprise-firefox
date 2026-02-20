@@ -207,6 +207,10 @@ button:disabled {
   .felt-privacy-container {
     display: flex;
     flex-direction: row;
+
+    > .container {
+      width: 100%;
+    }
   }
 
   .img-container > img {

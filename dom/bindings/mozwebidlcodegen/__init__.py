@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import sys
-from multiprocessing import Pool
+from concurrent import futures
 
 import mozpack.path as mozpath
 from Codegen import CGThing
@@ -25,13 +25,14 @@ from mozbuild.util import FileAvoidWrite, cpu_count
 
 # Limit the count on Windows, because of bug 1889842 and also the
 # inefficiency of fork on Windows.
+USE_THREADS = hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled()
 DEFAULT_PROCESS_COUNT = 4 if sys.platform == "win32" else cpu_count()
 
 
 class WebIDLPool:
     """
-    Distribute generation load across several processes, avoiding redundant state
-    copies.
+    Distribute generation load across several threads or processes, avoiding
+    redundant state copies.
     """
 
     GeneratorState = None
@@ -44,20 +45,26 @@ class WebIDLPool:
         if processes == 1:
             WebIDLPool._init(GeneratorState)
 
-            class SeqPool:
+            class SeqExecutor:
                 def map(self, *args):
-                    return list(map(*args))
+                    return map(*args)
 
-            self.pool = SeqPool()
-        else:
-            self.pool = Pool(
+            self.executor = SeqExecutor()
+        elif USE_THREADS:
+            self.executor = futures.ThreadPoolExecutor(
+                max_workers=processes,
                 initializer=WebIDLPool._init,
                 initargs=(GeneratorState,),
-                processes=processes,
+            )
+        else:
+            self.executor = futures.ProcessPoolExecutor(
+                max_workers=processes,
+                initializer=WebIDLPool._init,
+                initargs=(GeneratorState,),
             )
 
     def run(self, filenames):
-        return self.pool.map(WebIDLPool._run, filenames)
+        return list(self.executor.map(WebIDLPool._run, filenames))
 
     @staticmethod
     def _init(GeneratorState):

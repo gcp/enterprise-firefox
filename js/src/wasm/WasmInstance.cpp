@@ -2723,7 +2723,7 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
   // All (linked) tables with non-nullable types must be initialized.
   for (size_t i = 0; i < tables_.length(); i++) {
     const TableDesc& td = codeMeta().tables[i];
-    if (!td.elemType.isNullable()) {
+    if (!td.elemType().isNullable()) {
       tables_[i]->assertRangeNotNull(0, tables_[i]->length());
     }
   }

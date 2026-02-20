@@ -105,8 +105,8 @@ browser.urlbar.autoFill.stddevMultiplier (float, default: 0.0)
   this value.
 
 browser.urlbar.ctrlCanonizesURLs (boolean, default: true)
-  Whether using `ctrl` when hitting return/enter in the URL bar (or clicking
-  'go') should prefix 'www.' and suffix browser.fixup.alternate.suffix to the
+  Whether using `ctrl` or `command` when hitting return/enter in the URL bar
+  should add prefix 'www.' and suffix `Services.locale.urlFixupSuffix` to the
   user value prior to navigating.
 
 browser.urlbar.decodeURLsOnCopy (boolean, default: false)

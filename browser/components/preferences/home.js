@@ -567,11 +567,21 @@ if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
     pref: "browser.newtabpage.activity-stream.topSitesRows",
   });
 
+  // Dependency prefs for stories & sponsored stories visibility
+  Preferences.addSetting({
+    id: "systemTopstories",
+    pref: "browser.newtabpage.activity-stream.feeds.system.topstories",
+  });
+
   // Stories
   Preferences.addSetting({
     id: "stories",
     pref: "browser.newtabpage.activity-stream.feeds.section.topstories",
+    deps: ["systemTopstories"],
+    visible: ({ systemTopstories }) => systemTopstories.value,
   });
+
+  // Dependencies for "manage topics" checkbox
   Preferences.addSetting({
     id: "sectionsEnabled",
     pref: "browser.newtabpage.activity-stream.discoverystream.sections.enabled",
@@ -588,6 +598,7 @@ if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
     id: "sectionsCustomizeMenuPanelEnabled",
     pref: "browser.newtabpage.activity-stream.discoverystream.sections.customizeMenuPanel.enabled",
   });
+
   Preferences.addSetting({
     id: "manageTopics",
     deps: [
@@ -595,30 +606,20 @@ if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
       "topicLabelsEnabled",
       "sectionsPersonalizationEnabled",
       "sectionsCustomizeMenuPanelEnabled",
-      "sectionTopstories",
+      "stories",
     ],
     visible: ({
       sectionsEnabled,
       topicLabelsEnabled,
       sectionsPersonalizationEnabled,
       sectionsCustomizeMenuPanelEnabled,
-      sectionTopstories,
+      stories,
     }) =>
       sectionsEnabled.value &&
       topicLabelsEnabled.value &&
       sectionsPersonalizationEnabled.value &&
       sectionsCustomizeMenuPanelEnabled.value &&
-      sectionTopstories.value,
-  });
-
-  // Dependency prefs for sponsored stories visibility
-  Preferences.addSetting({
-    id: "systemTopstories",
-    pref: "browser.newtabpage.activity-stream.feeds.system.topstories",
-  });
-  Preferences.addSetting({
-    id: "sectionTopstories",
-    pref: "browser.newtabpage.activity-stream.feeds.section.topstories",
+      stories.value,
   });
 
   // Support Firefox: sponsored content
@@ -645,9 +646,9 @@ if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
   Preferences.addSetting({
     id: "sponsoredStories",
     pref: "browser.newtabpage.activity-stream.showSponsored",
-    deps: ["systemTopstories", "sectionTopstories"],
+    deps: ["systemTopstories", "stories"],
     visible: ({ systemTopstories }) => !!systemTopstories.value,
-    disabled: ({ sectionTopstories }) => !sectionTopstories.value,
+    disabled: ({ stories }) => !stories.value,
   });
   Preferences.addSetting({
     id: "supportFirefoxPromo",

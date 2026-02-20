@@ -18,7 +18,7 @@ add_setup(async function () {
     CustomizableUI.removeWidgetFromArea("home-button");
     Services.prefs.clearUserPref("browser.engagement.home-button.has-removed");
     sandbox.restore();
-    searchbar.value = "";
+    searchbar.handleRevert();
   });
 });
 
@@ -41,8 +41,8 @@ function simulateSearchbarDrop(content) {
 }
 
 add_task(async function checkDragURL() {
-  searchbar.value = "";
-  // Assert.ok(!searchbar.hasAttribute("usertyping"), "Go button invisible");
+  searchbar.handleRevert();
+  Assert.ok(!searchbar.hasAttribute("usertyping"), "Go button invisible");
   await BrowserTestUtils.withNewTab(TEST_URL, async () => {
     info("Check dragging a normal url onto the searchbar");
     const DRAG_URL = "https://www.example.com/";
@@ -71,7 +71,7 @@ add_task(async function checkDragLoadedURL() {
 });
 
 add_task(async function checkDragURLLike() {
-  searchbar.value = "";
+  searchbar.handleRevert();
   await BrowserTestUtils.withNewTab(TEST_URL, async () => {
     info("Check dragging url-like text onto the searchbar");
     const DRAG_URL = "www.example.com";

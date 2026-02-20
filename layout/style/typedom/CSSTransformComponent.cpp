@@ -56,12 +56,8 @@ already_AddRefed<DOMMatrix> CSSTransformComponent::ToMatrix(ErrorResult& aRv) {
   return nullptr;
 }
 
-void CSSTransformComponent::Stringify(nsString& aRetVal) {
-  nsAutoCString cssText;
-  ToCssTextWithProperty(CSSPropertyId(eCSSProperty_UNKNOWN), cssText);
-
-  // TODO: We shouldn't need to do the conversion. See bug 2016390.
-  CopyUTF8toUTF16(cssText, aRetVal);
+void CSSTransformComponent::Stringify(nsACString& aRetVal) {
+  ToCssTextWithProperty(CSSPropertyId(eCSSProperty_UNKNOWN), aRetVal);
 }
 
 // end of CSSTransformComponent Web IDL implementation

@@ -346,6 +346,7 @@ if __name__ == "__main__":
             ImageObject.app_setup()
             ImageObject.get_video(iteration)
             nav_done_frame = ImageObject.get_page_loaded_time(iteration)
+            ImageObject.validate_end_frame(nav_done_frame)
             start_video_timestamp += [
                 ImageObject.get_time_from_frame_num(nav_done_frame)
             ]

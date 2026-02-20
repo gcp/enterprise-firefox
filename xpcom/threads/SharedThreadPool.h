@@ -101,7 +101,7 @@ class SharedThreadPool final : public nsIThreadPool {
 
  private:
   explicit SharedThreadPool(nsIThreadPool* aPool);
-  virtual ~SharedThreadPool();
+  ~SharedThreadPool();
 
   nsresult EnsureThreadLimitIsAtLeast(uint32_t aThreadLimit);
 

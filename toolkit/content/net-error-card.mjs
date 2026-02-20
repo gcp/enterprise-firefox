@@ -17,6 +17,7 @@ import {
   recordSecurityUITelemetry,
   gOffline,
   retryThis,
+  VPN_ACTIVE,
 } from "chrome://global/content/aboutNetErrorHelpers.mjs";
 import { initializeRegistry } from "chrome://global/content/errors/error-registry.mjs";
 import {
@@ -73,8 +74,14 @@ export class NetErrorCard extends MozLitElement {
     badStsCertExplanation: "#badStsCertExplanation",
   };
 
-  static getCustomErrorCode(defaultCode) {
-    return gOffline ? "NS_ERROR_OFFLINE" : defaultCode;
+  static getCustomErrorID(defaultCode) {
+    if (gOffline) {
+      return "NS_ERROR_OFFLINE";
+    }
+    if (defaultCode === "proxyConnectFailure" && VPN_ACTIVE) {
+      return "vpnFailure";
+    }
+    return defaultCode;
   }
 
   static isSupported() {
@@ -93,8 +100,10 @@ export class NetErrorCard extends MozLitElement {
       return false;
     }
 
-    const id = errorInfo.errorCodeString || gErrorCode;
-    return gOffline || isFeltPrivacySupported(id);
+    const id = NetErrorCard.getCustomErrorID(
+      errorInfo.errorCodeString || gErrorCode
+    );
+    return isFeltPrivacySupported(id);
   }
 
   constructor() {
@@ -310,8 +319,10 @@ export class NetErrorCard extends MozLitElement {
   }
 
   getErrorConfig() {
-    const errorCode = this.errorInfo.errorCodeString || gErrorCode;
-    const errorConfig = getResolvedErrorConfig(errorCode, {
+    const id = NetErrorCard.getCustomErrorID(
+      this.errorInfo.errorCodeString || gErrorCode
+    );
+    const errorConfig = getResolvedErrorConfig(id, {
       hostname: this.hostname,
       errorInfo: this.errorInfo,
       cssClass: getCSSClass(),
@@ -573,6 +584,7 @@ export class NetErrorCard extends MozLitElement {
           },
           useAdvancedSection: true,
         });
+
         return html`<div class="custom-net-error-card">${content}</div>`;
       }
       return null;

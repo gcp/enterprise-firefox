@@ -15,6 +15,7 @@
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
 #include "builtin/intl/LocaleNegotiation.h"
+#include "builtin/intl/NumberFormat.h"
 #include "builtin/intl/Packed.h"
 #include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/UsingEnum.h"
@@ -157,7 +158,7 @@ void js::intl::RelativeTimeFormatObject::setOptions(
   setFixedSlot(OPTIONS, PackedRelativeTimeFormatOptions::pack(options));
 }
 
-static constexpr std::string_view StyleToString(
+static constexpr std::string_view RelativeTimeStyleToString(
     RelativeTimeFormatOptions::Style style) {
 #ifndef USING_ENUM
   using enum RelativeTimeFormatOptions::Style;
@@ -273,10 +274,10 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
     // Steps 5-9. (Performed in ResolveLocale)
 
     // Steps 10-11.
-    static constexpr auto styles =
-        MapOptions<StyleToString>(RelativeTimeFormatOptions::Style::Long,
-                                  RelativeTimeFormatOptions::Style::Short,
-                                  RelativeTimeFormatOptions::Style::Narrow);
+    static constexpr auto styles = MapOptions<RelativeTimeStyleToString>(
+        RelativeTimeFormatOptions::Style::Long,
+        RelativeTimeFormatOptions::Style::Short,
+        RelativeTimeFormatOptions::Style::Narrow);
     if (!GetStringOption(cx, options, cx->names().style, styles,
                          RelativeTimeFormatOptions::Style::Long,
                          &rtfOptions.style)) {
@@ -472,7 +473,7 @@ static bool SingularRelativeTimeUnit(
   return true;
 }
 
-static RelativeTimeFormatUnit ToRelativeTimeFormatUnit(
+static auto ToNumberFormatUnit(
     mozilla::intl::RelativeTimeFormat::FormatUnit unit) {
 #ifndef USING_ENUM
   using enum mozilla::intl::RelativeTimeFormat::FormatUnit;
@@ -483,21 +484,21 @@ static RelativeTimeFormatUnit ToRelativeTimeFormatUnit(
 
   switch (unit) {
     case Second:
-      return &JSAtomState::second;
+      return NumberFormatUnit::Second;
     case Minute:
-      return &JSAtomState::minute;
+      return NumberFormatUnit::Minute;
     case Hour:
-      return &JSAtomState::hour;
+      return NumberFormatUnit::Hour;
     case Day:
-      return &JSAtomState::day;
+      return NumberFormatUnit::Day;
     case Week:
-      return &JSAtomState::week;
+      return NumberFormatUnit::Week;
     case Month:
-      return &JSAtomState::month;
+      return NumberFormatUnit::Month;
     case Quarter:
-      return &JSAtomState::quarter;
+      return NumberFormatUnit::Quarter;
     case Year:
-      return &JSAtomState::year;
+      return NumberFormatUnit::Year;
   }
   MOZ_CRASH("invalid format unit");
 }
@@ -548,8 +549,8 @@ static bool FormatRelativeTime(
       return false;
     }
 
-    auto unitType = ToRelativeTimeFormatUnit(relTimeUnit);
-    return FormattedRelativeTimeToParts(cx, str, parts, unitType, rvalue);
+    auto numberUnit = ToNumberFormatUnit(relTimeUnit);
+    return FormattedRelativeTimeToParts(cx, str, parts, numberUnit, rvalue);
   }
 
   // PartitionRelativeTimePattern, steps 3-14.
@@ -666,7 +667,8 @@ static bool relativeTimeFormat_resolvedOptions(JSContext* cx,
     return false;
   }
 
-  auto* style = NewStringCopy<CanGC>(cx, StyleToString(rtfOptions.style));
+  auto* style =
+      NewStringCopy<CanGC>(cx, RelativeTimeStyleToString(rtfOptions.style));
   if (!style) {
     return false;
   }

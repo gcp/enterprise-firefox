@@ -220,6 +220,7 @@
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseNativeHandler.h"
 #include "mozilla/dom/RemoteBrowser.h"
+#include "mozilla/dom/ReportDeliver.h"
 #include "mozilla/dom/ResizeObserver.h"
 #include "mozilla/dom/RustTypes.h"
 #include "mozilla/dom/SVGDocument.h"
@@ -2085,19 +2086,6 @@ void Document::RecordPageLoadEventTelemetry() {
   }
 #endif
 
-  if (GetChannel()) {
-    nsCOMPtr<nsICacheInfoChannel> cacheInfoChannel =
-        do_QueryInterface(GetChannel());
-    if (cacheInfoChannel) {
-      nsICacheInfoChannel::CacheDisposition disposition =
-          nsICacheInfoChannel::kCacheUnknown;
-      nsresult rv = cacheInfoChannel->GetCacheDisposition(&disposition);
-      if (NS_SUCCEEDED(rv)) {
-        mPageloadEventData.set_cacheDisposition(disposition);
-      }
-    }
-  }
-
   nsAutoCString loadTypeStr;
   switch (docshell->GetLoadType()) {
     case LOAD_NORMAL:
@@ -2237,6 +2225,17 @@ void Document::AccumulatePageLoadTelemetry() {
     return;
   }
 
+  bool isCacheHit = false;
+  if (nsCOMPtr<nsICacheInfoChannel> cacheInfoChannel =
+          do_QueryInterface(GetChannel())) {
+    nsICacheInfoChannel::CacheDisposition disposition =
+        nsICacheInfoChannel::kCacheUnknown;
+    if (NS_SUCCEEDED(cacheInfoChannel->GetCacheDisposition(&disposition))) {
+      mPageloadEventData.set_cacheDisposition(disposition);
+      isCacheHit = disposition == nsICacheInfoChannel::kCacheHit;
+    }
+  }
+
   // Default duration is 0, use this to check for bogus negative values.
   const TimeDuration zeroDuration;
 
@@ -2330,7 +2329,11 @@ void Document::AccumulatePageLoadTelemetry() {
         }
       }
 
-      mPageloadEventData.set_httpVer(major);
+      // Don't record http version for cache hits since the version stored in
+      // the cache entry reflects the original request, not this navigation.
+      if (!isCacheHit) {
+        mPageloadEventData.set_httpVer(major);
+      }
     }
 
     uint32_t earlyHintType = 0;
@@ -8270,6 +8273,15 @@ void Document::SetScriptGlobalObject(
   bool needOnloadBlocker = !mScriptGlobalObject && aScriptGlobalObject;
 
   mScriptGlobalObject = aScriptGlobalObject;
+  // Only initialize the global's endpoints if its that time we're actually
+  // initializing the global
+  nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(mChannel);
+  if (httpChannel && mScriptGlobalObject) {
+    ReportDeliver::WindowInitializeReportingEndpoints(
+        mScriptGlobalObject,
+        mozilla::dom::ReportingHeader::
+            ProcessReportingEndpointsListFromResponse(httpChannel));
+  }
 
   if (needOnloadBlocker) {
     EnsureOnloadBlocker();
@@ -8985,8 +8997,9 @@ bool IsLowercaseASCII(const nsAString& aValue) {
 already_AddRefed<Element> Document::CreateElement(
     const nsAString& aTagName, const ElementCreationOptionsOrString& aOptions,
     ErrorResult& rv) {
-  rv = nsContentUtils::CheckQName(aTagName, false);
-  if (rv.Failed()) {
+  // https://dom.spec.whatwg.org/#dom-document-createelement
+  if (!nsContentUtils::IsValidElementLocalName(aTagName)) {
+    rv.ThrowInvalidCharacterError("Invalid element name");
     return nullptr;
   }
 
@@ -9063,8 +9076,9 @@ already_AddRefed<Element> Document::CreateElementNS(
 already_AddRefed<Element> Document::CreateXULElement(
     const nsAString& aTagName, const ElementCreationOptionsOrString& aOptions,
     ErrorResult& aRv) {
-  aRv = nsContentUtils::CheckQName(aTagName, false);
-  if (aRv.Failed()) {
+  // https://dom.spec.whatwg.org/#dom-document-createelement
+  if (!nsContentUtils::IsValidElementLocalName(aTagName)) {
+    aRv.ThrowInvalidCharacterError("Invalid element name");
     return nullptr;
   }
 
@@ -9162,9 +9176,9 @@ already_AddRefed<Attr> Document::CreateAttribute(const nsAString& aName,
     return nullptr;
   }
 
-  nsresult res = nsContentUtils::CheckQName(aName, false);
-  if (NS_FAILED(res)) {
-    rv.Throw(res);
+  // https://dom.spec.whatwg.org/#dom-document-createattribute
+  if (!nsContentUtils::IsValidAttributeLocalName(aName)) {
+    rv.ThrowInvalidCharacterError("Invalid attribute name");
     return nullptr;
   }
 
@@ -9176,8 +9190,9 @@ already_AddRefed<Attr> Document::CreateAttribute(const nsAString& aName,
   }
 
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;
-  res = mNodeInfoManager->GetNodeInfo(name, nullptr, kNameSpaceID_None,
-                                      ATTRIBUTE_NODE, getter_AddRefs(nodeInfo));
+  nsresult res =
+      mNodeInfoManager->GetNodeInfo(name, nullptr, kNameSpaceID_None,
+                                    ATTRIBUTE_NODE, getter_AddRefs(nodeInfo));
   if (NS_FAILED(res)) {
     rv.Throw(res);
     return nullptr;
@@ -11815,20 +11830,21 @@ already_AddRefed<Element> Document::CreateElem(const nsAString& aName,
                                                int32_t aNamespaceID,
                                                const nsAString* aIs) {
 #ifdef DEBUG
-  nsAutoString qName;
-  if (aPrefix) {
+  if (!aPrefix) {
+    NS_ASSERTION(nsContentUtils::IsValidElementLocalName(aName),
+                 "Don't pass invalid names to Document::CreateElem");
+  } else {
+    nsAutoString qName;
     aPrefix->ToString(qName);
     qName.Append(':');
-  }
-  qName.Append(aName);
+    qName.Append(aName);
 
-  // Note: "a:b:c" is a valid name in non-namespaces XML, and
-  // Document::CreateElement can call us with such a name and no prefix,
-  // which would cause an error if we just used true here.
-  bool nsAware = aPrefix != nullptr || aNamespaceID != GetDefaultNamespaceID();
-  NS_ASSERTION(NS_SUCCEEDED(nsContentUtils::CheckQName(qName, nsAware)),
-               "Don't pass invalid prefixes to Document::CreateElem, "
-               "check caller.");
+    const char16_t* localNameEnd;
+    const char16_t* colon;
+    NS_ASSERTION(NS_SUCCEEDED(nsContentUtils::ParseQualifiedNameRelaxed(
+                     qName, ELEMENT_NODE, &colon, &localNameEnd)),
+                 "Don't pass invalid prefixes to Document::CreateElem.");
+  }
 #endif
 
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;

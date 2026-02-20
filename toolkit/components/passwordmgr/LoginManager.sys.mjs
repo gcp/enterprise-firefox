@@ -333,6 +333,25 @@ LoginManager.prototype = {
     Glean.pwmgr["savedLoginUsed" + loginType].record({ filled });
   },
 
+  async recordPasswordUseAsync(
+    login,
+    privateContextWithoutExplicitConsent,
+    loginType,
+    filled
+  ) {
+    lazy.log.debug(
+      "Recording password use",
+      loginType,
+      login.QueryInterface(Ci.nsILoginMetaInfo).guid
+    );
+    if (!privateContextWithoutExplicitConsent) {
+      // don't record non-interactive use in private browsing
+      await this._storage.recordPasswordUseAsync(login);
+    }
+
+    Glean.pwmgr["savedLoginUsed" + loginType].record({ filled });
+  },
+
   /**
    * Get a dump of all stored logins asynchronously. Used by the login manager UI.
    *

@@ -5052,7 +5052,7 @@ HTMLEditor::RemoveBlockContainerWithTransaction(Element& aElement) {
     NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
     return unwrapBlockElementResult;
   }
-  trackPointToPutCaret.FlushAndStopTracking();
+  trackPointToPutCaret.Flush(StopTracking::Yes);
   if (AllowsTransactionsToChangeSelection() &&
       unwrapBlockElementResult.inspect().IsSet()) {
     pointToPutCaret = unwrapBlockElementResult.unwrap();

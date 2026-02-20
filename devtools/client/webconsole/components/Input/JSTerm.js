@@ -135,6 +135,9 @@ class JSTerm extends Component {
     };
   }
 
+  // AbortController to cancel all event listener on destroy.
+  #abortController = null;
+
   constructor(props) {
     super(props);
 
@@ -588,9 +591,6 @@ class JSTerm extends Component {
       this.props.editorMode !== nextProps.editorMode
     );
   }
-
-  // AbortController to cancel all event listener on destroy.
-  #abortController = null;
 
   /**
    * Do all the imperative work needed after a Redux store update.

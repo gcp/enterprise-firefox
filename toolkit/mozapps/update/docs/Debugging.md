@@ -1,4 +1,4 @@
-# Debugging
+# Application Update Debugging
 
 This page is intended to help developers figure out problems that they can
 reproduce locally or to test changes.

@@ -5,8 +5,8 @@
 // Please pull this list from, and only from https://publicsuffix.org/list/public_suffix_list.dat,
 // rather than any other VCS sites. Pulling from any other URL is not guaranteed to be supported.
 
-// VERSION: 2026-02-15_17-15-07_UTC
-// COMMIT: 1e7d25f31fa3b180951d9a9567e4148e105d1fdd
+// VERSION: 2026-02-18_20-59-15_UTC
+// COMMIT: dfc780b86d5da2f178a1d944f5d7c10c42839c5f
 
 // Instructions on pulling and using this list can be found at https://publicsuffix.org/list/.
 
@@ -6818,7 +6818,7 @@ org.zw
 
 // newGTLDs
 
-// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2026-02-15T15:24:49Z
+// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2026-02-18T15:51:43Z
 // This list is auto-generated, don't edit it manually.
 // aaa : American Automobile Association, Inc.
 // https://www.iana.org/domains/root/db/aaa.html
@@ -9476,7 +9476,7 @@ one
 // https://www.iana.org/domains/root/db/ong.html
 ong
 
-// onl : iRegistry GmbH
+// onl : Jolly Host, LLC
 // https://www.iana.org/domains/root/db/onl.html
 onl
 
@@ -10744,7 +10744,7 @@ weir
 // https://www.iana.org/domains/root/db/whoswho.html
 whoswho
 
-// wien : punkt.wien GmbH
+// wien : domainworx Service & Management GmbH
 // https://www.iana.org/domains/root/db/wien.html
 wien
 
@@ -14305,6 +14305,10 @@ khplay.nl
 // Kapsi : https://kapsi.fi
 // Submitted by Tomi Juntunen <erani@kapsi.fi>
 kapsi.fi
+
+// KataBump : https://katabump.com
+// Submitted by Thibault Lapeyre <contact@katabump.com>
+kdns.fr
 
 // Katholieke Universiteit Leuven : https://www.kuleuven.be
 // Submitted by Abuse KU Leuven <abuse@kuleuven.be>

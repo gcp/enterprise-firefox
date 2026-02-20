@@ -8,11 +8,11 @@ import "chrome://browser/content/aiwindow/components/ai-website-chip.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/input-cta.mjs";
 // eslint-disable-next-line import/no-unassigned-import
-import "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs";
-// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/memories-icon-button.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/context-icon-button.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/smartwindow-panel-list.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
@@ -148,7 +148,7 @@ export class SmartbarInput extends HTMLElement {
                       inputmode="mozAwesomebar"
                       data-l10n-id="smartbar-placeholder"/>
         </moz-input-box>
-        <html:suggestions-panel-list></html:suggestions-panel-list>
+        <html:smartwindow-panel-list></html:smartwindow-panel-list>
         <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
         <image class="urlbar-icon urlbar-go-button"
                role="button"
@@ -230,7 +230,13 @@ export class SmartbarInput extends HTMLElement {
    * `smartbar` nor `urlbar`.
    */
   #isSmartbarMode = false;
-  #sapName = "";
+  /**
+   * The search access point name of the SmartbarInput for use with telemetry or
+   * logging, e.g. `urlbar`, `searchbar`.
+   *
+   * @type {"searchbar"|"smartbar"|"urlbar"}
+   */
+  #sapName;
   #smartbarAction = "";
   #smartbarEditor = null;
   #smartbarInputController = null;
@@ -316,7 +322,9 @@ export class SmartbarInput extends HTMLElement {
    * Initialization that happens once on the first connect.
    */
   #initOnce() {
-    this.#sapName = this.getAttribute("sap-name");
+    this.#sapName = /** @type {"searchbar"|"smartbar"|"urlbar"} */ (
+      this.getAttribute("sap-name")
+    );
     this.#isAddressbar = this.#sapName == "urlbar";
     this.#isSmartbarMode = this.#sapName == "smartbar";
 
@@ -392,6 +400,13 @@ export class SmartbarInput extends HTMLElement {
     // The engine name is not known yet, but update placeholder anyway to
     // reflect value of keyword.enabled or set the searchbar placeholder.
     this._setPlaceholder(null);
+
+    // Defer until after layout so listeners can safely interact with the element.
+    this.ownerGlobal.requestAnimationFrame(() => {
+      this.dispatchEvent(
+        new CustomEvent("smartbar-initialized", { bubbles: true })
+      );
+    });
   }
 
   connectedCallback() {
@@ -635,10 +650,6 @@ export class SmartbarInput extends HTMLElement {
     return this.#lazy.addSearchEngineHelper;
   }
 
-  /**
-   * The search access point name of the SmartbarInput for use with telemetry or
-   * logging, e.g. `urlbar`, `searchbar`.
-   */
   get sapName() {
     return this.#sapName;
   }
@@ -3148,13 +3159,13 @@ export class SmartbarInput extends HTMLElement {
    *
    * @param {Event} event
    *   The event that triggered this query.
-   * @returns {string}
+   * @returns {keyof typeof lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES}
    *   The source name.
    */
   getSearchSource(event) {
     if (this.#isAddressbar) {
       if (this._isHandoffSession) {
-        return "urlbar-handoff";
+        return "urlbar_handoff";
       }
 
       const isOneOff =
@@ -3165,7 +3176,7 @@ export class SmartbarInput extends HTMLElement {
         // oneoff_urlbar and oneoff_searchbar). The extra information is not
         // necessary; the intent is the same regardless of whether the user is
         // in search mode when they do a key-modified click/enter on a one-off.
-        return "urlbar-searchmode";
+        return "urlbar_searchmode";
       }
 
       let state = this.getBrowserState(this.window.gBrowser.selectedBrowser);
@@ -3174,7 +3185,7 @@ export class SmartbarInput extends HTMLElement {
         // persisted. However when the user modifies the search term, the boolean
         // will become false. Thus, we check the presence of the search terms to
         // know whether or not search terms ever persisted in the address bar.
-        return "urlbar-persisted";
+        return "urlbar_persisted";
       }
     }
     return this.#sapName;
@@ -3926,7 +3937,7 @@ export class SmartbarInput extends HTMLElement {
 
   /**
    * If appropriate, this prefixes a search string with 'www.' and suffixes it
-   * with browser.fixup.alternate.suffix prior to navigating.
+   * with Services.locale.urlFixupSuffix prior to navigating.
    *
    * @param {Event} event
    *   The event that triggered this query.
@@ -3946,7 +3957,8 @@ export class SmartbarInput extends HTMLElement {
       return null;
     }
 
-    let suffix = Services.prefs.getCharPref("browser.fixup.alternate.suffix");
+    let suffix = Services.locale.urlFixupSuffix;
+    Glean.urlfixup.suffix.get("smartbar", suffix).add(1);
     if (!suffix.endsWith("/")) {
       suffix += "/";
     }

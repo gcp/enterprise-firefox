@@ -4,16 +4,6 @@
 const ENGINE_TEST_URL =
   "http://mochi.test:8888/browser/browser/components/search/test/browser/opensearch.html";
 
-let loadUri = async uri => {
-  let loaded = BrowserTestUtils.browserLoaded(
-    gBrowser.selectedBrowser,
-    false,
-    uri
-  );
-  BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, uri);
-  await loaded;
-};
-
 add_setup(async function setup() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.scotchBonnet.enableOverride", true]],
@@ -33,15 +23,16 @@ add_task(async () => {
 
 async function testInstallEngine(installFun) {
   info("Test installing opensearch engine");
-  await loadUri(ENGINE_TEST_URL);
+  await BrowserTestUtils.loadURIString({
+    browser: gBrowser.selectedBrowser,
+    uriString: ENGINE_TEST_URL,
+  });
 
-  let promiseEngineAdded = SearchTestUtils.promiseSearchNotification(
-    SearchUtils.MODIFIED_TYPE.ADDED,
-    SearchUtils.TOPIC_ENGINE_MODIFIED
-  );
+  let promiseEngineAdded = SearchTestUtils.promiseEngine("Foo");
 
   let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-  await Promise.all([installFun(popup), promiseEngineAdded]);
+  await installFun(popup);
+  let engine = await promiseEngineAdded;
   Assert.ok(true, "The engine was installed.");
 
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
@@ -68,7 +59,6 @@ async function testInstallEngine(installFun) {
   let settingsWritten = SearchTestUtils.promiseSearchNotification(
     "write-settings-to-disk-complete"
   );
-  let engine = SearchService.getEngineByName("Foo");
   await Promise.all([
     SearchService.removeEngine(engine),
     promiseEngineRemoved,

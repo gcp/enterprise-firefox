@@ -387,6 +387,7 @@ export class OpenAIPipeline {
         },
         type: Progress.ProgressType.INFERENCE,
         statusText: Progress.ProgressStatusText.DONE,
+        ...(error.status && { status: error.status }),
       });
 
       throw backendError;

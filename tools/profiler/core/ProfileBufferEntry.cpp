@@ -2582,30 +2582,47 @@ ProfileBuffer::StreamSourceTableToJSON(
       schema.WriteField("filename");
     }
 
-    // Write data array and build sourceId-to-index mapping
+    // Write data array and build sourceId-to-index mapping.
+    // Deduplicate sources with the same hash (same filepath and source text).
+    // Note: hash collisions are theoretically possible but extremely unlikely;
+    // in the rare case of a collision, two distinct sources would share an
+    // entry in the table.
     aWriter.StartArrayProperty("data");
+    nsTHashMap<nsCStringHashKey, IndexIntoSourceTable> hashToIndexMap;
     uint32_t index = 0;
     for (const auto& entry : aJSSourceEntries) {
-      // Build sourceId-to-index mapping
+      IndexIntoSourceTable targetIndex;
+      auto hashEntry = hashToIndexMap.Lookup(entry.uuid);
+
+      if (hashEntry) {
+        // We've seen this hash before, reuse the existing index.
+        targetIndex = hashEntry.Data();
+      } else {
+        // New hash, write it to the sources table.
+        aWriter.StartArrayElement();
+        {
+          // TODO: Use AutoArraySchemaWithStringsWriter to write string indexes
+          // into string table once we have "process global" string table.
+          // Currently string tables are per-thread.
+          aWriter.StringElement(MakeStringSpan(entry.uuid.get()));
+          aWriter.StringElement(MakeStringSpan(entry.sourceData.filePath()));
+        }
+        aWriter.EndArray();
+
+        targetIndex = index;
+        hashToIndexMap.InsertOrUpdate(entry.uuid, index);
+        index++;
+      }
+
+      // Map this sourceId to the target index (may be shared with other
+      // sourceIds that have the same content).
       if (entry.sourceData.sourceId() != 0) {
         MOZ_ASSERT(!sourceIdToIndexMap.Contains(entry.sourceData.sourceId()),
                    "Duplicate sourceId detected! This indicates sourceId "
                    "collision between different sources.");
-        sourceIdToIndexMap.InsertOrUpdate(entry.sourceData.sourceId(), index);
+        sourceIdToIndexMap.InsertOrUpdate(entry.sourceData.sourceId(),
+                                          targetIndex);
       }
-
-      // Write [uuid, filename] entry
-      aWriter.StartArrayElement();
-      {
-        // TODO: Use AutoArraySchemaWithStringsWriter to write string indexes
-        // into string table once we have "process global" string table.
-        // Currently string tables are per-thread.
-        aWriter.StringElement(MakeStringSpan(entry.uuid.get()));
-        aWriter.StringElement(MakeStringSpan(entry.sourceData.filePath()));
-      }
-      aWriter.EndArray();
-
-      index++;
     }
     aWriter.EndArray();
   }

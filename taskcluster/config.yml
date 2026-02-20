@@ -364,6 +364,7 @@ treeherder:
         'lib-accelerometer-sensorm': 'lib-accelerometer-sensormanager'
         'lib-fetch-httpurlconnecti': 'lib-fetch-httpurlconnection'
         'feature-webcompat-reporte': 'feature-webcompat-reporter'
+        'feature-protection-dashbo': 'feature-protection-dashboard'
 
         # Groups aren't generated off buildconfig.yml:
         'samples-browser': 'samples-browser'
@@ -450,11 +451,6 @@ release-promotion:
                 - release-partner-attribution
                 - release-partner-attribution-beetmover
             target-tasks-method: promote_desktop
-        promote_firefox_rc:
-            product: firefox
-            is-rc: true
-            target-tasks-method: promote_desktop
-            partial-updates: true
         push_devedition:
             product: devedition
             target-tasks-method: push_desktop
@@ -472,11 +468,6 @@ release-promotion:
             product: firefox
             target-tasks-method: ship_desktop
             version-bump: true
-            partial-updates: true
-        ship_firefox_rc:
-            product: firefox
-            is-rc: true
-            target-tasks-method: ship_desktop
             partial-updates: true
         promote_android:
             product: firefox-android
@@ -500,7 +491,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
                             staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
@@ -514,7 +505,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
                             staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
@@ -528,7 +519,7 @@ partner-urls:
             firefox:
                 by-release-type:
                     default: null
-                    beta|release.*:
+                    beta|release:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/mozilla-EME-free-manifest.git'
                             staging: 'git@github.com:mozilla-partners/staging-mozilla-EME-free-manifest.git'

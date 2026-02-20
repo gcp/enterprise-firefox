@@ -1628,11 +1628,13 @@ class ActivePS {
     js::ProfilerJSSources threadSources =
         js::GetProfilerScriptSources(JS_GetRuntime(jsContext));
 
-    // Generate UUIDs and build mappings for each source
+    // Compute hash for each source based on filepath and source text.
+    // This replaces random UUIDs with deterministic hashes, which enables us to
+    // deduplicate sources with identical content.
     for (ProfilerJSSourceData& sourceData : threadSources) {
-      // Generate UUID for this source and store it in the global array.
-      jsSourceEntries.AppendElement(JSSourceEntry(
-          NSID_TrimBracketsASCII(nsID::GenerateUUID()), std::move(sourceData)));
+      nsCString hash = nsPrintfCString("%08x", sourceData.hash());
+      jsSourceEntries.AppendElement(
+          JSSourceEntry(std::move(hash), std::move(sourceData)));
     }
 
     return jsSourceEntries;

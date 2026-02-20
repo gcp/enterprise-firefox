@@ -29,6 +29,7 @@ function schemeTypoOnly(flags) {
     alternateURI: "", // Expected alternateURI
     keywordLookup: false, // Whether a keyword lookup is expected
     protocolChange: false, // Whether a protocol change is expected
+    suffixAdded: false, // Whether a suffix was appended
     inWhitelist: false, // Whether the input host is in the whitelist
     affectedByDNSForSingleWordHosts: false, // Whether the input host could be a host, but is normally assumed to be a keyword query
   }
@@ -64,6 +65,7 @@ var testcases = [
     input: "http://mozilla/",
     fixedURI: "http://mozilla/",
     alternateURI: "https://www.mozilla.com/",
+    suffixAdded: true,
   },
   {
     input: "http://test./",
@@ -240,6 +242,7 @@ var testcases = [
     fixedURI: "http://whitelisted/foo.txt",
     alternateURI: "https://www.whitelisted.com/foo.txt",
     protocolChange: true,
+    suffixAdded: true,
   },
   {
     input: "mozilla",
@@ -247,6 +250,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -291,6 +295,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -299,6 +304,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -319,6 +325,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -327,6 +334,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -335,6 +343,7 @@ var testcases = [
     alternateURI: "https://www.mozfirefoxos.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -353,6 +362,7 @@ var testcases = [
     input: "http://whitelisted/",
     fixedURI: "http://whitelisted/",
     alternateURI: "https://www.whitelisted.com/",
+    suffixAdded: true,
     inWhitelist: true,
   },
   {
@@ -360,6 +370,7 @@ var testcases = [
     fixedURI: "http://whitelisted/",
     alternateURI: "https://www.whitelisted.com/",
     protocolChange: true,
+    suffixAdded: true,
     inWhitelist: true,
   },
   {
@@ -440,6 +451,7 @@ var testcases = [
     alternateURI: "https://www.5+2.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -494,6 +506,7 @@ var testcases = [
     alternateURI: "https://www.'.com/?",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -501,6 +514,7 @@ var testcases = [
     fixedURI: "http://whitelisted/?.com",
     alternateURI: "https://www.whitelisted.com/?.com",
     protocolChange: true,
+    suffixAdded: true,
   },
   {
     input: "?'.com",
@@ -531,6 +545,7 @@ var testcases = [
     fixedURI: "http://mozilla/",
     alternateURI: "https://www.mozilla.com/",
     protocolChange: true,
+    suffixAdded: true,
   },
   {
     input: "mozilla",
@@ -538,6 +553,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     protocolChange: true,
     keywordLookup: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -546,6 +562,7 @@ var testcases = [
     alternateURI: "https://www.mozilla5.com/2",
     protocolChange: true,
     keywordLookup: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -554,6 +571,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/foo",
     protocolChange: true,
     keywordLookup: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -562,6 +580,7 @@ var testcases = [
     alternateURI: "https://www.mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -611,6 +630,7 @@ var testcases = [
     alternateURI: "https://www.plonk.com/%20#",
     protocolChange: true,
     keywordLookup: false,
+    suffixAdded: true,
   },
   {
     input: "blah.com.",
@@ -639,12 +659,14 @@ var testcases = [
     fixedURI: "http://mozilla/",
     alternateURI: "https://www.mozilla.com/",
     protocolChange: true,
+    suffixAdded: true,
   },
   {
     input: "mozilla/ test /",
     fixedURI: "http://mozilla/%20test%20/",
     alternateURI: "https://www.mozilla.com/%20test%20/",
     protocolChange: true,
+    suffixAdded: true,
   },
   {
     input: "mozilla /test/",
@@ -661,6 +683,7 @@ var testcases = [
     alternateURI: "https://www.http;mozilla.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   },
   {
@@ -935,6 +958,7 @@ if (AppConstants.platform == "win") {
     fixedURI: "http://mozilla/",
     alternateURI: "https://www.mozilla.com/",
     protocolChange: true,
+    suffixAdded: true,
   });
   testcases.push({
     input: "/a",
@@ -942,6 +966,7 @@ if (AppConstants.platform == "win") {
     alternateURI: "https://www.a.com/",
     keywordLookup: true,
     protocolChange: true,
+    suffixAdded: true,
     affectedByDNSForSingleWordHosts: true,
   });
 } else {
@@ -1064,6 +1089,7 @@ async function do_single_test_run() {
     alternateURI: alternativeURI,
     keywordLookup: expectKeywordLookup,
     protocolChange: expectProtocolChange,
+    suffixAdded: expectedSuffixAdded,
     inWhitelist: inWhitelist,
     affectedByDNSForSingleWordHosts: affectedByDNSForSingleWordHosts,
     shouldRunTest,
@@ -1092,6 +1118,7 @@ async function do_single_test_run() {
       if (shouldRunTest && !shouldRunTest(flags)) {
         continue;
       }
+      Services.fog.testResetFOG();
 
       let URIInfo;
       try {
@@ -1112,6 +1139,10 @@ async function do_single_test_run() {
           URIInfo.fixedURI.spec,
           alternativeURI,
           "should have gotten alternate URI"
+        );
+        Assert.strictEqual(
+          expectedSuffixAdded ? 1 : null,
+          Glean.urlfixup.suffix.get("fixup", ".com").testGetValue()
         );
       } else {
         Assert.equal(

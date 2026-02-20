@@ -29,9 +29,9 @@ run-if = [
 
 ["browser_aiFeatures_chatbot.js"]
 
-["browser_aiFeatures_model_settings.js"]
-
 ["browser_aiFeatures_memories.js"]
+
+["browser_aiFeatures_model_settings.js"]
 
 ["browser_aiFeatures_visibility.js"]
 
@@ -158,6 +158,26 @@ skip-if = [
 ["browser_fluent.js"]
 
 ["browser_homepage_default.js"]
+
+["browser_homepage_firefox_home.js"]
+
+["browser_homepage_firefox_home_recent_activity.js"]
+
+["browser_homepage_firefox_home_shortcuts.js"]
+
+["browser_homepage_firefox_home_sponsored_shortcuts.js"]
+
+["browser_homepage_firefox_home_sponsored_stories.js"]
+
+["browser_homepage_firefox_home_stories.js"]
+
+["browser_homepage_firefox_home_stories_personalization.js"]
+
+["browser_homepage_firefox_home_support_firefox.js"]
+
+["browser_homepage_firefox_home_widgets.js"]
+
+["browser_homepage_firefox_home_widgets_2.js"]
 
 ["browser_homepages_filter_aboutpreferences.js"]
 

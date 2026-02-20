@@ -3254,6 +3254,8 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
           atomMarking.getOrMarkAtomsUsedByUncollectedZones(this);
     }
   }
+
+  preparedForSweepInThisSlice = true;
 }
 
 void GCRuntime::findDeadCompartments() {
@@ -4197,6 +4199,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
   initialState = incrementalState;
   isIncremental = !budget.isUnlimited();
   useBackgroundThreads = ShouldUseBackgroundThreads(isIncremental, reason);
+  preparedForSweepInThisSlice = false;
 
 #ifdef JS_GC_ZEAL
   // Do the incremental collection type specified by zeal mode if the collection
@@ -4269,16 +4272,9 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
       [[fallthrough]];
 
     case State::Mark:
-      if (mightSweepInThisSlice(budget.isUnlimited())) {
+      if (!preparedForSweepInThisSlice &&
+          mightSweepInThisSlice(budget.isUnlimited())) {
         prepareForSweepSlice(reason);
-
-        // Incremental marking validation re-runs all marking non-incrementally,
-        // which requires collecting the nursery. If that might happen in this
-        // slice, do it now while it's safe to do so.
-        if (isIncremental &&
-            hasZealMode(ZealMode::IncrementalMarkingValidator)) {
-          collectNurseryFromMajorGC(JS::GCReason::EVICT_NURSERY);
-        }
       }
 
       if (markPhase(budget) == NotFinished) {
@@ -4294,18 +4290,15 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
 
       /*
        * There are a number of reasons why we break out of collection here,
-       * either ending the slice or to run a new interation of the loop in
-       * GCRuntime::collect()
-       */
-
-      /*
-       * In incremental GCs where we have already performed more than one
+       * ending the slice.
+       *
+       * In incremental GCs where we have already marked in more than one
        * slice we yield after marking with the aim of starting the sweep in
        * the next slice, since the first slice of sweeping can be expensive.
        *
-       * This is modified by the various zeal modes.  We don't yield in
-       * YieldBeforeMarking mode and we always yield in YieldBeforeSweeping
-       * mode.
+       * This is modified by the various zeal modes. We don't yield in modes
+       * which set a specific yield point (e.g. YieldBeforeMarking) except that
+       * always yield in YieldBeforeSweeping mode.
        *
        * We will need to mark anything new on the stack when we resume, so
        * we stay in Mark state.
@@ -4905,7 +4898,8 @@ MOZ_NEVER_INLINE GCRuntime::IncrementalResult GCRuntime::gcCycle(
 
 inline bool GCRuntime::mightSweepInThisSlice(bool nonIncremental) {
   MOZ_ASSERT(incrementalState < State::Sweep);
-  return nonIncremental || lastMarkSlice || zealModeControlsYieldPoint();
+  return nonIncremental || markSliceCount == 0 || lastMarkSlice ||
+         zealModeControlsYieldPoint();
 }
 
 #ifdef JS_GC_ZEAL

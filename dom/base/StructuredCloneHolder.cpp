@@ -436,6 +436,8 @@ void StructuredCloneHolder::Write(JSContext* aCx, JS::Handle<JS::Value> aValue,
     return;
   }
 
+  mOriginChildID = mozilla::GetGeckoChildID();
+
   AssertAttachmentsMatchFlags();
 }
 
@@ -461,6 +463,16 @@ void StructuredCloneHolder::Read(JSContext* aCx,
 
     Clear();
   }
+}
+
+void StructuredCloneHolder::Adopt(JSStructuredCloneData&& aData,
+                                  uint32_t aVersion,
+                                  GeckoChildID aOriginChildID) {
+  StructuredCloneHolderBase::Adopt(std::move(aData), aVersion);
+
+  mOriginChildID = aOriginChildID;
+
+  AssertAttachmentsMatchFlags();
 }
 
 static bool CheckExposedGlobals(JSContext* aCx, JS::Handle<JSObject*> aGlobal,

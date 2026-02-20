@@ -15,6 +15,7 @@
 #include "js/TypeDecls.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/ProcessType.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/EagerIPCStream.h"
@@ -217,8 +218,14 @@ class StructuredCloneHolder : public StructuredCloneHolderBase {
   void Read(JSContext* aCx, JS::MutableHandle<JS::Value> aValue,
             const JS::CloneDataPolicy& aCloneDataPolicy, ErrorResult& aRv);
 
+  void Adopt(JSStructuredCloneData&& aData,
+             uint32_t aVersion = JS_STRUCTURED_CLONE_VERSION,
+             GeckoChildID aOriginChildID = kInvalidGeckoChildID);
+
   // Call this method to know if this object is keeping some DOM object alive.
   bool HasClonedDOMObjects();
+
+  GeckoChildID GetOriginChildID() const { return mOriginChildID; }
 
   nsTArray<NotNull<RefPtr<BlobImpl>>>& BlobImpls() {
     MOZ_ASSERT(mSupportsCloning,
@@ -390,6 +397,15 @@ class StructuredCloneHolder : public StructuredCloneHolderBase {
 
   bool mSupportsCloning;
   bool mSupportsTransferring;
+
+  // In the case where this StructuredCloneHolder was received over IPC, this
+  // should be set to the GeckoChildID which created the message. In the case of
+  // an in-process serialized data structure, it will be set to the current
+  // ChildID.
+  //
+  // This value is _not_ preserved if the object is sent across multiple process
+  // boundaries. It only tracks the most recent IPC hop.
+  GeckoChildID mOriginChildID = kInvalidGeckoChildID;
 
   // SizeOfExcludingThis is inherited from StructuredCloneHolderBase. It doesn't
   // account for objects in the following arrays because a) they're not expected

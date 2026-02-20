@@ -340,6 +340,7 @@ void WebGPUChild::SendSerializedMessages(uint32_t aNrOfMessages,
 }
 
 ipc::IPCResult WebGPUChild::RecvUncapturedError(RawId aDeviceId,
+                                                const dom::GPUErrorFilter aType,
                                                 const nsACString& aMessage) {
   MOZ_RELEASE_ASSERT(aDeviceId);
 
@@ -358,7 +359,17 @@ ipc::IPCResult WebGPUChild::RecvUncapturedError(RawId aDeviceId,
     JsWarning(device->GetOwnerGlobal(), aMessage);
 
     dom::GPUUncapturedErrorEventInit init;
-    init.mError = new ValidationError(device->GetParentObject(), aMessage);
+    switch (aType) {
+      case dom::GPUErrorFilter::Validation:
+        init.mError = new ValidationError(device->GetParentObject(), aMessage);
+        break;
+      case dom::GPUErrorFilter::Out_of_memory:
+        init.mError = new OutOfMemoryError(device->GetParentObject(), aMessage);
+        break;
+      case dom::GPUErrorFilter::Internal:
+        init.mError = new InternalError(device->GetParentObject(), aMessage);
+        break;
+    }
     RefPtr<mozilla::dom::GPUUncapturedErrorEvent> event =
         dom::GPUUncapturedErrorEvent::Constructor(device, u"uncapturederror"_ns,
                                                   init);

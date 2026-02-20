@@ -95,12 +95,14 @@ export class AIWindow extends MozLitElement {
 
   #browser;
   #smartbar;
+  #smartbarToggleButton;
   #conversation;
   #memoriesButton = null;
   #memoriesToggled = null;
   #visibilityChangeHandler;
   #starters = [];
   #smartbarResizeObserver = null;
+  #windowModeObserver = null;
 
   /**
    * Flags whether the #conversation reference has been updated but the messages
@@ -209,6 +211,7 @@ export class AIWindow extends MozLitElement {
     );
 
     this.#loadPendingConversation();
+    this.#setupWindowModeObserver();
 
     this.#dispatchChromeEvent(
       "ai-window:connected",
@@ -229,6 +232,34 @@ export class AIWindow extends MozLitElement {
     this.openConversation(event.detail);
   }
 
+  #setupWindowModeObserver() {
+    this.#windowModeObserver = (subject, topic) => {
+      if (topic === "ai-window-state-changed") {
+        if (subject == window.browsingContext?.topChromeWindow) {
+          this.#updateSmartbarVisibility();
+        }
+      }
+    };
+
+    Services.obs.addObserver(
+      this.#windowModeObserver,
+      "ai-window-state-changed"
+    );
+  }
+
+  #updateSmartbarVisibility() {
+    if (!this.#smartbar || !this.#smartbarToggleButton) {
+      return;
+    }
+
+    const isSmartWindow = lazy.AIWindow.isAIWindowActive(
+      window.browsingContext.topChromeWindow
+    );
+
+    this.#smartbar.hidden = !isSmartWindow;
+    this.#smartbarToggleButton.hidden = isSmartWindow;
+  }
+
   disconnectedCallback() {
     // Clean up visibility change handler
     if (this.#visibilityChangeHandler) {
@@ -237,6 +268,21 @@ export class AIWindow extends MozLitElement {
         this.#visibilityChangeHandler
       );
       this.#visibilityChangeHandler = null;
+    }
+
+    // Clean up window mode observer
+    if (this.#windowModeObserver) {
+      Services.obs.removeObserver(
+        this.#windowModeObserver,
+        "ai-window-state-changed"
+      );
+      this.#windowModeObserver = null;
+    }
+
+    // Clean up smartbar toggle button
+    if (this.#smartbarToggleButton) {
+      this.#smartbarToggleButton.remove();
+      this.#smartbarToggleButton = null;
     }
 
     // Clean up smartbar
@@ -419,7 +465,7 @@ export class AIWindow extends MozLitElement {
     let smartbar = container.querySelector("#ai-window-smartbar");
 
     if (!smartbar) {
-      // The Smartbar can’t be initialized in the shadow DOM and needs
+      // The Smartbar can't be initialized in the shadow DOM and needs
       // to be created from the chrome document.
       smartbar = doc.createElement("moz-smartbar");
       smartbar.id = "ai-window-smartbar";
@@ -427,6 +473,14 @@ export class AIWindow extends MozLitElement {
       smartbar.setAttribute("pageproxystate", "invalid");
       smartbar.setAttribute("popover", "manual");
       smartbar.classList.add("smartbar", "urlbar");
+
+      // Listen before appending to DOM since the event fires synchronously
+      // during connectedCallback.
+      smartbar.addEventListener(
+        "smartbar-initialized",
+        () => this.#setupSmartbarFocus(smartbar),
+        { once: true }
+      );
 
       const smartbarWrapper = doc.createElement("div");
       smartbarWrapper.id = "smartbar-wrapper";
@@ -450,6 +504,51 @@ export class AIWindow extends MozLitElement {
     this.#memoriesButton = smartbar.querySelector("memories-icon-button");
     this.#syncSmartbarMemoriesStateFromConversation();
     this.#observeSmartbarHeight();
+
+    // Create toggle button, like with Smartbar above
+    let toggleButton = container.querySelector("#smartbar-toggle-button");
+
+    if (!toggleButton) {
+      toggleButton = doc.createElement("moz-button");
+      toggleButton.id = "smartbar-toggle-button";
+      toggleButton.type = "primary";
+      toggleButton.iconSrc = "chrome://browser/skin/ai-window.svg";
+      toggleButton.setAttribute(
+        "data-l10n-id",
+        "smartwindow-switch-to-smart-window"
+      );
+      toggleButton.addEventListener("click", () => {
+        const chromeWindow = window.browsingContext?.topChromeWindow;
+        if (chromeWindow) {
+          lazy.AIWindow.toggleAIWindow(chromeWindow, true);
+        }
+      });
+      container.appendChild(toggleButton);
+    }
+    this.#smartbarToggleButton = toggleButton;
+    this.#updateSmartbarVisibility();
+  }
+
+  #setupSmartbarFocus(smartbar) {
+    let hasAutoFocused = false;
+    let isMouseClick = false;
+
+    smartbar.addEventListener("mousedown", () => {
+      isMouseClick = true;
+      smartbar.toggleAttribute("suppress-focus-border", true);
+    });
+
+    smartbar.inputField.addEventListener("focus", () => {
+      if (!hasAutoFocused) {
+        smartbar.toggleAttribute("suppress-focus-border", true);
+        hasAutoFocused = true;
+      } else if (!isMouseClick) {
+        smartbar.removeAttribute("suppress-focus-border");
+      }
+      isMouseClick = false;
+    });
+
+    smartbar.focus();
   }
 
   #observeSmartbarHeight() {
@@ -720,7 +819,15 @@ export class AIWindow extends MozLitElement {
       const stream = lazy.Chat.fetchWithHistory(
         this.#conversation,
         engineInstance,
-        { win: window.browsingContext.topChromeWindow }
+        {
+          // Use the adjacent tab's browsing context for sidebar or current for
+          // fullpage for tools that need context.
+          browsingContext:
+            this.mode === SIDEBAR
+              ? window.browsingContext.topChromeWindow.gBrowser.selectedBrowser
+                  .browsingContext
+              : window.browsingContext,
+        }
       );
 
       this.#updateConversation();

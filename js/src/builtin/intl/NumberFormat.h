@@ -135,6 +135,20 @@ class NumberFormatObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
+enum class NumberFormatUnit {
+  Year,
+  Quarter,
+  Month,
+  Week,
+  Day,
+  Hour,
+  Minute,
+  Second,
+  Millisecond,
+  Microsecond,
+  Nanosecond,
+};
+
 /**
  * Returns a new instance of the standard built-in NumberFormat constructor.
  */
@@ -164,8 +178,6 @@ class NumberFormatObject : public NativeObject {
 [[nodiscard]] extern JSString* FormatBigInt(
     JSContext* cx, Handle<NumberFormatObject*> numberFormat, Handle<BigInt*> x);
 
-using NumberFormatUnit = js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
-
 [[nodiscard]] extern JSLinearString* FormatNumber(
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat, double x);
 
@@ -175,11 +187,11 @@ using NumberFormatUnit = js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
 
 [[nodiscard]] extern ArrayObject* FormatNumberToParts(
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat, double x,
-    NumberFormatUnit unit = nullptr);
+    NumberFormatUnit numberFormatUnit);
 
 [[nodiscard]] extern ArrayObject* FormatNumberToParts(
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat,
-    std::string_view x, NumberFormatUnit unit = nullptr);
+    std::string_view x, NumberFormatUnit numberFormatUnit);
 
 }  // namespace js::intl
 

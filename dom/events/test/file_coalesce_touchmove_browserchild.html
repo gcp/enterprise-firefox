@@ -17,6 +17,7 @@
   async function testBrowserChildCoalescing() {
     var ret = new Promise(function(resolve) {
       SpecialPowers.loadChromeScript(function() {
+        const kAllowToCoalesceTouchMovesOption = { isAsyncEnabled: true, isDOMEventSynthesized: false };
         var element = this.actorParent.rootFrameLoader.ownerElement;
         var rect = element.getBoundingClientRect();
         var win = element.ownerDocument.defaultView;
@@ -28,13 +29,13 @@
           identifier: 0,
           offsetX: x,
           offsetY: y,
-        }]);
+        }], 0, kAllowToCoalesceTouchMovesOption);
         while (y != endYForFirstTouch) {
           win.synthesizeTouchEvent("touchmove", [{
             identifier: 0,
             offsetX: x,
             offsetY: y,
-          }]);
+          }], 0, kAllowToCoalesceTouchMovesOption);
           ++y;
         }
 
@@ -50,7 +51,7 @@
             offsetX: x,
             offsetY: endYForFirstTouch,
           },
-        ]);
+        ], 0, kAllowToCoalesceTouchMovesOption);
 
         while (y != endYForSecondTouch) {
           win.synthesizeTouchEvent("touchmove", [
@@ -64,7 +65,7 @@
               offsetX: x,
               offsetY: y,
             },
-          ]);
+          ], 0, kAllowToCoalesceTouchMovesOption);
           ++y;
         }
 
@@ -79,7 +80,7 @@
             offsetX: x,
             offsetY: endYForSecondTouch,
           },
-        ]);
+        ], 0, kAllowToCoalesceTouchMovesOption);
       });
 
       let touchStartCount = 0;

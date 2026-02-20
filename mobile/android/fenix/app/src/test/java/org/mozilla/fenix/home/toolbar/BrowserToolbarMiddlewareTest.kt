@@ -5,15 +5,14 @@
 package org.mozilla.fenix.home.toolbar
 
 import android.content.Context
-import android.os.Looper
 import androidx.navigation.NavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.SearchAction.ApplicationSearchEnginesLoaded
 import mozilla.components.browser.state.action.TabListAction.AddTabAction
@@ -45,7 +44,6 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarMenuItem.B
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainLooperTestRule
 import mozilla.components.support.utils.ClipboardHandler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -92,14 +90,13 @@ import org.mozilla.fenix.search.fixtures.buildExpectedSearchSelector
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.tabstray.Page
 import org.mozilla.fenix.utils.Settings
-import org.robolectric.Shadows.shadowOf
 import mozilla.components.ui.icons.R as iconsR
 import mozilla.components.ui.tabcounter.R as tabcounterR
 
 @RunWith(AndroidJUnit4::class)
 class BrowserToolbarMiddlewareTest {
-    @get:Rule
-    val mainLooperRule = MainLooperTestRule()
+    private val testDispatcher = StandardTestDispatcher()
+    private val testScope = TestScope(testDispatcher)
 
     @get:Rule
     val gleanRule = FenixGleanTestRule(testContext)
@@ -202,7 +199,7 @@ class BrowserToolbarMiddlewareTest {
         isWideScreen = true
         isTallScreen = false
         appStore.dispatch(AppAction.OrientationChange(Landscape))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         navigationActions = toolbarStore.state.displayState.navigationActions
         assertEquals(0, navigationActions.size)
@@ -286,14 +283,14 @@ class BrowserToolbarMiddlewareTest {
             isWideScreen = { isWideScreen },
             isTallScreen = { isTallScreen },
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         var toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
 
         isWideScreen = true
         isTallScreen = false
         appStore.dispatch(AppAction.OrientationChange(Landscape))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
@@ -312,14 +309,14 @@ class BrowserToolbarMiddlewareTest {
             isWideScreen = { isWideScreen },
             isTallScreen = { isTallScreen },
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         var toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
 
         isWideScreen = false
         isTallScreen = true
         appStore.dispatch(AppAction.OrientationChange(Portrait))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
@@ -340,7 +337,7 @@ class BrowserToolbarMiddlewareTest {
             isWideScreen = { isWideScreen },
             isTallScreen = { isTallScreen },
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         var navigationActions = toolbarStore.state.displayState.navigationActions
         assertEquals(5, navigationActions.size)
         var toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
@@ -349,7 +346,7 @@ class BrowserToolbarMiddlewareTest {
         isWideScreen = true
         isTallScreen = false
         appStore.dispatch(AppAction.OrientationChange(Portrait))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         navigationActions = toolbarStore.state.displayState.navigationActions
         assertEquals(0, navigationActions.size)
@@ -369,7 +366,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
             browserStore = browserStore,
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         var toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
         var tabCounterButton = toolbarBrowserActions[0] as TabCounterAction
@@ -379,7 +376,7 @@ class BrowserToolbarMiddlewareTest {
         val newPrivateTab = createTab("test.com", private = true)
         browserStore.dispatch(AddTabAction(newNormalTab))
         browserStore.dispatch(AddTabAction(newPrivateTab))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
@@ -401,14 +398,14 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
             browserStore = browserStore,
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         var toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
         var tabCounterButton = toolbarBrowserActions[0] as TabCounterAction
         assertEqualsToolbarButton(expectedToolbarButton(1, true), tabCounterButton)
 
         browserStore.dispatch(RemoveTabAction(initialPrivateTab.id))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         toolbarBrowserActions = toolbarStore.state.displayState.browserActionsEnd
         assertEquals(2, toolbarBrowserActions.size)
@@ -604,7 +601,7 @@ class BrowserToolbarMiddlewareTest {
         val newSearchEngine = SearchEngine("test", "Test", mock(), type = APPLICATION)
 
         appStore.dispatch(SearchEngineSelected(newSearchEngine, true))
-        shadowOf(Looper.getMainLooper()).idle() // wait for observing and processing the search engine update
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertSearchSelectorEquals(
             expectedSearchSelector(newSearchEngine),
@@ -628,7 +625,7 @@ class BrowserToolbarMiddlewareTest {
         )
 
         browserStore.dispatch(ApplicationSearchEnginesLoaded(listOf(otherSearchEngine)))
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertNotEquals(
             appStore.state.searchState.selectedSearchEngine?.searchEngine,
@@ -692,7 +689,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val initialMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(), initialMenuButton)
 
@@ -701,7 +698,7 @@ class BrowserToolbarMiddlewareTest {
                 SupportedMenuNotifications.Downloads,
             ),
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(true), updatedMenuButton)
     }
@@ -717,7 +714,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val initialMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(true), initialMenuButton)
 
@@ -726,7 +723,7 @@ class BrowserToolbarMiddlewareTest {
                 SupportedMenuNotifications.Downloads,
             ),
         )
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(), updatedMenuButton)
     }
@@ -742,7 +739,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val menuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(false), menuButton)
     }
@@ -758,7 +755,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val menuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(true), menuButton)
     }
@@ -774,7 +771,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val menuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(false), menuButton)
     }
@@ -790,7 +787,7 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val initialMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(true), initialMenuButton)
 
@@ -800,7 +797,7 @@ class BrowserToolbarMiddlewareTest {
             ),
         )
 
-        mainLooperRule.idle()
+        testDispatcher.scheduler.advanceUntilIdle()
         val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[1] as ActionButtonRes
         assertEquals(expectedMenuButton(), updatedMenuButton)
     }
@@ -879,7 +876,6 @@ class BrowserToolbarMiddlewareTest {
         settings: Settings = testContext.settings(),
         isWideScreen: () -> Boolean = { false },
         isTallScreen: () -> Boolean = { true },
-        scope: CoroutineScope = MainScope(),
     ): Pair<BrowserToolbarMiddleware, BrowserToolbarStore> {
         val middleware = buildMiddleware(
             uiContext = uiContext,
@@ -891,7 +887,6 @@ class BrowserToolbarMiddlewareTest {
             settings = settings,
             isWideScreen = isWideScreen,
             isTallScreen = isTallScreen,
-            scope = scope,
         )
         val store = buildStore(
             middleware = middleware,
@@ -910,7 +905,6 @@ class BrowserToolbarMiddlewareTest {
         settings: Settings = testContext.settings(),
         isWideScreen: () -> Boolean = { false },
         isTallScreen: () -> Boolean = { true },
-        scope: CoroutineScope = MainScope(),
     ) = BrowserToolbarMiddleware(
         uiContext = uiContext,
         appStore = appStore,
@@ -921,7 +915,7 @@ class BrowserToolbarMiddlewareTest {
         settings = settings,
         isWideScreen = isWideScreen,
         isTallScreen = isTallScreen,
-        scope = scope,
+        scope = testScope,
     )
 
     private fun buildStore(
@@ -929,7 +923,7 @@ class BrowserToolbarMiddlewareTest {
     ) = BrowserToolbarStore(
         middleware = listOf(middleware),
     ).also {
-        mainLooperRule.idle() // to complete the initial setup happening in coroutines
+        testDispatcher.scheduler.advanceUntilIdle() // to complete the initial setup happening in coroutines
     }
 
     private fun expectedSearchSelector(

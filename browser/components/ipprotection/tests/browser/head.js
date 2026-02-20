@@ -289,7 +289,7 @@ add_setup(async function setupVPN() {
     setupSandbox.restore();
     CustomizableUI.reset();
     Services.prefs.clearUserPref(IPProtectionWidget.ADDED_PREF);
-    Services.prefs.clearUserPref("browser.ipProtection.panelOpenCount");
+    Services.prefs.clearUserPref("browser.ipProtection.everOpenedPanel");
     Services.prefs.clearUserPref("browser.ipProtection.userEnableCount");
     Services.prefs.clearUserPref("browser.ipProtection.stateCache");
     Services.prefs.clearUserPref("browser.ipProtection.entitlementCache");

@@ -1271,6 +1271,12 @@ class GCRuntime {
   // thread.
   MainThreadData<bool> useBackgroundThreads;
 
+  /*
+   * We're ready to start sweeping in this slice. Either we just marked roots in
+   * this slice or we called prepareForSweepSlice().
+   */
+  MainThreadData<bool> preparedForSweepInThisSlice;
+
   MainThreadData<size_t> markSliceCount;
 
 #ifdef DEBUG

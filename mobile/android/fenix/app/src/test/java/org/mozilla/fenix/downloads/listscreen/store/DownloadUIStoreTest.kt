@@ -4,59 +4,47 @@
 
 package org.mozilla.fenix.downloads.listscreen.store
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import io.mockk.every
-import io.mockk.mockk
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.downloads.DownloadsUseCases
-import mozilla.components.support.test.mock
-import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
 import mozilla.components.support.utils.FakeDateTimeProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import org.junit.runner.RunWith
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadDeleteMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIMapperMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIRenameMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.FakeFileItemDescriptionProvider
-import org.mozilla.fenix.ext.settings
-import org.mozilla.fenix.utils.Settings
-import org.mozilla.fenix.utils.getUndoDelay
 import java.io.File
 import java.nio.file.Files
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.time.Duration.Companion.milliseconds
 
-@RunWith(AndroidJUnit4::class)
 class DownloadUIStoreTest {
-
-    @get:Rule
-    val coroutineTestRule = MainCoroutineRule()
 
     @Rule @JvmField
     val folder = TemporaryFolder()
 
-    private val dispatcher = coroutineTestRule.testDispatcher
-    private val scope = coroutineTestRule.scope
+    private val testDispatcher = StandardTestDispatcher()
+    private val testScope = TestScope(testDispatcher)
 
     private val fakeFileItemDescriptionProvider = FakeFileItemDescriptionProvider()
     private val today = LocalDate.of(2025, 5, 31)
     private val older = LocalDate.of(2025, 4, 20)
     private val fakeDateTimeProvider = FakeDateTimeProvider(today)
     private val zoneId = fakeDateTimeProvider.currentZoneId()
-    private var settings: Settings = mock()
+
+    private val testDelay = 100L
 
     private val fileItem1 = FileItem(
         id = "1",
@@ -105,16 +93,8 @@ class DownloadUIStoreTest {
         contentType = "jpg",
     )
 
-    @Before
-    fun setup() {
-        settings = mockk(relaxed = true) {
-            every { accessibilityServicesEnabled } returns false
-        }
-        every { testContext.settings() } returns settings
-    }
-
     @Test
-    fun exitEditMode() {
+    fun exitEditMode() = runTest(testDispatcher) {
         val initialState = oneItemEditState()
         val store = DownloadUIStore(initialState)
 
@@ -124,7 +104,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun itemAddedForRemoval() {
+    fun itemAddedForRemoval() = runTest(testDispatcher) {
         val initialState = emptyDefaultState()
         val store = DownloadUIStore(initialState)
 
@@ -137,7 +117,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `WHEN all items are visible and all items are selected for removal THEN all completed download items are selected`() {
+    fun `WHEN all items are visible and all items are selected for removal THEN all completed download items are selected`() = runTest(testDispatcher) {
         val inProgressFileItem = fileItem(status = FileItem.Status.Downloading(progress = 0.5f))
         val pausedFileItem = fileItem(status = FileItem.Status.Paused(progress = 0.5f))
         val failedFileItem = fileItem(status = FileItem.Status.Failed)
@@ -178,7 +158,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `WHEN only filtered items are visible and all items selected for removal THEN only those filtered items are selected`() {
+    fun `WHEN only filtered items are visible and all items selected for removal THEN only those filtered items are selected`() = runTest(testDispatcher) {
         val image = FileItem(
             id = "1",
             url = "url",
@@ -232,7 +212,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `WHEN items are filtered by content type and search and all items selected for removal THEN only those filtered items are selected`() {
+    fun `WHEN items are filtered by content type and search and all items selected for removal THEN only those filtered items are selected`() = runTest(testDispatcher) {
         val image1 = FileItem(
             id = "1",
             url = "url",
@@ -299,7 +279,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun removeItemForRemoval() {
+    fun removeItemForRemoval() = runTest(testDispatcher) {
         val initialState = twoItemEditState()
         val store = DownloadUIStore(initialState)
 
@@ -309,7 +289,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun shareUrlClicked() {
+    fun shareUrlClicked() = runTest(testDispatcher) {
         val initialState = oneItemDefaultState()
         val store = DownloadUIStore(initialState)
 
@@ -318,7 +298,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun shareFileClicked() {
+    fun shareFileClicked() = runTest(testDispatcher) {
         val initialState = oneItemDefaultState()
         val store = DownloadUIStore(initialState)
 
@@ -327,7 +307,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun deleteOneElement() {
+    fun deleteOneElement() = runTest(testDispatcher) {
         val store = provideDownloadUIStore(BrowserState(downloads = mapOf("1" to downloadState1)))
 
         val deleteItemSet = setOf(fileItem1.id)
@@ -343,19 +323,21 @@ class DownloadUIStoreTest {
             pendingDeletionIds = deleteItemSet,
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.AddPendingDeletionSet(deleteItemSet))
         assertEquals(store.state.pendingDeletionIds, deleteItemSet)
         assertEquals(expectedUIStateAfterDeleteAction, store.state)
 
-        dispatcher.scheduler.advanceTimeBy(testContext.getUndoDelay().milliseconds)
+        testDispatcher.scheduler.advanceTimeBy(testDelay.milliseconds)
         assertEquals(store.state.pendingDeletionIds, deleteItemSet)
         assertEquals(expectedUIStateAfterDeleteAction, store.state)
     }
 
     @Test
-    fun deleteOneElementAndCancelBeforeDelayExpires() {
+    fun deleteOneElementAndCancelBeforeDelayExpires() = runTest(testDispatcher) {
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1)),
         )
@@ -370,23 +352,29 @@ class DownloadUIStoreTest {
         val expectedUIStateAfterDeleteAction = DownloadUIState(
             items = listOf(fileItem1),
             mode = DownloadUIState.Mode.Normal,
-            pendingDeletionIds = setOf("1"),
+            pendingDeletionIds = deleteItemSet,
         )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.AddPendingDeletionSet(deleteItemSet))
+        testDispatcher.scheduler.runCurrent()
+
         assertEquals(expectedUIStateAfterDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.UndoPendingDeletion)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
 
-        dispatcher.scheduler.advanceTimeBy(UNDO_DELAY_PASSED.milliseconds)
+        testDispatcher.scheduler.advanceTimeBy(UNDO_DELAY_PASSED.milliseconds)
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun deleteOneElementAndCancelAfterDelayExpired() {
+    fun deleteOneElementAndCancelAfterDelayExpired() = runTest(testDispatcher) {
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1)),
         )
@@ -408,20 +396,22 @@ class DownloadUIStoreTest {
             pendingDeletionIds = emptySet(),
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.AddPendingDeletionSet(setOf("1")))
         assertEquals(expectedUIStateAfterDeleteActionWithPendingDelete, store.state)
 
-        dispatcher.scheduler.advanceTimeBy(testContext.getUndoDelay())
+        testDispatcher.scheduler.advanceTimeBy(testDelay.milliseconds)
         store.dispatch(DownloadUIAction.UndoPendingDeletion)
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(expectedUIStateAfterDeleteActionAfterPendingDeleteTimeout, store.state)
     }
 
     @Test
-    fun deleteTwoElementsAndCancelTwice() {
+    fun deleteTwoElementsAndCancelTwice() = runTest(testDispatcher) {
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1, "2" to downloadState2)),
         )
@@ -442,23 +432,33 @@ class DownloadUIStoreTest {
             pendingDeletionIds = setOf("1", "2"),
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedUIStateBeforeDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.AddPendingDeletionSet(setOf("2")))
+        testDispatcher.scheduler.runCurrent()
+
         assertEquals(expectedUIStateAfterFirstDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.AddPendingDeletionSet(setOf("1")))
+        testDispatcher.scheduler.runCurrent()
+
         assertEquals(expectedUIStateAfterSecondDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.UndoPendingDeletion)
+        testDispatcher.scheduler.runCurrent()
+
         assertEquals(expectedUIStateAfterFirstDeleteAction, store.state)
 
         store.dispatch(DownloadUIAction.UndoPendingDeletion)
+        testDispatcher.scheduler.runCurrent()
+
         assertEquals(expectedUIStateAfterFirstDeleteAction, store.state)
     }
 
     @Test
-    fun `WHEN downloads store is initialised THEN downloads state is updated to be sorted by created time`() {
+    fun `WHEN downloads store is initialised THEN downloads state is updated to be sorted by created time`() = runTest(testDispatcher) {
         val fakeDateTimeProvider = FakeDateTimeProvider(LocalDate.of(2025, 5, 31))
         val zoneId = fakeDateTimeProvider.currentZoneId()
 
@@ -541,7 +541,7 @@ class DownloadUIStoreTest {
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
-                    scope = scope,
+                    scope = testScope,
                     dateTimeProvider = fakeDateTimeProvider,
                 ),
             ),
@@ -621,11 +621,13 @@ class DownloadUIStoreTest {
             ),
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedList, downloadsStore.state.itemsState)
     }
 
     @Test
-    fun `GIVEN a download was cancelled WHEN downloading the same file THEN only the downloading download item is displayed`() {
+    fun `GIVEN a download was cancelled WHEN downloading the same file THEN only the downloading download item is displayed`() = runTest(testDispatcher) {
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -658,7 +660,7 @@ class DownloadUIStoreTest {
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
-                    scope = scope,
+                    scope = testScope,
                 ),
             ),
         )
@@ -679,11 +681,13 @@ class DownloadUIStoreTest {
             ),
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedList, downloadsStore.state.itemsState)
     }
 
     @Test
-    fun `GIVEN two downloads with identical file name and identical download status WHEN getting itemsState THEN only one download item is displayed`() {
+    fun `GIVEN two downloads with identical file name and identical download status WHEN getting itemsState THEN only one download item is displayed`() = runTest(testDispatcher) {
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -716,7 +720,7 @@ class DownloadUIStoreTest {
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
-                    scope = scope,
+                    scope = testScope,
                 ),
             ),
         )
@@ -737,11 +741,13 @@ class DownloadUIStoreTest {
             ),
         )
 
+        testScheduler.advanceUntilIdle()
+
         assertEquals(expectedList, downloadsStore.state.itemsState)
     }
 
     @Test
-    fun `GIVEN two downloads with identical file name and different download status WHEN getting itemsState THEN both download items are displayed`() {
+    fun `GIVEN two downloads with identical file name and different download status WHEN getting itemsState THEN both download items are displayed`() = runTest(testDispatcher) {
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -774,7 +780,7 @@ class DownloadUIStoreTest {
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
-                    scope = scope,
+                    scope = testScope,
                 ),
             ),
         )
@@ -806,11 +812,13 @@ class DownloadUIStoreTest {
             ),
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedList, downloadsStore.state.itemsState)
     }
 
     @Test
-    fun `WHEN UpdateFileItems action is triggered THEN state is updated and keep the items even if they are listed in pendingDeletionIds`() {
+    fun `WHEN UpdateFileItems action is triggered THEN state is updated and keep the items even if they are listed in pendingDeletionIds`() = runTest(testDispatcher) {
         val downloadUIStore = DownloadUIStore(
             initialState = DownloadUIState(
                 items = listOf(fileItem1),
@@ -826,11 +834,13 @@ class DownloadUIStoreTest {
         )
 
         downloadUIStore.dispatch(DownloadUIAction.UpdateFileItems(listOf(fileItem1, fileItem2)))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedState, downloadUIStore.state)
     }
 
     @Test
-    fun `WHEN the PauseDownload action is dispatched on a downloading download THEN the state remains the same`() {
+    fun `WHEN the PauseDownload action is dispatched on a downloading download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -856,7 +866,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `WHEN the ResumeDownload action is dispatched on a paused download THEN the state remains the same`() {
+    fun `WHEN the ResumeDownload action is dispatched on a paused download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -878,11 +888,13 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.ResumeDownload(downloadId = "1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the CancelDownload action is dispatched on an initiated download THEN the state remains the same`() {
+    fun `WHEN the CancelDownload action is dispatched on an initiated download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -904,11 +916,13 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.CancelDownload("1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the CancelDownload action is dispatched on a downloading download THEN the state remains the same`() {
+    fun `WHEN the CancelDownload action is dispatched on a downloading download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -930,11 +944,13 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.CancelDownload("1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the CancelDownload action is dispatched on a paused download THEN the state remains the same`() {
+    fun `WHEN the CancelDownload action is dispatched on a paused download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -956,11 +972,13 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.CancelDownload("1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the CancelDownload action is dispatched on a failed download THEN the state remains the same`() {
+    fun `WHEN the CancelDownload action is dispatched on a failed download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -982,11 +1000,13 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.CancelDownload("1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the RetryDownload action is dispatched on a failed download THEN the state remains the same`() {
+    fun `WHEN the RetryDownload action is dispatched on a failed download THEN the state remains the same`() = runTest(testDispatcher) {
         val fileItems = listOf(
             fileItem(
                 id = "1",
@@ -1008,21 +1028,24 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.RetryDownload("1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(initialState, store.state)
     }
 
     @Test
-    fun `WHEN the RenameFileClicked action is dispatched THEN fileToRename is set`() {
+    fun `WHEN the RenameFileClicked action is dispatched THEN fileToRename is set`() = runTest(testDispatcher) {
         val initialState = oneItemDefaultState()
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.RenameFileClicked(fileItem1))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(fileItem1, store.state.fileToRename)
     }
 
     @Test
-    fun `GIVEN InvalidFileName WHEN the RenameFileClicked action is dispatched THEN fileToRename and renameFileError are cleared`() {
+    fun `GIVEN InvalidFileName WHEN the RenameFileClicked action is dispatched THEN fileToRename and renameFileError are cleared`() = runTest(testDispatcher) {
         val initialState = DownloadUIState(
             items = listOf(fileItem1),
             mode = DownloadUIState.Mode.Normal,
@@ -1033,13 +1056,14 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.RenameFileDismissed)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(null, store.state.fileToRename)
         assertEquals(null, store.state.renameFileError)
     }
 
     @Test
-    fun `GIVEN the state has a file to rename WHEN RenameFileFailed THEN renameFileError is set and fileToRename remains the same`() {
+    fun `GIVEN the state has a file to rename WHEN RenameFileFailed THEN renameFileError is set and fileToRename remains the same`() = runTest(testDispatcher) {
         val initialState = DownloadUIState(
             items = listOf(fileItem1),
             mode = DownloadUIState.Mode.Normal,
@@ -1050,13 +1074,14 @@ class DownloadUIStoreTest {
 
         val error = RenameFileError.InvalidFileName
         store.dispatch(DownloadUIAction.RenameFileFailed(error))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(fileItem1, store.state.fileToRename)
         assertEquals(error, store.state.renameFileError)
     }
 
     @Test
-    fun `GIVEN the state has a rename file error WHEN RenameFileFailureDismissed THEN renameFileError is cleared and fileToRename remains the same`() {
+    fun `GIVEN the state has a rename file error WHEN RenameFileFailureDismissed THEN renameFileError is cleared and fileToRename remains the same`() = runTest(testDispatcher) {
         val initialState = DownloadUIState(
             items = listOf(fileItem1),
             mode = DownloadUIState.Mode.Normal,
@@ -1067,13 +1092,14 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(initialState)
 
         store.dispatch(DownloadUIAction.RenameFileFailureDismissed)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(null, store.state.renameFileError)
         assertEquals(fileItem1, store.state.fileToRename)
     }
 
     @Test
-    fun `GIVEN any state WHEN RenameFileConfirmed THEN DownloadUIState is updated with the new file state`() {
+    fun `GIVEN any state WHEN RenameFileConfirmed THEN DownloadUIState is updated with the new file state`() = runTest(testDispatcher) {
         val fileName = "1.pdf"
         val filePath = folder.newFile(fileName).path
 
@@ -1107,15 +1133,17 @@ class DownloadUIStoreTest {
         val store = DownloadUIStore(
             initialState = DownloadUIState.INITIAL,
             middleware = listOf(
-                DownloadUIRenameMiddleware(browserStore = browserStore, scope = scope),
+                DownloadUIRenameMiddleware(browserStore = browserStore, scope = testScope, mainDispatcher = testDispatcher),
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
                     fileItemDescriptionProvider = FakeFileItemDescriptionProvider(),
                     dateTimeProvider = fakeDateTimeProvider,
                 ),
             ),
         )
+
+        testDispatcher.scheduler.advanceUntilIdle()
 
         store.dispatch(
             DownloadUIAction.RenameFileConfirmed(
@@ -1136,11 +1164,13 @@ class DownloadUIStoreTest {
             renameFileError = null,
         )
 
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(expectedState, store.state)
     }
 
     @Test
-    fun `GIVEN download not found in BrowserStore WHEN RenameFileConfirmed THEN renameFileError is CannotRename`() {
+    fun `GIVEN download not found in BrowserStore WHEN RenameFileConfirmed THEN renameFileError is CannotRename`() = runTest(testDispatcher) {
         val browserStore = BrowserStore(
             initialState = BrowserState(downloads = emptyMap()),
         )
@@ -1155,7 +1185,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1167,14 +1198,14 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(RenameFileError.CannotRename, store.state.renameFileError)
         assertEquals(fileItem1, store.state.fileToRename)
     }
 
     @Test
-    fun `GIVEN another download with same file name exists WHEN RenameFileConfirmed THEN renameFileError is NameAlreadyExists`() {
+    fun `GIVEN another download with same file name exists WHEN RenameFileConfirmed THEN renameFileError is NameAlreadyExists`() = runTest(testDispatcher) {
         val dirFile = Files.createTempDirectory("downloads-rename").toFile()
         val dirPath = dirFile.absolutePath
 
@@ -1202,7 +1233,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1214,7 +1246,7 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(
             RenameFileError.NameAlreadyExists(proposedFileName = newName),
@@ -1223,7 +1255,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `GIVEN file rename succeeds WHEN RenameFileConfirmed THEN BrowserStore updates and rename dialog is dismissed`() {
+    fun `GIVEN file rename succeeds WHEN RenameFileConfirmed THEN BrowserStore updates and rename dialog is dismissed`() = runTest(testDispatcher) {
         val dirFile = Files.createTempDirectory("downloads-rename").toFile()
         val dirPath = dirFile.absolutePath
 
@@ -1257,7 +1289,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1269,7 +1302,7 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(from.exists())
         assertTrue(to.exists())
@@ -1281,7 +1314,7 @@ class DownloadUIStoreTest {
     }
 
     @Test
-    fun `GIVEN rename dialog shown WHEN proposed extension differs from original THEN change file extension dialog is shown`() {
+    fun `GIVEN rename dialog shown WHEN proposed extension differs from original THEN change file extension dialog is shown`() = runTest(testDispatcher) {
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 downloads = mapOf(
@@ -1303,7 +1336,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1315,13 +1349,13 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(store.state.isChangeFileExtensionDialogVisible)
     }
 
     @Test
-    fun `GIVEN rename dialog shown WHEN proposed extension changes letter case THEN change file extension dialog is not shown`() {
+    fun `GIVEN rename dialog shown WHEN proposed extension changes letter case THEN change file extension dialog is not shown`() = runTest(testDispatcher) {
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 downloads = mapOf(
@@ -1343,7 +1377,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1355,13 +1390,13 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(store.state.isChangeFileExtensionDialogVisible)
     }
 
     @Test
-    fun `GIVEN rename dialog shown WHEN proposed extension does not change THEN change file extension dialog is not shown`() {
+    fun `GIVEN rename dialog shown WHEN proposed extension does not change THEN change file extension dialog is not shown`() = runTest(testDispatcher) {
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 downloads = mapOf(
@@ -1383,7 +1418,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1395,13 +1431,13 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(store.state.isChangeFileExtensionDialogVisible)
     }
 
     @Test
-    fun `GIVEN rename dialog shown WHEN the extension of proposed file name is removed THEN change file extension dialog is not shown`() {
+    fun `GIVEN rename dialog shown WHEN the extension of proposed file name is removed THEN change file extension dialog is not shown`() = runTest(testDispatcher) {
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 downloads = mapOf(
@@ -1423,7 +1459,8 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIRenameMiddleware(
                     browserStore = browserStore,
-                    scope = scope,
+                    scope = testScope,
+                    mainDispatcher = testDispatcher,
                 ),
             ),
         )
@@ -1435,7 +1472,7 @@ class DownloadUIStoreTest {
             ),
         )
 
-        dispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(store.state.isChangeFileExtensionDialogVisible)
     }
@@ -1446,15 +1483,17 @@ class DownloadUIStoreTest {
         val browserStore = BrowserStore(initialState = initialState)
 
         val deleteMiddleware = DownloadDeleteMiddleware(
-            testContext.getUndoDelay(),
+            testDelay,
             DownloadsUseCases.RemoveDownloadUseCase(browserStore),
-            dispatcher,
+            testDispatcher,
         )
+
+        testDispatcher.scheduler.advanceUntilIdle()
 
         val downloadUIMapperMiddleware = DownloadUIMapperMiddleware(
             browserStore = browserStore,
             fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
-            scope = scope,
+            scope = testScope,
             dateTimeProvider = fakeDateTimeProvider,
         )
 

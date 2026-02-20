@@ -1201,6 +1201,8 @@ abstract class BaseBrowserFragment :
                         created.fullAddress
                     }
                 },
+                isEmailMaskFeatureEnabled = { context.settings().isEmailMaskFeatureEnabled },
+                isSuggestEmailMaskEnabled = { context.settings().isEmailMaskSuggestionEnabled },
                 shouldAutomaticallyShowSuggestedPassword = { context.settings().isFirstTimeEngagingWithSignup },
                 onFirstTimeEngagedWithSignup = {
                     context.settings().isFirstTimeEngagingWithSignup = false

@@ -32,6 +32,7 @@
 
   const DIRECTION_FORWARD = 1;
   const DIRECTION_BACKWARD = -1;
+  const TAB_LABEL_MAX_LENGTH = 256;
 
   /**
    * Updates the User Context UI indicators if the browser is in a non-default context
@@ -2125,6 +2126,11 @@
         aLabel = aLabel.replace(this._regex_shortenURLForTabLabel, "");
       }
 
+      if (aLabel.length > TAB_LABEL_MAX_LENGTH) {
+        // Clamp overly-long titles to avoid DoS-type hangs (bug 736194).
+        aLabel = aLabel.substring(0, TAB_LABEL_MAX_LENGTH);
+      }
+
       aTab._labelIsContentTitle = isContentTitle;
 
       if (aTab.getAttribute("label") == aLabel) {
@@ -3828,29 +3834,46 @@
      * @param {boolean} [options.selectTab]
      * @returns {MozSplitViewWrapper}
      */
-    adoptSplitView(container, { elementIndex, tabIndex } = {}) {
+    adoptSplitView(container, { elementIndex, tabIndex, selectTab } = {}) {
       if (container.ownerDocument == document) {
         return container;
       }
 
+      let oldSelectedTab =
+        selectTab && container.ownerGlobal.gBrowser.selectedTab;
       let newTabs = [];
 
-      if (!tabIndex && elementIndex) {
+      if (typeof elementIndex == "number") {
         tabIndex = this.#elementIndexToTabIndex(elementIndex);
       }
 
+      // When tabs are adopted across windows, they exit the tab split of the
+      // source window, moved to the new window, and finally moved into a split
+      // view in the new window. Although the splitViewId stays effectively the
+      // same, the TabMove event fire a few times for these transitions.
+      // To reduce noise in extension API events, we temporarily flag these
+      // tabs to allow ext-tabs.js to filter out such TabMove events.
       for (let tab of container.tabs) {
+        tab.removedByAdoption = true;
         let adoptedTab = this.adoptTab(tab, {
           tabIndex,
+          selectTab: tab === oldSelectedTab,
         });
+        adoptedTab.addedByAdoption = true;
         newTabs.push(adoptedTab);
         tabIndex = adoptedTab._tPos + 1;
       }
 
-      return this.addTabSplitView(newTabs, {
-        id: container.splitViewId,
-        insertBefore: newTabs[0],
-      });
+      try {
+        return this.addTabSplitView(newTabs, {
+          id: container.splitViewId,
+          insertBefore: newTabs[0],
+        });
+      } finally {
+        for (let tab of newTabs) {
+          delete tab.addedByAdoption;
+        }
+      }
     }
 
     /**
@@ -6834,7 +6857,14 @@
           if (neighbor?.splitview) {
             neighbor = neighbor.splitview;
           }
-          if (neighbor && this.isTab(element) && tabIndex > element._tPos) {
+          let useAfter = false;
+          if (this.isTab(element)) {
+            useAfter = neighbor && tabIndex > element._tPos;
+          } else if (this.isSplitViewWrapper(element)) {
+            useAfter = neighbor && tabIndex >= this.tabs.length - 1;
+          }
+
+          if (useAfter) {
             neighbor.after(element);
           } else {
             this.tabContainer.insertBefore(element, neighbor);
