@@ -1036,7 +1036,8 @@ class RemotePoliciesProvider {
   }
 
   _performPolling() {
-    lazy.ConsoleClient.getRemotePolicies()
+    lazy.ConsoleClient.collectDevicePosture()
+      .then(posture => lazy.ConsoleClient.getRemotePolicies(posture))
       .then(jsonResponse => {
         this._hasRemoteConnection = true;
         this._ingestPolicies(jsonResponse);
@@ -1086,7 +1087,15 @@ class RemotePoliciesProvider {
 
     let res;
     try {
-      res = await lazy.ConsoleClient.getRemotePolicies();
+      // Device posture is supplementary; if collecting it fails, fall back to a
+      // plain policy fetch rather than failing policy initialization.
+      let posture = null;
+      try {
+        posture = await lazy.ConsoleClient.collectDevicePosture();
+      } catch (e) {
+        console.error(`Failed to collect device posture on startup: ${e}`);
+      }
+      res = await lazy.ConsoleClient.getRemotePolicies(posture);
     } catch (e) {
       console.error(`Failed to fetch remote policies on startup: ${e}`);
       this._failed = true;
