@@ -1036,7 +1036,7 @@ class RemotePoliciesProvider {
   }
 
   _performPolling() {
-    lazy.ConsoleClient.collectDevicePosture()
+    lazy.ConsoleClient.collectDevicePosture({ waitForAddons: true })
       .then(posture => lazy.ConsoleClient.getRemotePolicies(posture))
       .then(jsonResponse => {
         this._hasRemoteConnection = true;
