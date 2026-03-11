@@ -218,13 +218,16 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetches remote enterprise policies.
+   * Fetches remote enterprise policies, optionally including device posture.
    *
+   * @param {object} [devicePosture] - Device posture to include in request.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies() {
-    const payload = await this._get(this._paths.REMOTE_POLICIES);
-    return payload;
+  async getRemotePolicies(devicePosture = null) {
+    if (devicePosture) {
+      return this._post(this._paths.REMOTE_POLICIES, devicePosture);
+    }
+    return this._get(this._paths.REMOTE_POLICIES);
   },
 
   /**
@@ -347,7 +350,7 @@ export const ConsoleClient = {
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
   async sendDevicePosture() {
-    const devicePosture = await this._collectDevicePosture();
+    const devicePosture = await this.collectDevicePosture();
     const url = this.constructURI(this._paths.DEVICE_POSTURE);
 
     const res = await this._xhrFetch(url, {
@@ -576,7 +579,7 @@ export const ConsoleClient = {
    *
    * @returns {Promise<DevicePosture>} devicePosture
    */
-  async _collectDevicePosture() {
+  async collectDevicePosture() {
     const getImeiValue = async () => {
       try {
         return await Cc["@mozilla.org/imei/provider;1"]
