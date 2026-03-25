@@ -55,7 +55,13 @@ impl PingUploader for ViaductUploader {
 
         #[cfg(feature = "felt")]
         let result = modify_for_enterprise(upload_request)
-            .and_then(|upload_request| viaduct_upload(upload_request));
+            .and_then(|upload_request| viaduct_upload(upload_request))
+            .map(|r| match r {
+                // 401 means the access token is expired or revoked.
+                // Treat as recoverable so Glean retries after the token is refreshed.
+                UploadResult::HttpStatus { code: 401 } => UploadResult::recoverable_failure(),
+                other => other,
+            });
 
         // Localhost-destined pings are sent without OHTTP,
         // even if configured to use OHTTP.
