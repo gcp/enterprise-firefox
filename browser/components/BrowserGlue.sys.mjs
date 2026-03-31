@@ -1549,7 +1549,15 @@ BrowserGlue.prototype = {
       return;
     }
 
-    if (AppConstants.MOZ_ENTERPRISE) {
+    // When Firefox was launched by FELT, show a signout confirmation prompt
+    // instead of the standard quit dialog. Skip if EnterpriseHandler never
+    // finished initializing (e.g. policy fetch failed) to avoid hanging on a
+    // modal dialog during an error-recovery quit.
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.felt?.isFeltBrowser() &&
+      lazy.EnterpriseHandler._isInitialized
+    ) {
       // Reset from any previous cancelled quit attempt
       lazy.EnterpriseHandler._signoutAuthorized = false;
       const topWindow = lazy.BrowserWindowTracker.getTopWindow({

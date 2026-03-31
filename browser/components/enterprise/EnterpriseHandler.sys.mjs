@@ -383,6 +383,10 @@ export const EnterpriseHandler = {
     if (!this.showSignoutPrompt(window)) {
       return;
     }
+    await this.initiateShutdown();
+  },
+
+  async initiateShutdown() {
     // TODO: Bug 2001029 - Assert or force-enable session restore?
     try {
       await lazy.ConsoleClient.signoutUser();
