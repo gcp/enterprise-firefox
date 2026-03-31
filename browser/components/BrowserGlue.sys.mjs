@@ -79,6 +79,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    EnterpriseHandler:
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+  });
+}
+
 XPCOMUtils.defineLazyServiceGetters(lazy, {
   BrowserHandler: ["@mozilla.org/browser/clh;1", Ci.nsIBrowserHandler],
   PushService: ["@mozilla.org/push/Service;1", Ci.nsIPushService],
@@ -1540,6 +1547,23 @@ BrowserGlue.prototype = {
 
     if (aQuitType == "restart" || aQuitType == "os-restart") {
       return;
+    }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      // Reset from any previous cancelled quit attempt
+      lazy.EnterpriseHandler._signoutAuthorized = false;
+      const topWindow = lazy.BrowserWindowTracker.getTopWindow({
+        allowFromInactiveWorkspace: true,
+      });
+      if (topWindow) {
+        if (lazy.EnterpriseHandler.showSignoutPrompt(topWindow)) {
+          lazy.EnterpriseHandler._signoutAuthorized = true;
+          this._quitSource = "unknown";
+        } else {
+          aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
+        }
+        return;
+      }
     }
 
     // browser.warnOnQuit is a hidden global boolean to override all quit prompts.
