@@ -16,6 +16,12 @@ enterprise-panel-sign-out-btn =
     .label = Sign out…
 
 enterprise-signout-prompt-title = Sign out of { -brand-short-name }?
+# $tabCount (Number) - the number of open tabs
+enterprise-signout-prompt-title-tabs =
+    Sign out and close { $tabCount } { $tabCount ->
+        [one] tab
+       *[other] tabs
+    }?
 enterprise-signout-prompt-message = You’re signing out of your { -brand-short-name } browser. To use it again, you’ll need to re-authenticate through your company’s SSO provider.
 enterprise-signout-prompt-checkbox-label = Show this message when signing out.
 enterprise-signout-prompt-primary-btn-label = Sign out
