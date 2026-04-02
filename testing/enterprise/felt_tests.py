@@ -424,6 +424,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/sso/logout":
             self.check_auth()
+            if hasattr(self.server, "logout_post_received"):
+                self.server.logout_post_received.value = 1
             m = json.dumps(None)
 
         elif path == "/api/browser/forced_updates_count":
@@ -483,6 +485,7 @@ def serve(
     policy_access_token=None,
     policy_refresh_token=None,
     policies_fail_request=None,
+    logout_post_received=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -504,6 +507,8 @@ def serve(
     httpd.policies_fail_request = (
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
     )
+    if logout_post_received is not None:
+        httpd.logout_post_received = logout_post_received
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -619,20 +624,23 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.policy_access_token = SharedString(str(uuid.uuid4()))
         self.policy_refresh_token = SharedString(str(uuid.uuid4()))
 
+        console_kwargs = dict(
+            sso_port=self.sso_port,
+            console_port=self.console_port,
+            policy_block_about_config=self.policy_block_about_config,
+            policy_extensions=self.policy_extensions,
+            policy_access_token=self.policy_access_token,
+            policy_refresh_token=self.policy_refresh_token,
+            policies_fail_request=self.policies_fail_request,
+            # TODO: Behavior is not yet clearly defined
+            # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
+        )
+        if hasattr(self, "logout_post_received"):
+            console_kwargs["logout_post_received"] = self.logout_post_received
         self.console_httpd = Process(
             target=serve,
             args=(self.console_port, ConsoleHttpHandler),
-            kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
-                policy_block_about_config=self.policy_block_about_config,
-                policy_extensions=self.policy_extensions,
-                policy_access_token=self.policy_access_token,
-                policy_refresh_token=self.policy_refresh_token,
-                policies_fail_request=self.policies_fail_request,
-                # TODO: Behavior is not yet clearly defined
-                # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
-            ),
+            kwargs=console_kwargs,
         )
         self.console_httpd.start()
 
