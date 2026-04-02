@@ -427,7 +427,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise
-          .then(ev => {
+          .then(async ev => {
             lazy.ConsoleClient.isSessionRefreshBlocked = false;
             console.debug(`firefox exit: ev`, JSON.stringify(ev));
             console.debug(
@@ -438,6 +438,15 @@ export class FeltProcessParent extends JSProcessActorParent {
               if (this.proc.exitCode === 0) {
                 this.abnormalExitCounter = 0;
                 this.abnormalExitFirstTime = 0;
+                // A clean exit that wasn't a restart or explicit logout
+                // means the user closed Firefox. Sign out the session.
+                try {
+                  await lazy.ConsoleClient._post(
+                    lazy.ConsoleClient._paths.SIGNOUT
+                  );
+                } catch (e) {
+                  console.error(`FeltExtension: Failed to post signout: ${e}`);
+                }
                 Services.cpmm.sendAsyncMessage(
                   "FeltParent:FirefoxNormalExit",
                   {}
