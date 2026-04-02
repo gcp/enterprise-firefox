@@ -3,9 +3,6 @@
 
 "use strict";
 
-const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource:///modules/enterprise/ConsoleClient.sys.mjs"
-);
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
 
 add_setup(function () {

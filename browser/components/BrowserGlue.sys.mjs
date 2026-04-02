@@ -1550,12 +1550,13 @@ BrowserGlue.prototype = {
     }
 
     // When Firefox was launched by FELT, show a signout confirmation prompt
-    // instead of the standard quit dialog. Skip if EnterpriseHandler never
-    // finished initializing (e.g. policy fetch failed) to avoid hanging on a
-    // modal dialog during an error-recovery quit.
+    // instead of the standard quit dialog for user-initiated closes/quits.
+    // Skip if EnterpriseHandler never finished initializing (e.g. policy fetch
+    // failed) to avoid hanging on a modal dialog during an error-recovery quit.
     if (
       AppConstants.MOZ_ENTERPRISE &&
       Services.felt?.isFeltBrowser() &&
+      this._quitSource != "unknown" &&
       lazy.EnterpriseHandler._isInitialized
     ) {
       // Reset from any previous cancelled quit attempt
@@ -1566,10 +1567,10 @@ BrowserGlue.prototype = {
       if (topWindow) {
         if (lazy.EnterpriseHandler.showSignoutPrompt(topWindow)) {
           lazy.EnterpriseHandler._signoutAuthorized = true;
-          this._quitSource = "unknown";
         } else {
           aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
         }
+        this._quitSource = "unknown";
         return;
       }
     }

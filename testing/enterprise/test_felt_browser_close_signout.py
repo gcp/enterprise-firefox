@@ -41,12 +41,20 @@ class BrowserCloseSignout(FeltTests):
         self.assert_user_signed_in(env=Environment.FIREFOX)
 
         felt_tokens_before = self.get_tokens(Environment.FELT)
-        assert len(felt_tokens_before[0]) > 0, "FELT access token should be set before close"
-        assert len(felt_tokens_before[1]) > 0, "FELT refresh token should be set before close"
+        assert len(felt_tokens_before[0]) > 0, (
+            "FELT access token should be set before close"
+        )
+        assert len(felt_tokens_before[1]) > 0, (
+            "FELT refresh token should be set before close"
+        )
 
         firefox_tokens_before = self.get_tokens(Environment.FIREFOX)
-        assert len(firefox_tokens_before[0]) > 0, "Firefox access token should be set before close"
-        assert len(firefox_tokens_before[1]) > 0, "Firefox refresh token should be set before close"
+        assert len(firefox_tokens_before[0]) > 0, (
+            "Firefox access token should be set before close"
+        )
+        assert len(firefox_tokens_before[1]) > 0, (
+            "Firefox refresh token should be set before close"
+        )
 
         # Disable the confirmation prompt so showSignoutPrompt() returns true
         # immediately and the appShutdownConfirmed blocker proceeds with signout.
@@ -55,16 +63,22 @@ class BrowserCloseSignout(FeltTests):
                 "Services.prefs.setBoolPref('enterprise.promptOnSignout', false);"
             )
 
-        # Use Marionette's application-level quit (Marionette:Quit command)
-        # which fires quit-application-requested through the proper channel,
-        # triggering the FELT signout flow in BrowserGlue._onQuitRequest.
         logout_checker = FeltLogoutChecker(self)
         with logout_checker.assert_browser_logouts_with("normal"):
             try:
-                self._child_driver._request_in_app_shutdown()
-            except OSError:
+                with self._child_driver.using_context("chrome"):
+                    self._child_driver.execute_script(
+                        """
+                        setTimeout(() => {
+                            goQuitApplication({
+                                sourceEvent: { target: { id: "menu_FileQuitItem" } },
+                            });
+                        }, 0);
+                        """
+                    )
+                self._child_driver.delete_session(send_request=False)
+            except Exception:
                 pass
-            self._child_driver.delete_session(send_request=False)
             self._manually_closed_child = True
 
         self.wait_process_exit(browser_pid)
