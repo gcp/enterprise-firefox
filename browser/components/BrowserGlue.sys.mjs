@@ -80,6 +80,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    EnterpriseHandler:
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+  });
+}
+
 XPCOMUtils.defineLazyServiceGetters(lazy, {
   BrowserHandler: ["@mozilla.org/browser/clh;1", Ci.nsIBrowserHandler],
   PushService: ["@mozilla.org/push/Service;1", Ci.nsIPushService],
@@ -1541,6 +1548,33 @@ BrowserGlue.prototype = {
 
     if (aQuitType == "restart" || aQuitType == "os-restart") {
       return;
+    }
+
+    // When Firefox was launched by FELT, show a signout confirmation prompt
+    // instead of the standard quit dialog for user-initiated closes/quits.
+    // Skip if EnterpriseHandler never finished initializing (e.g. policy fetch
+    // failed) to avoid hanging on a modal dialog during an error-recovery quit.
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.felt?.isFeltBrowser() &&
+      this._quitSource != "unknown" &&
+      lazy.EnterpriseHandler._isInitialized
+    ) {
+      const topWindow = lazy.BrowserWindowTracker.getTopWindow({
+        allowFromInactiveWorkspace: true,
+      });
+      if (topWindow) {
+        if (lazy.EnterpriseHandler.showSignoutPrompt(topWindow)) {
+          // Cancel the original quit and let initiateShutdown() handle
+          // the signout (POST /sso/logout) then force-quit.
+          aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
+          void lazy.EnterpriseHandler.initiateShutdown();
+        } else {
+          aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
+        }
+        this._quitSource = "unknown";
+        return;
+      }
     }
 
     // browser.warnOnQuit is a hidden global boolean to override all quit prompts.
