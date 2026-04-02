@@ -1557,13 +1557,12 @@ BrowserGlue.prototype = {
     if (
       AppConstants.MOZ_ENTERPRISE &&
       Services.felt?.isFeltBrowser() &&
-      this._quitSource != "unknown" &&
       lazy.EnterpriseHandler._isInitialized
     ) {
       const topWindow = lazy.BrowserWindowTracker.getTopWindow({
         allowFromInactiveWorkspace: true,
       });
-      if (topWindow) {
+      if (topWindow && this._quitSource != "unknown") {
         if (lazy.EnterpriseHandler.showSignoutPrompt(topWindow)) {
           // Cancel the original quit and let initiateShutdown() handle
           // the signout (POST /sso/logout) then force-quit.
@@ -1573,6 +1572,13 @@ BrowserGlue.prototype = {
           aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
         }
         this._quitSource = "unknown";
+        return;
+      }
+      if (!topWindow) {
+        // No browser windows open (e.g. quit from macOS dock after closing
+        // all windows). Sign out without prompting.
+        aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
+        void lazy.EnterpriseHandler.initiateShutdown();
         return;
       }
     }
