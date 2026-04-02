@@ -5,10 +5,10 @@
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "localization", () => {
-  return new Localization([
-    "browser/enterprise/enterprise.ftl",
-    "branding/brand.ftl",
-  ]);
+  return new Localization(
+    ["browser/enterprise/enterprise.ftl", "branding/brand.ftl"],
+    true
+  );
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -318,20 +318,38 @@ export const EnterpriseHandler = {
     window.PanelUI.mainView.setAttribute("restricted-enterprise-view", true);
   },
 
-  async onSignOut(window) {
+  /**
+   * Displays the signout confirmation prompt if the promptOnSignout pref is
+   * set, and saves the pref if the user unchecks it.
+   *
+   * @param {Window} window - Chrome window to use as dialog parent.
+   * @returns {boolean} true if shutdown should proceed, false if the user cancelled.
+   */
+  showSignoutPrompt(window) {
     const shouldInformOnSignout = Services.prefs.getBoolPref(
       PROMPT_ON_SIGNOUT_PREF,
       true
     );
 
     if (!shouldInformOnSignout) {
-      await this.initiateShutdown();
-      return;
+      return true;
     }
 
+    let tabCount = 0;
+    for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.closed && win.gBrowser) {
+        tabCount += win.gBrowser.openTabs.length;
+      }
+    }
+
+    const titleId =
+      tabCount >= 2
+        ? { id: "enterprise-signout-prompt-title-tabs", args: { tabCount } }
+        : { id: "enterprise-signout-prompt-title" };
+
     const [title, message, checkLabel, signoutBtnLabel] =
-      await lazy.localization.formatValues([
-        { id: "enterprise-signout-prompt-title" },
+      lazy.localization.formatValuesSync([
+        titleId,
         { id: "enterprise-signout-prompt-message" },
         { id: "enterprise-signout-prompt-checkbox-label" },
         { id: "enterprise-signout-prompt-primary-btn-label" },
@@ -342,10 +360,10 @@ export const EnterpriseHandler = {
       Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
       Services.prompt.BUTTON_POS_0_DEFAULT;
 
+    const checkState = { value: true };
     // buttonPressed will be 0 for Signout and 1 for Cancel
-    const result = await Services.prompt.asyncConfirmEx(
-      window.browsingContext,
-      Services.prompt.MODAL_TYPE_INTERNAL_WINDOW,
+    const buttonPressed = Services.prompt.confirmEx(
+      window,
       title,
       message,
       flags,
@@ -353,25 +371,37 @@ export const EnterpriseHandler = {
       null,
       null,
       checkLabel,
-      true // checkbox checked
+      checkState
     );
 
-    if (result.get("buttonNumClicked") === 1) {
+    if (buttonPressed === 1) {
       // User canceled signout. Also ignore any checkbox toggling.
+      return false;
+    }
+
+    if (!checkState.value) {
+      // User unchecked the option to be prompted before signout
+      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, checkState.value);
+    }
+
+    return true;
+  },
+
+  /**
+   * Handles the signout button in the enterprise panel: shows the confirmation
+   * prompt if needed, then signs out and force-quits.
+   *
+   * @param {Window} window - Chrome window to use as dialog parent.
+   */
+  async onSignOut(window) {
+    if (!this.showSignoutPrompt(window)) {
       return;
     }
-
-    if (!result.get("checked")) {
-      // User unchecked the option to be prompted before signout
-      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, result.get("checked"));
-    }
-
     await this.initiateShutdown();
   },
 
   async initiateShutdown() {
     // TODO: Bug 2001029 - Assert or force-enable session restore?
-
     try {
       await lazy.ConsoleClient.signoutUser();
     } catch (e) {
