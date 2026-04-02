@@ -1557,14 +1557,11 @@ BrowserGlue.prototype = {
       Services.felt?.isFeltBrowser() &&
       lazy.EnterpriseHandler._isInitialized
     ) {
-      const topWindow = lazy.BrowserWindowTracker.getTopWindow({
+      const promptWindow = lazy.BrowserWindowTracker.getTopWindow({
         allowFromInactiveWorkspace: true,
       });
-      if (topWindow) {
-        if (!lazy.EnterpriseHandler.showSignoutPrompt(topWindow)) {
-          aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
-        }
-        return;
+      if (!lazy.EnterpriseHandler.showSignoutPrompt(promptWindow)) {
+        aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
       }
       return;
     }
