@@ -296,6 +296,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "text/xml"
 
         elif path == "/sso/callback":
+            self.server.policy_access_token.value = str(uuid.uuid4())
+            self.server.policy_refresh_token.value = str(uuid.uuid4())
             policy_access_token = self.server.policy_access_token.value
             policy_refresh_token = self.server.policy_refresh_token.value
 
@@ -424,6 +426,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/sso/logout":
             self.check_auth()
+            with self.server.signout_count.get_lock():
+                self.server.signout_count.value += 1
+            self.server.policy_access_token.value = ""
+            self.server.policy_refresh_token.value = ""
             m = json.dumps(None)
 
         elif path == "/api/browser/forced_updates_count":
@@ -483,6 +489,7 @@ def serve(
     policy_access_token=None,
     policy_refresh_token=None,
     policies_fail_request=None,
+    signout_count=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -504,6 +511,7 @@ def serve(
     httpd.policies_fail_request = (
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
     )
+    httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -616,8 +624,9 @@ class FeltTestsBase(EnterpriseTestsBase):
         if hasattr(self, "EXTRA_PREFS"):
             self._extra_prefs.update(self.EXTRA_PREFS)
 
-        self.policy_access_token = SharedString(str(uuid.uuid4()))
-        self.policy_refresh_token = SharedString(str(uuid.uuid4()))
+        self.policy_access_token = SharedString("")
+        self.policy_refresh_token = SharedString("")
+        self.signout_count = Value("i", 0)
 
         self.console_httpd = Process(
             target=serve,
@@ -630,6 +639,7 @@ class FeltTestsBase(EnterpriseTestsBase):
                 policy_access_token=self.policy_access_token,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
+                signout_count=self.signout_count,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),
