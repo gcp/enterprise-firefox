@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   isBlockingShutdown: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
@@ -247,15 +248,27 @@ this.felt = class extends ExtensionAPI {
           this
         );
 
-        // This is only useful for testing purpose when we need to exit the
-        // browser cleanly but need to keep felt alive for some processing after
-        if (!lazy.isBlockingShutdown()) {
-          Services.startup.quit(
-            Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-          );
-        } else if (!this._win) {
-          Services.felt.makeBackgroundProcess(false);
-          this.showWindow();
+        const doShutdown = () => {
+          // This is only useful for testing purpose when we need to exit the
+          // browser cleanly but need to keep felt alive for some processing after
+          if (!lazy.isBlockingShutdown()) {
+            Services.startup.quit(
+              Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+            );
+          } else if (!this._win) {
+            Services.felt.makeBackgroundProcess(false);
+            this.showWindow();
+          }
+        };
+
+        if (message.data?.performLogout === true) {
+          lazy.ConsoleClient._post(lazy.ConsoleClient._paths.SIGNOUT)
+            .catch(e => {
+              console.error(`FeltExtension: Failed to post signout: ${e}`);
+            })
+            .then(doShutdown);
+        } else {
+          doShutdown();
         }
         break;
       }
