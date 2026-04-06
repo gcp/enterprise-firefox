@@ -394,7 +394,7 @@ export const EnterpriseHandler = {
    */
   async onSignOut(window) {
     if (!Services.prefs.getBoolPref(PROMPT_ON_SIGNOUT_PREF, true)) {
-      Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+      await this.initiateShutdown();
       return;
     }
 
@@ -429,7 +429,19 @@ export const EnterpriseHandler = {
       return;
     }
 
-    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    await this.initiateShutdown();
+  },
+
+  async initiateShutdown() {
+    // TODO: Bug 2001029 - Assert or force-enable session restore?
+
+    try {
+      await lazy.ConsoleClient.signoutUser();
+    } catch (e) {
+      console.error(`Unable to signout the user: ${e}`);
+    } finally {
+      Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    }
   },
 
   uninit() {
