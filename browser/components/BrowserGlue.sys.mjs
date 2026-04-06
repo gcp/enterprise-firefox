@@ -1555,7 +1555,7 @@ BrowserGlue.prototype = {
     if (
       AppConstants.MOZ_ENTERPRISE &&
       Services.felt?.isFeltBrowser() &&
-      lazy.EnterpriseHandler._isInitialized
+      Services.prefs.getBoolPref("enterprise.promptOnSignout", true)
     ) {
       const promptWindow = lazy.BrowserWindowTracker.getTopWindow({
         allowFromInactiveWorkspace: true,
