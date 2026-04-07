@@ -25,7 +25,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   });
 });
 
-const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
+const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";
 const LEARN_MORE_URL_PREF = "enterprise.configs.learn_more_url";
 
@@ -322,10 +322,10 @@ export const EnterpriseHandler = {
       }
     }
 
-    const titleId =
-      tabCount >= 2
-        ? { id: "enterprise-signout-prompt-title-tabs", args: { tabCount } }
-        : { id: "enterprise-signout-prompt-title" };
+    const titleId = {
+      id: "enterprise-signout-prompt-title",
+      args: { tabCount },
+    };
 
     return {
       titleId,
