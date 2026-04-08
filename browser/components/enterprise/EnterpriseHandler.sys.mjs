@@ -440,7 +440,7 @@ export const EnterpriseHandler = {
     } catch (e) {
       console.error(`Unable to signout the user: ${e}`);
     } finally {
-      Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
     }
   },
 

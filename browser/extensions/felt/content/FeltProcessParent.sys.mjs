@@ -427,7 +427,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise
-          .then(async ev => {
+          .then(ev => {
             lazy.ConsoleClient.isSessionRefreshBlocked = false;
             console.debug(`firefox exit: ev`, JSON.stringify(ev));
             console.debug(
