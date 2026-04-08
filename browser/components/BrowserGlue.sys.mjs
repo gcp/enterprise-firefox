@@ -1555,13 +1555,14 @@ BrowserGlue.prototype = {
     if (
       AppConstants.MOZ_ENTERPRISE &&
       Services.felt?.isFeltBrowser() &&
-      Services.prefs.getBoolPref("enterprise.prompt_on_signout", true)
+      lazy.EnterpriseHandler.isSignoutPromptEnabled()
     ) {
       const promptWindow = lazy.BrowserWindowTracker.getTopWindow({
         allowFromInactiveWorkspace: true,
       });
       if (!lazy.EnterpriseHandler.showSignoutPrompt(promptWindow)) {
         aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
+        this._quitSource = "unknown";
       }
       return;
     }

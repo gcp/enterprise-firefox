@@ -16,9 +16,9 @@ enterprise-panel-sign-out-btn =
     .label = Sign out…
 
 # $tabCount (Number) - the number of open tabs
-enterprise-signout-prompt-title =
+enterprise-signout-prompt-title2 =
     { $tabCount ->
-        [zero] Sign out of { -brand-short-name }?
+        [0] Sign out of { -brand-short-name }?
         [one] Sign out of { -brand-short-name }?
        *[other] Sign out and close { $tabCount } tabs?
     }

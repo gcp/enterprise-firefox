@@ -323,7 +323,7 @@ export const EnterpriseHandler = {
     }
 
     const titleId = {
-      id: "enterprise-signout-prompt-title",
+      id: "enterprise-signout-prompt-title2",
       args: { tabCount },
     };
 
@@ -349,6 +349,10 @@ export const EnterpriseHandler = {
     return true;
   },
 
+  isSignoutPromptEnabled() {
+    return Services.prefs.getBoolPref(PROMPT_ON_SIGNOUT_PREF, true);
+  },
+
   /**
    * Synchronous signout prompt for the quit-application-requested observer,
    * which must return a result before the quit proceeds.
@@ -357,7 +361,7 @@ export const EnterpriseHandler = {
    * @returns {boolean} true if quit should proceed, false if cancelled.
    */
   showSignoutPrompt(window) {
-    if (!Services.prefs.getBoolPref(PROMPT_ON_SIGNOUT_PREF, true)) {
+    if (!this.isSignoutPromptEnabled()) {
       return true;
     }
 
