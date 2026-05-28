@@ -9,6 +9,9 @@ support-files = [
   "VacuumParticipant.sys.mjs",
 ]
 
+["test_attach_database_uri_encoded_path.js"]
+prefs = ["security.storage.encryption.sqlite.enabled=true"]
+
 ["test_bindArray.js"]
 
 ["test_bug-365166.js"]
