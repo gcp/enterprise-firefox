@@ -258,29 +258,49 @@ void basicFunctionHelper(sqlite3_context* aCtx, int aArgc,
 
 using mozilla::storage::PreparePathForURI;
 
-// Split a file: URI into path and query, or accept a bare filesystem path
-// (the shape PRAGMA database_list returns for attached databases).
-nsresult ExtractURIPathAndQuery(const char* uri, nsCString& path,
-                                nsCString& query) {
-  if (strstr(uri, "file:") != uri) {
-    path.AssignASCII(uri);
-    query.Truncate();
+nsresult ExtractURIPathAndQuery(const char* aURI, nsCString& aPath,
+                                nsCString& aQuery) {
+  if (strncmp(aURI, "file:", 5) != 0) {
+    aPath.Assign(aURI);
+    aQuery.Truncate();
     return NS_OK;
   }
-  const char* queryDelim = strstr(uri, "?");
-  if (!queryDelim) {
-    path.AssignASCII(uri + 5);
-    query.Truncate();
-    return NS_OK;
-  }
-  if (queryDelim == uri + 5) {
-    // "file:?..." with no path.
-    return NS_ERROR_FAILURE;
-  }
-  query.AssignASCII(
-      mozilla::Span<const char>(queryDelim + 1, uri + strlen(uri)));
-  path.AssignASCII(mozilla::Span<const char>(uri + 5, queryDelim));
+
+  nsCOMPtr<nsIURI> uri;
+  nsresult rv = NS_NewURI(getter_AddRefs(uri), nsDependentCString(aURI));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIFileURL> fileURL = do_QueryInterface(uri, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIFile> file;
+  rv = fileURL->GetFile(getter_AddRefs(file));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsAutoString path;
+  rv = file->GetPath(path);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  aPath = NS_ConvertUTF16toUTF8(path);
+
+  rv = uri->GetQuery(aQuery);
+  NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
+}
+
+void BuildFileURIWithKey(const nsACString& aEscapedPath,
+                         const nsACString& aQuery, const nsACString& aDBKey,
+                         nsACString& aURI) {
+  aURI.AssignLiteral("file:");
+  aURI.Append(aEscapedPath);
+  if (aQuery.IsEmpty()) {
+    aURI.AppendLiteral("?key=");
+  } else {
+    aURI.AppendLiteral("?");
+    aURI.Append(aQuery);
+    aURI.AppendLiteral("&key=");
+  }
+  aURI.Append(aDBKey);
 }
 
 RefPtr<QuotaObject> GetQuotaObject(sqlite3_file* aFile, bool obfuscatingVFS) {
@@ -2064,15 +2084,14 @@ nsresult Connection::initializeClone(Connection* aClone, bool aReadOnly) {
 
           if (mDatabaseEncrypted) {
             nsCString aDBKey, query;
-            rv = key::GetKeyByPath(path.get(), aDBKey);
-            NS_ENSURE_SUCCESS(rv, rv);
-
             rv = ExtractURIPathAndQuery(path.get(), path, query);
             NS_ENSURE_SUCCESS(rv, rv);
 
+            rv = key::GetKeyByPath(path.get(), aDBKey);
+            NS_ENSURE_SUCCESS(rv, rv);
+
             PreparePathForURI(path);
-            // Create a URI to pass the key to obfsvfs
-            path = nsPrintfCString("file:%s?key=%s", path.get(), aDBKey.get());
+            BuildFileURIWithKey(path, query, aDBKey, path);
           }
           rv = attachStmt->BindUTF8StringByName("path"_ns, path);
           NS_ENSURE_SUCCESS(rv, rv);
@@ -2701,26 +2720,13 @@ Connection::AttachDatabase(const char* aPath, const char* aName,
     nsCString dbKey, path, query;
 
     rv = ExtractURIPathAndQuery(aPath, path, query);
+    NS_ENSURE_SUCCESS(rv, rv);
 
-    if (rv == NS_OK) {
-      rv = key::GetKeyByPath(path.get(), dbKey);
-      NS_ENSURE_SUCCESS(rv, rv);
+    rv = key::GetKeyByPath(path.get(), dbKey);
+    NS_ENSURE_SUCCESS(rv, rv);
 
-      PreparePathForURI(path);
-
-      uri = nsPrintfCString("file:%s?%s&key=%s", path.get(), query.get(),
-                            dbKey.get());
-    } else {
-      rv = key::GetKeyByPath(aPath, dbKey);
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      nsCString uriString;
-      uriString.AssignASCII(aPath);
-
-      PreparePathForURI(uriString);
-
-      uri = nsPrintfCString("file:%s?key=%s", uriString.get(), dbKey.get());
-    }
+    PreparePathForURI(path);
+    BuildFileURIWithKey(path, query, dbKey, uri);
   } else {
     uri = aPath;
   }
