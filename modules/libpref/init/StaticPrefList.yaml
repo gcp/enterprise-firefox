@@ -18643,6 +18643,15 @@
   value: false
   mirror: always
 
+# INTERNAL -- DO NOT ENABLE. Master switch for SQLite database encryption
+# via obfsvfs; enabling without the rest of the key-management stack will
+# corrupt profiles by reopening existing unencrypted databases expecting
+# ciphertext. Read at Connection::initialize, not hot-reloadable.
+- name: security.storage.encryption.sqlite.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: security.tls13.aes_128_gcm_sha256
   type: RelaxedAtomicBool
   value: true

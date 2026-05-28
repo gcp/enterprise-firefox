@@ -4,7 +4,10 @@
 
 #include "BaseVFS.h"
 #include "ErrorList.h"
+#include "ScopedNSSTypes.h"
+#include "nsNetUtil.h"
 #include "nsError.h"
+#include "nsLocalFile.h"
 #include "nsThreadUtils.h"
 #include "nsIFile.h"
 #include "nsIFileURL.h"
@@ -19,7 +22,9 @@
 #include "mozilla/ErrorNames.h"
 #include "mozilla/dom/quota/QuotaObject.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/security/KeyStorage.h"
 #include "mozilla/SpinEventLoopUntil.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "mozilla/StaticPrefs_storage.h"
 
 #include "mozIStorageCompletionCallback.h"
@@ -37,6 +42,7 @@
 #include "ObfuscatingVFS.h"
 #include "QuotaVFS.h"
 #include "StorageBaseStatementInternal.h"
+#include "mozilla/storage/StoragePathUtil.h"
 #include "mozilla/intl/AppCollator.h"
 #include "FileSystemModule.h"
 #include "mozStorageHelper.h"
@@ -248,6 +254,33 @@ void basicFunctionHelper(sqlite3_context* aCtx, int aArgc,
     ::sqlite3_result_error(aCtx, "User function returned invalid data type",
                            -1);
   }
+}
+
+using mozilla::storage::PreparePathForURI;
+
+// Split a file: URI into path and query, or accept a bare filesystem path
+// (the shape PRAGMA database_list returns for attached databases).
+nsresult ExtractURIPathAndQuery(const char* uri, nsCString& path,
+                                nsCString& query) {
+  if (strstr(uri, "file:") != uri) {
+    path.AssignASCII(uri);
+    query.Truncate();
+    return NS_OK;
+  }
+  const char* queryDelim = strstr(uri, "?");
+  if (!queryDelim) {
+    path.AssignASCII(uri + 5);
+    query.Truncate();
+    return NS_OK;
+  }
+  if (queryDelim == uri + 5) {
+    // "file:?..." with no path.
+    return NS_ERROR_FAILURE;
+  }
+  query.AssignASCII(
+      mozilla::Span<const char>(queryDelim + 1, uri + strlen(uri)));
+  path.AssignASCII(mozilla::Span<const char>(uri + 5, queryDelim));
+  return NS_OK;
 }
 
 RefPtr<QuotaObject> GetQuotaObject(sqlite3_file* aFile, bool obfuscatingVFS) {
@@ -804,6 +837,7 @@ Connection::Connection(Service* aService, int aFlags,
       mOpenNotExclusive(aOpenNotExclusive),
       mAsyncExecutionThreadShuttingDown(false),
       mConnectionClosed(false),
+      mDatabaseEncrypted(false),
       mGrowthChunkSize(0) {
   MOZ_ASSERT(!mIgnoreLockingMode || mFlags & SQLITE_OPEN_READONLY,
              "Can't ignore locking for a non-readonly connection!");
@@ -1075,6 +1109,46 @@ nsresult Connection::initialize(nsIFile* aDatabaseFile) {
   nsresult rv = aDatabaseFile->GetPath(path);
   NS_ENSURE_SUCCESS(rv, rv);
 
+  // Open through obfsvfs with a per-file key when encryption is on and
+  // the DB lives inside the profile. Outside-profile DBs (xpcshell tmp
+  // files) get NS_ERROR_NOT_AVAILABLE from the keystore and fall through
+  // to a plain open.
+  if (StaticPrefs::security_storage_encryption_sqlite_enabled()) {
+    if (!EnsureNSSInitializedChromeOrContent()) {
+      return NS_ERROR_FAILURE;
+    }
+
+    nsCString dbKey;
+    rv = key::GetKeyByFile(*aDatabaseFile, dbKey);
+    if (rv == NS_OK) {
+      mDatabaseEncrypted = true;
+
+      nsAutoCString dbPath = NS_ConvertUTF16toUTF8(path);
+      PreparePathForURI(dbPath);
+      nsAutoCString dbSpec = "file:"_ns + dbPath + "?key="_ns + dbKey;
+
+      int srv =
+          ::sqlite3_open_v2(dbSpec.get(), &mDBConn, mFlags | SQLITE_OPEN_URI,
+                            obfsvfs::GetVFSName());
+      if (srv != SQLITE_OK) {
+        ::sqlite3_close(mDBConn);
+        mDBConn = nullptr;
+        rv = convertResultCode(srv);
+        RecordOpenStatus(rv);
+        return rv;
+      }
+
+      rv = initializeInternal();
+      RecordOpenStatus(rv);
+      NS_ENSURE_SUCCESS(rv, rv);
+      return NS_OK;
+    } else if (rv != NS_ERROR_NOT_AVAILABLE) {
+      return rv;
+    }
+    MOZ_LOG(key::GetKeyStorageLog(), LogLevel::Debug,
+            ("Database outside profile; opening unencrypted"));
+  }
+
   bool exclusive =
       StaticPrefs::storage_sqlite_exclusiveLock_enabled() && !mOpenNotExclusive;
   int srv;
@@ -1165,6 +1239,26 @@ nsresult Connection::initialize(nsIFileURL* aFileURL) {
                          return true;
                        }));
 
+  if (StaticPrefs::security_storage_encryption_sqlite_enabled()) {
+    if (!EnsureNSSInitializedChromeOrContent()) {
+      return NS_ERROR_FAILURE;
+    }
+    mDatabaseEncrypted = true;
+    // If a key was manually passed already, assume it is correct.
+    if (!hasKey) {
+      hasKey = true;
+      nsCString dbKey;
+      rv = key::GetKeyByFile(*mDatabaseFile, dbKey);
+      if (rv == NS_ERROR_NOT_AVAILABLE) {
+        // Outside-profile DB; cannot key it stably, open unencrypted.
+        mDatabaseEncrypted = false;
+      } else {
+        NS_ENSURE_SUCCESS(rv, rv);
+        spec += (query.IsEmpty() ? "?key="_ns : "&key="_ns) + dbKey;
+      }
+    }
+  }
+
   bool exclusive =
       StaticPrefs::storage_sqlite_exclusiveLock_enabled() && !mOpenNotExclusive;
 
@@ -1215,7 +1309,13 @@ nsresult Connection::initializeInternal() {
         ("Opening connection to '%s' (%p)", mTelemetryFilename.get(), this));
   }
 
-  int64_t pageSize = Service::kDefaultPageSize;
+  // Encrypted DBs go through obfsvfs which writes whole pages of exactly
+  // obfsvfs::kObfsPageSize. If we issued PRAGMA page_size = 32768 here, the
+  // obfsvfs xWrite would see iAmt != kObfsPageSize and silently pass writes
+  // through to the base VFS plaintext, even though a DEK had been minted in
+  // lockstore. Match GetDefaultPageSize.
+  int64_t pageSize =
+      mDatabaseEncrypted ? obfsvfs::kObfsPageSize : Service::kDefaultPageSize;
 
   // Set page_size to the preferred default value.  This is effective only if
   // the database has just been created, otherwise, if the database does not
@@ -1961,6 +2061,19 @@ nsresult Connection::initializeClone(Connection* aClone, bool aReadOnly) {
           rv = aClone->CreateStatement("ATTACH DATABASE :path AS "_ns + name,
                                        getter_AddRefs(attachStmt));
           NS_ENSURE_SUCCESS(rv, rv);
+
+          if (mDatabaseEncrypted) {
+            nsCString aDBKey, query;
+            rv = key::GetKeyByPath(path.get(), aDBKey);
+            NS_ENSURE_SUCCESS(rv, rv);
+
+            rv = ExtractURIPathAndQuery(path.get(), path, query);
+            NS_ENSURE_SUCCESS(rv, rv);
+
+            PreparePathForURI(path);
+            // Create a URI to pass the key to obfsvfs
+            path = nsPrintfCString("file:%s?key=%s", path.get(), aDBKey.get());
+          }
           rv = attachStmt->BindUTF8StringByName("path"_ns, path);
           NS_ENSURE_SUCCESS(rv, rv);
           rv = attachStmt->Execute();
@@ -2162,7 +2275,11 @@ Connection::AsyncVacuum(mozIStorageCompletionCallback* aCallback,
 
 NS_IMETHODIMP
 Connection::GetDefaultPageSize(int32_t* _defaultPageSize) {
-  *_defaultPageSize = Service::kDefaultPageSize;
+  // Mirror of the PRAGMA page_size set in initializeInternal(); the value
+  // returned here must match the page size the database was actually
+  // created with, or obfsvfs writes will be dropped silently.
+  *_defaultPageSize =
+      mDatabaseEncrypted ? obfsvfs::kObfsPageSize : Service::kDefaultPageSize;
   return NS_OK;
 }
 
@@ -2569,6 +2686,60 @@ Connection::CreateTable(const char* aTableName, const char* aTableSchema) {
   int srv = executeSql(mDBConn, buf.get());
 
   return convertResultCode(srv);
+}
+
+NS_IMETHODIMP
+Connection::AttachDatabase(const char* aPath, const char* aName,
+                           mozIStorageStatementCallback* aCallback,
+                           mozIStoragePendingStatement** _handle) {
+  nsresult rv;
+  nsCString uri;
+
+  bool encryptionEnabled =
+      StaticPrefs::security_storage_encryption_sqlite_enabled();
+  if (encryptionEnabled) {
+    nsCString dbKey, path, query;
+
+    rv = ExtractURIPathAndQuery(aPath, path, query);
+
+    if (rv == NS_OK) {
+      rv = key::GetKeyByPath(path.get(), dbKey);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      PreparePathForURI(path);
+
+      uri = nsPrintfCString("file:%s?%s&key=%s", path.get(), query.get(),
+                            dbKey.get());
+    } else {
+      rv = key::GetKeyByPath(aPath, dbKey);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      nsCString uriString;
+      uriString.AssignASCII(aPath);
+
+      PreparePathForURI(uriString);
+
+      uri = nsPrintfCString("file:%s?key=%s", uriString.get(), dbKey.get());
+    }
+  } else {
+    uri = aPath;
+  }
+
+  nsCOMPtr<mozIStorageAsyncStatement> stmt;
+  rv = CreateAsyncStatement("ATTACH DATABASE :path AS "_ns + nsCString(aName),
+                            getter_AddRefs(stmt));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = stmt->BindUTF8StringByName("path"_ns, uri);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<mozIStoragePendingStatement> pendingStatement;
+  rv = stmt->ExecuteAsync(aCallback, getter_AddRefs(pendingStatement));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  pendingStatement.forget(_handle);
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP
