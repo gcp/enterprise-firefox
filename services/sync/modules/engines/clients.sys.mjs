@@ -1087,6 +1087,11 @@ ClientStore.prototype = {
 
       if (AppConstants.MOZ_ENTERPRISE) {
         try {
+          // Sync client records persist on the server, so the identifier is
+          // hashed here rather than stored as a raw device serial with that
+          // long-lived retention. The enterprise console, which keys devices
+          // by serial, retrieves the raw value more ephemerally via the device
+          // posture payload instead (see ConsoleClient.collectDevicePosture).
           record.machineId = await lazy.MachineId.getHashedId();
         } catch (error) {
           this._log.warn("failed to get machine id", error);

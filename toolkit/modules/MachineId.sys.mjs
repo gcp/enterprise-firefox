@@ -298,6 +298,12 @@ async function resolveMachineId() {
   }
 }
 
+// Two consumers read the machine ID with different persistence expectations:
+//   - Sync client records (services/sync) use getHashedId(): they persist on
+//     the server, so a hash is stored rather than the raw serial.
+//   - The enterprise console device posture (ConsoleClient) uses getRawId()
+//     plus getSource(): it keys devices by serial and retrieves it more
+//     ephemerally.
 export const MachineId = {
   // Resolves the machine ID to a { id, source } object (or null) and caches it.
   // The source tier the identifier came from is logged once so that a change of

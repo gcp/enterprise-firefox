@@ -8,6 +8,7 @@ const FELT_REFRESH_TIMEOUT = 60000;
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  MachineId: "resource://gre/modules/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
@@ -648,12 +649,19 @@ export const ConsoleClient = {
    */
 
   /**
+   * @typedef {object} DeviceMachineId
+   * @property {string} id Raw platform machine identifier (e.g. device serial).
+   * @property {string|null} source Source tier the identifier was resolved from.
+   */
+
+  /**
    * @typedef {object} DevicePosture
    * @property {object} os Telemetry-reported os information.
    * @property {object|undefined} security Telemetry-reported security software info (windows only)
    * @property {object} build Telemetry-reported build info info
    * @property {DeviceNetwork} network Network posture (placeholders for now).
    * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
+   * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
    */
 
   /**
@@ -711,6 +719,24 @@ export const ConsoleClient = {
       }
     };
 
+    // The console identifies a device by its raw machine identifier (e.g. the
+    // device serial); the source tier is reported alongside it so a change of
+    // source can be told apart from a genuine hardware change.
+    const getMachineId = async () => {
+      try {
+        const id = await lazy.MachineId.getRawId();
+        if (!id) {
+          return null;
+        }
+        return {
+          id,
+          source: await lazy.MachineId.getSource(),
+        };
+      } catch {
+        return null;
+      }
+    };
+
     const networkInterfaces = Cc["@mozilla.org/network/network-link-service;1"]
       .getService()
       .QueryInterface(Ci.nsINetworkLinkService).networkInterfaces;
@@ -733,6 +759,7 @@ export const ConsoleClient = {
         interfaces: networkInterfaces,
       },
       extensions: await getExtensions(),
+      machineId: await getMachineId(),
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
     };
