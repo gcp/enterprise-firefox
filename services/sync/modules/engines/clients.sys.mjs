@@ -21,6 +21,7 @@
  */
 
 import { Async } from "resource://services-common/async.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 import {
   DEVICE_TYPE_DESKTOP,
@@ -45,6 +46,10 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   return ChromeUtils.importESModule(
     "resource://gre/modules/FxAccounts.sys.mjs"
   ).getFxAccountsSingleton();
+});
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  MachineId: "resource://gre/modules/MachineId.sys.mjs",
 });
 
 import { PREF_ACCOUNT_ROOT } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
@@ -100,6 +105,7 @@ Utils.deferGetSet(ClientsRec, "cleartext", [
   "application",
   "device",
   "fxaDeviceId",
+  "machineId",
 ]);
 
 export function ClientEngine(service) {
@@ -1004,6 +1010,14 @@ ClientStore.prototype = {
       record.os = Services.appinfo.OS; // "Darwin"
       record.appPackage = Services.appinfo.ID;
       record.application = this.engine.brandName; // "Nightly"
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        try {
+          record.machineId = await lazy.MachineId.getHashedId();
+        } catch (error) {
+          this._log.warn("failed to get machine id", error);
+        }
+      }
 
       // We can't compute these yet.
       // record.device = "";            // Bug 1100723
