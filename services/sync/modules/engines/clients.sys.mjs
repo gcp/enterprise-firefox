@@ -71,6 +71,10 @@ const COLLECTION_MODIFIED_REASON_FIRSTSYNC = "firstsync";
 const SUPPORTED_PROTOCOL_VERSIONS = [SYNC_API_VERSION];
 const LAST_MODIFIED_ON_PROCESS_COMMAND_PREF =
   "services.sync.clients.lastModifiedOnProcessCommands";
+const MACHINE_ID_PREF = "services.sync.client.machineId";
+const MACHINE_ID_DETECT_CHANGE_PREF =
+  "services.sync.client.machineId.detectChange";
+const MACHINE_ID_CHANGED_TOPIC = "sync:machine-id-changed";
 
 function hasDupeCommand(commands, action) {
   if (!commands) {
@@ -448,7 +452,67 @@ ClientEngine.prototype = {
     this._knownStaleFxADeviceIds = Utils.arraySub(localClients, fxaClients);
   },
 
+  async _checkMachineIdChanged() {
+    const storedMachineId = Services.prefs.getStringPref(MACHINE_ID_PREF, "");
+
+    let currentMachineId = null;
+    try {
+      const { MachineId } = ChromeUtils.importESModule(
+        "resource://gre/modules/MachineId.sys.mjs"
+      );
+      currentMachineId = await MachineId.getHashedId();
+    } catch (error) {
+      this._log.warn("Could not get machine ID", error);
+      return false;
+    }
+
+    if (!currentMachineId) {
+      return false;
+    }
+
+    if (storedMachineId && storedMachineId !== currentMachineId) {
+      const oldLocalID = this.localID;
+
+      this._log.info(
+        "Machine ID changed - profile may have been copied to a different machine"
+      );
+      Services.prefs.clearUserPref("services.sync.client.GUID");
+      await this.resetClient();
+      await this._tracker.removeChangedID(oldLocalID);
+      await this._resetFxADeviceRegistration();
+      Services.obs.notifyObservers(null, MACHINE_ID_CHANGED_TOPIC);
+      Services.prefs.setStringPref(MACHINE_ID_PREF, currentMachineId);
+      return true;
+    }
+
+    if (!storedMachineId) {
+      Services.prefs.setStringPref(MACHINE_ID_PREF, currentMachineId);
+    }
+    return false;
+  },
+
+  async _resetFxADeviceRegistration() {
+    try {
+      await this.fxAccounts._internal.updateUserAccountData({
+        device: null,
+        encryptedSendTabKeys: null,
+      });
+      await this.fxAccounts.device.getLocalId();
+    } catch (error) {
+      this._log.warn("Could not reset FxA device registration", error);
+    }
+  },
+
   async _syncStartup() {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.prefs.getBoolPref(MACHINE_ID_DETECT_CHANGE_PREF, false) &&
+      (await this._checkMachineIdChanged())
+    ) {
+      this._log.info("Machine ID changed, regenerating client ID");
+      await this._tracker.addChangedID(this.localID);
+    }
+
     // Reupload new client record periodically.
     if (Date.now() / 1000 - this.lastRecordUpload > CLIENTS_TTL_REFRESH) {
       await this._tracker.addChangedID(this.localID);
