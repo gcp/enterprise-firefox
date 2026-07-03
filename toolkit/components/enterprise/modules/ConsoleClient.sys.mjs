@@ -158,6 +158,7 @@ export const ConsoleClient = {
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
+      EXCHANGE: "/sso/exchange",
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
@@ -180,23 +181,73 @@ export const ConsoleClient = {
   },
 
   /**
+   * The composed OS version string (e.g. "Windows 11 22H2 (build 22621)"),
+   * passed to the SSO flow so the console can tailor the posture-elements
+   * descriptor (which EDR agents / osquery queries to probe) to this platform.
+   *
+   * @returns {Promise<string>} OS version string, or "" if unavailable.
+   */
+  async _getOsVersion() {
+    try {
+      const baseOs = lazy.TelemetryEnvironment.currentEnvironment.system.os;
+      const { long } = await lazy.composeOSNames(baseOs);
+      return long ?? "";
+    } catch (e) {
+      lazy.log.error("Failed to compose OS version for SSO:", e);
+      return "";
+    }
+  },
+
+  /**
    * Constructs the SSO login URL for the provided email.
    *
    * @param {string} email - Email address to prefill for SSO initiation.
-   * @param {string} devicePostureToken - Token received for device posture
-   * @returns {nsIURI}
+   * @returns {Promise<nsIURI>}
    */
-  async constructSsoLoginURI(email, devicePostureToken) {
+  async constructSsoLoginURI(email) {
     const deviceId = lazy.FeltStorage.getDeviceId();
+    const osVersion = await this._getOsVersion();
     const url = await this.consoleBaseURI;
     url.pathname = this._paths.SSO;
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
-    url.searchParams.set("devicePostureToken", devicePostureToken);
     url.searchParams.set("deviceId", deviceId);
+    if (osVersion) {
+      url.searchParams.set("osVersion", osVersion);
+    }
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
+  },
+
+  /**
+   * Exchanges the SSO one-time-token for session tokens and the initial
+   * policies/config. The one-time-token carries no posture: the user id (and
+   * therefore the profile and its extension list) is only known once this
+   * exchange returns it.
+   *
+   * @param {string} oneTimeToken
+   * @returns {Promise<object>} {user_id, email, access_token, refresh_token,
+   *   expires_in, policies, config}
+   * @throws {Error}
+   */
+  async exchangeOneTimeToken(oneTimeToken) {
+    const url = await this.constructURI(this._paths.EXCHANGE);
+    const res = await this._xhrFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ one_time_token: oneTimeToken }),
+    });
+
+    if (res.ok) {
+      return res.json();
+    }
+
+    const text = await res.text().catch(() => "");
+    throw new Error(`Token exchange failed (${res.status}): ${text}`);
   },
 
   /**
@@ -548,10 +599,15 @@ export const ConsoleClient = {
    * Serializes concurrent refreshes via an internal promise.
    * This should only be called from the Felt context.
    *
+   * @param {object} [options]
+   * @param {DevicePosture|null} [options.posture=null] - Device posture to fold
+   *   into the refresh; when provided, the console records it and may return
+   *   updated policies/config.
    * @throws {ReauthRequiredError | Error} If unable to refresh session
-   * @returns {Promise<{ access_token, refresh_token, expires_at }>}
+   * @returns {Promise<{ access_token, refresh_token, expires_at, config }>}
+   *   where config is the refreshed browser config (may be undefined).
    */
-  async refreshTokens() {
+  async refreshTokens({ posture = null } = {}) {
     // Assert we are in Felt context
     if (!Services.felt.isFeltUI()) {
       throw new Error(
@@ -559,7 +615,9 @@ export const ConsoleClient = {
       );
     }
 
-    // If a felt refresh is already underway, just return the promise.
+    // If a felt refresh is already underway, just return the promise. Note this
+    // means a caller supplying posture may receive an in-flight refresh that did
+    // not carry it; posture is supplementary, so that is acceptable.
     if (this._feltRefreshPromise) {
       return this._feltRefreshPromise;
     }
@@ -578,6 +636,16 @@ export const ConsoleClient = {
       }
 
       const url = await this.constructURI(this._paths.TOKEN);
+      // Device posture is folded into the token refresh: when a caller provides
+      // it, we report it alongside the refresh (the console returns refreshed
+      // tokens plus updated policies/config).
+      const body = {
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      };
+      if (posture) {
+        body.posture = posture;
+      }
       // We let any errors that are thrown here bubble up, these should
       // be lower level network errors, i.e. nothing on the HTTP level.
       const res = await this._xhrFetch(url, {
@@ -586,10 +654,7 @@ export const ConsoleClient = {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }),
+        body: JSON.stringify(body),
       });
 
       // These are concrete HTTP errors that should trigger
@@ -609,9 +674,10 @@ export const ConsoleClient = {
         throw new Error(`Token refresh failed: ${text}, Status: ${res.status}`);
       }
 
-      const { access_token, refresh_token, expires_in } = await res.json();
+      const { access_token, refresh_token, expires_in, config } =
+        await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-      return { access_token, refresh_token, expires_at };
+      return { access_token, refresh_token, expires_at, config };
     })().finally(() => {
       // In any case, clear the felt refresh promise so that a new one can be started.
       this._feltRefreshPromise = null;
@@ -739,10 +805,16 @@ export const ConsoleClient = {
    *
    * @param {object} [options]
    * @param {boolean} [options.waitForAddons=false] - Whether to block until
-   *   AddonManager is ready so extensions are always reported.
+   *   AddonManager is ready so extensions are always reported (browser context).
+   * @param {string|null} [options.profileDir=null] - When set (Felt context,
+   *   before the browser starts), read the extension list from this profile's
+   *   on-disk addon database instead of AddonManager.
    * @returns {Promise<DevicePosture>} devicePosture
    */
-  async collectDevicePosture({ waitForAddons = false } = {}) {
+  async collectDevicePosture({
+    waitForAddons = false,
+    profileDir = null,
+  } = {}) {
     const getImeiValue = async () => {
       try {
         return await Cc["@mozilla.org/imei/provider;1"]
@@ -753,15 +825,19 @@ export const ConsoleClient = {
       }
     };
 
-    // AddonManager is only available in the full browser process, not in
-    // the FELT login window. Returns null in the FELT UI. When
-    // waitForAddons is true (periodic poll), blocks until AddonManager is
-    // ready so extensions are always reported. When false (startup),
-    // returns null if AddonManager isn't ready yet to avoid blocking.
+    // AddonManager is only available in the full browser process, not in the
+    // FELT login/launcher process. There, if we know which profile is about to
+    // start (profileDir), read its on-disk addon database so the initial posture
+    // still carries the (previously installed) extension list; otherwise return
+    // null. In the browser, use AddonManager: when waitForAddons is true block
+    // until it is ready so the current list is always reported, else return null
+    // to avoid blocking startup.
     const getExtensions = async () => {
       try {
         if (Services.felt.isFeltUI()) {
-          return null;
+          return profileDir
+            ? await this._readProfileExtensions(profileDir)
+            : null;
         }
         if (!lazy.AddonManager.isReady) {
           if (waitForAddons) {
@@ -878,6 +954,52 @@ export const ConsoleClient = {
       presentEdrs,
     };
     return devicePosturePayload;
+  },
+
+  /**
+   * Reads a profile's installed add-ons from its on-disk XPIDatabase
+   * (extensions.json) without a running AddonManager, so the initial posture can
+   * report extensions before the browser starts. Mirrors the shape produced by
+   * the AddonManager path in collectDevicePosture. On a brand-new profile the
+   * file does not exist yet (extensions are only persisted during the first
+   * browser run); that is expected and yields an empty list.
+   *
+   * @param {string} profileDir - Absolute path to the profile directory.
+   * @returns {Promise<DeviceAddon[]>} Reported add-ons, or [] if none/unreadable.
+   */
+  async _readProfileExtensions(profileDir) {
+    const REPORTED_TYPES = new Set([
+      "extension",
+      "sitepermission",
+      "siteperm_deprecated",
+      "plugin",
+      "mlmodel",
+    ]);
+    try {
+      const path = PathUtils.join(profileDir, "extensions.json");
+      const db = await IOUtils.readJSON(path);
+      const addons = Array.isArray(db?.addons) ? db.addons : [];
+      return addons
+        .filter(a => REPORTED_TYPES.has(a.type) && a.visible !== false)
+        .map(a => ({
+          id: a.id,
+          name: a.defaultLocale?.name ?? "",
+          type: a.type,
+          version: a.version ?? "",
+          enabled: !!a.active,
+        }));
+    } catch (e) {
+      if (DOMException.isInstance(e) && e.name === "NotFoundError") {
+        // No extensions.json yet on a brand-new profile (first login) is
+        // expected; report an empty list.
+        lazy.log.debug(`No extensions.json in ${profileDir} yet`);
+      } else {
+        // A present-but-unreadable or corrupt database is unexpected; surface it
+        // rather than silently reporting "no extensions".
+        lazy.log.error(`Failed to read extensions from ${profileDir}:`, e);
+      }
+      return [];
+    }
   },
 
   /**

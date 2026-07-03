@@ -243,19 +243,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         if path == "/sso/login":
             query = urllib.parse.parse_qs(parsed.query)
-            if (
-                not "devicePostureToken" in query.keys()
-                or not "deviceId" in query.keys()
-            ):
+            if "deviceId" not in query.keys():
                 self.forbidden()
                 return
 
-            if query["devicePostureToken"][0] != self.server.device_posture_token:
-                print(
-                    f"Incorrect token. Expected '{self.server.device_posture_token}' received '{query['devicePostureToken'][0]}'"
-                )
-                self.forbidden()
-                return
+            # The client passes its OS version so the console can tailor the
+            # posture-elements descriptor; record it for test assertions.
+            if "osVersion" in query.keys():
+                self.server.sso_os_version = query["osVersion"][0]
 
             location = f"http://localhost:{self.server.sso_port}/sso_url"
             if self.server.login_location.value != "":
@@ -399,25 +394,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/sso/callback":
-            self.server.policy_access_token.value = str(uuid.uuid4())
-            self.server.policy_refresh_token.value = str(uuid.uuid4())
-            policy_access_token = self.server.policy_access_token.value
-            policy_refresh_token = self.server.policy_refresh_token.value
-
-            """
-            TODO: Behavior is not yet clearly defined
-            with self.server.device_posture_reply_forbidden.get_lock():
-                if self.server.device_posture_reply_forbidden.value == 1:
-                    policy_access_token = ""
-                    policy_refresh_token = ""
-            """
-
-            obj = json.dumps({
-                "access_token": f"{policy_access_token}",
-                "token_type": "bearer",
-                "expires_in": 71999,
-                "refresh_token": f"{policy_refresh_token}",
-            })
+            # The SSO callback now returns only a short-lived one-time-token; the
+            # browser exchanges it at /sso/exchange for session tokens + config.
+            self.server.one_time_token = str(uuid.uuid4())
+            obj = json.dumps({"one_time_token": self.server.one_time_token})
 
             m = f"""
 <html>
@@ -452,6 +432,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/sso/get_device_posture_history":
             history = getattr(self.server, "device_posture_history", [])
             m = json.dumps(history)
+            contentType = "application/json"
+
+        elif path == "/sso/get_sso_os_version":
+            m = json.dumps(getattr(self.server, "sso_os_version", None))
             contentType = "application/json"
 
         elif path.startswith("/downloads/"):
@@ -522,12 +506,53 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 f"Refreshed tokens: ({self.server.policy_access_token.value}, {self.server.policy_refresh_token.value})"
             )
 
+            # Device posture is folded into the refresh; record it so tests can
+            # read the posture the client submits (e.g. before the browser starts).
+            if "posture" in parsed_payload:
+                self.server.device_posture_payload = parsed_payload["posture"]
+                if not hasattr(self.server, "device_posture_history"):
+                    self.server.device_posture_history = []
+                self.server.device_posture_history.append(parsed_payload["posture"])
+
             # Sending back the same session
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
                 "expires_in": 71999,
                 "refresh_token": self.server.policy_refresh_token.value,
+            })
+
+        elif path == "/sso/exchange":
+            payload = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            )
+            if payload.get("one_time_token") != getattr(
+                self.server, "one_time_token", None
+            ):
+                self.reply("", 401, "Authorization required")
+                return
+
+            # Mint the session tokens the browser will use from here on.
+            self.server.policy_access_token.value = str(uuid.uuid4())
+            self.server.policy_refresh_token.value = str(uuid.uuid4())
+
+            # Return the initial browser config, including the OS-tailored
+            # posture-elements descriptor when the test configured one.
+            config = {}
+            posture_elements = getattr(self.server, "config_posture_elements", None)
+            raw = posture_elements.value if posture_elements is not None else ""
+            if raw:
+                config["posture_elements"] = json.loads(raw)
+
+            m = json.dumps({
+                "user_id": "nobody@mozilla.org",
+                "email": "nobody@mozilla.org",
+                "access_token": self.server.policy_access_token.value,
+                "token_type": "Bearer",
+                "expires_in": 71999,
+                "refresh_token": self.server.policy_refresh_token.value,
+                "policies": {},
+                "config": config,
             })
 
         elif path == "/sso/device_posture":

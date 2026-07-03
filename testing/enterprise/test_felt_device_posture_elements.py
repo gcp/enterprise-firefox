@@ -9,6 +9,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
+import requests
 from felt_tests import FeltTests
 
 
@@ -36,9 +37,20 @@ class FeltDevicePostureElements(FeltTests):
         super().run_felt_base()
         self.connect_child_browser()
 
+        self.run_os_version_passed_to_sso()
         self.run_config_pref_plumbing()
         self.run_console_driven_probes()
         self.run_probe_none_when_unconfigured()
+
+    def run_os_version_passed_to_sso(self):
+        """The client passes its OS version to the SSO flow so the console can
+        return an OS-tailored posture-elements descriptor."""
+        console_addr = f"http://localhost:{self.console_port}"
+        r = requests.get(f"{console_addr}/sso/get_sso_os_version")
+        os_version = r.json()
+        assert os_version, (
+            f"SSO login should receive a non-empty osVersion, got {os_version!r}"
+        )
 
     def _wait_for_string_pref(self, name):
         self._child_driver.set_context("chrome")

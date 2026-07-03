@@ -114,41 +114,17 @@ async function connectToConsole(email) {
   signInInFlight = true;
   const attempt = ++signInGeneration;
   pendingSignInEmail = email;
-  let posture;
-  try {
-    posture = await lazy.ConsoleClient.sendDevicePosture();
-  } catch (err) {
-    if (attempt !== signInGeneration) {
-      // Superseded (abandoned on a portal-clear retry); drop silently.
-      return;
-    }
-    lazy.log.error(`Failed to send device posture: ${err}`);
-    signInInFlight = false;
-    pendingSignInEmail = null;
-    // Re-probe so a real portal surfaces as the banner, not a dead-end error.
-    lazy.CaptivePortal.recheck();
-    lazy.CaptivePortal.maybeResumeUpdates();
-    await lazy.FeltErrorReport.handleXhrError(err);
-    return;
-  }
+
+  // We no longer POST device posture before login: the profile (and thus the
+  // extension list) isn't known until the SSO one-time-token is exchanged for a
+  // user id. We do pass the OS version so the console can return an OS-tailored
+  // posture-elements descriptor with the one-time-token.
+  const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(email);
 
   if (attempt !== signInGeneration) {
-    // Superseded while the posture request was in flight; drop it silently.
+    // Superseded (abandoned on a portal-clear retry); drop silently.
     return;
   }
-
-  if (!posture) {
-    // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
-    signInInFlight = false;
-    pendingSignInEmail = null;
-    lazy.CaptivePortal.maybeResumeUpdates();
-    return;
-  }
-
-  const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(
-    email,
-    posture.posture
-  );
 
   const browser = document.getElementById("browser");
   browser.setAttribute("maychangeremoteness", "true");

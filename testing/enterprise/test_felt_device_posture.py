@@ -288,12 +288,12 @@ class FeltDevicePosture(FeltTests):
 
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
 
-        # In the FELT UI context AddonManager is unavailable, so extensions is
-        # null here; run_posture_history() asserts the populated browser-poll case.
+        # Every posture now originates from FELT (the pre-launch collection and
+        # the change monitor), which reads extensions from the profile on disk,
+        # so the field is always a list (empty at worst on a fresh profile),
+        # never the pre-2040659 null placeholder.
         assert "extensions" in device_posture, "Device posture reports extensions"
-        assert device_posture["extensions"] is None or isinstance(
-            device_posture["extensions"], list
-        ), "extensions is null or a list"
+        assert isinstance(device_posture["extensions"], list), "extensions is a list"
 
         # machineId is nullable (null when no platform identifier resolves); when
         # present, only its structure can be asserted, not the actual values.
@@ -306,33 +306,30 @@ class FeltDevicePosture(FeltTests):
 
     def run_posture_history(self):
         console_addr = f"http://localhost:{self.console_port}"
-        # Wait until at least one posture has a non-null extensions field,
-        # meaning the browser poll sent it after AddonManager was ready.
+        # Wait until the browser poll has submitted a posture on top of the FELT
+        # pre-launch posture.
         max_tries = 40
         for _ in range(max_tries):
             r = requests.get(f"{console_addr}/sso/get_device_posture_history")
             history = r.json()
-            has_extensions = any(p["extensions"] is not None for p in history)
-            if len(history) >= 2 and has_extensions:
+            if len(history) >= 2:
                 break
             time.sleep(0.5)
         else:
-            assert False, (
-                f"Expected a posture with extensions list, got {len(history)} "
-                f"submissions all with null extensions"
-            )
+            assert False, f"Expected at least 2 posture submissions, got {len(history)}"
 
-        # The first posture comes from the FELT UI where AddonManager is
-        # unavailable, so extensions must be null (not yet known).
-        assert history[0]["extensions"] is None, (
-            "First posture (FELT UI) has null extensions"
+        # The first submission is the FELT pre-launch posture, whose extension
+        # list is read from the profile on disk (a list, empty on a brand-new
+        # profile) -- so the console has the list at the very first posture. Later
+        # browser postures report either null (the startup poll, before
+        # AddonManager is ready) or the live list.
+        assert isinstance(history[0]["extensions"], list), (
+            f"FELT pre-launch posture reports an extension list, got {history[0]['extensions']!r}"
         )
-        # Once the browser poll fires (after AddonManager is ready),
-        # extensions must be a list.
-        browser_posture = next(p for p in history if p["extensions"] is not None)
-        assert isinstance(browser_posture["extensions"], list), (
-            "Browser poll posture has extensions list"
-        )
+        for p in history:
+            assert p["extensions"] is None or isinstance(p["extensions"], list), (
+                f"Posture extensions should be null or a list, got {p['extensions']!r}"
+            )
 
     def run_access(self):
         """
