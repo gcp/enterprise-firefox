@@ -377,6 +377,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       policies: { polling_frequency },
       services: { push_url, remote_settings_url, tokenserver_url },
       extra_prefs,
+      posture_elements,
     } = await lazy.ConsoleClient.getFirefoxConfigs();
 
     if (learn_more_url === null) {
@@ -428,6 +429,22 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.error("No push_url in Firefox configuration");
     } else {
       Services.felt.sendStringPreference("dom.push.serverURL", push_url);
+    }
+
+    // The console tells the browser which EDR agents to include in device
+    // posture. Forward them as a JSON string pref that
+    // ConsoleClient.collectDevicePosture reads; an absent/empty list means
+    // "probe nothing". Skip when the config omits the field so we don't clobber
+    // a descriptor delivered through the token exchange/refresh responses. The
+    // descriptor is also expected to carry a parallel osquery query list, which
+    // would be forwarded here once osquery collection is implemented.
+    if (posture_elements) {
+      Services.felt.sendStringPreference(
+        "enterprise.posture.edr_agents",
+        JSON.stringify(posture_elements.edr ?? [])
+      );
+    } else {
+      lazy.log.debug("No posture_elements in Firefox configuration");
     }
 
     extra_prefs.forEach(pref => {

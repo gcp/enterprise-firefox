@@ -9,9 +9,12 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
 
-// XXX: hardcoded for now. The console does not yet expose which EDR agents to
-// probe for, so we limit detection to the agents we currently care about.
-const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
+// The console tells us which EDR agents to probe for via the browser
+// configuration; Felt stores that into this preference (a JSON string). When the
+// preference is absent, empty, or malformed we probe nothing: we never probe
+// every known agent by default. The console descriptor is also expected to carry
+// a parallel osquery query list, but osquery collection is not implemented yet.
+const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
@@ -666,7 +669,7 @@ export const ConsoleClient = {
    * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
    * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
    * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
-   * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none).
+   * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none, or if the console asked us to probe none).
    */
 
   /**
@@ -753,10 +756,39 @@ export const ConsoleClient = {
       ...(os_short_name != null && { os_short_name }),
     };
 
-    const getPresentEDRs = async () =>
-      (await lazy.EdrDetection.getPresentEdrs(EDR_AGENTS_TO_PROBE)).map(
+    // Read the console-supplied probe lists. An absent, empty, or malformed
+    // preference means "probe nothing". This matters especially for EDR:
+    // EdrDetection.getPresentEdrs([]) treats an empty list as "probe every known
+    // agent", so we must short-circuit rather than pass it an empty array.
+    const readJsonArrayPref = pref => {
+      const raw = Services.prefs.getStringPref(pref, "");
+      if (!raw) {
+        return [];
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        lazy.log.error(`Malformed ${pref}, probing nothing:`, e);
+        return [];
+      }
+    };
+
+    const edrAgentsToProbe = readJsonArrayPref(EDR_AGENTS_PREF);
+
+    const getPresentEDRs = async () => {
+      if (!edrAgentsToProbe.length) {
+        return [];
+      }
+      return (await lazy.EdrDetection.getPresentEdrs(edrAgentsToProbe)).map(
         name => ({ name })
       );
+    };
+
+    // The console descriptor is also expected to carry an osquery query list,
+    // parallel to the EDR agent list above; when osquery execution lands it would
+    // be collected here (read from an OSQUERY_QUERIES_PREF, probe-none default)
+    // and added to the payload below.
 
     // These probes are independent, and some are slow (subprocess spawns, addon
     // manager readiness, an `ioreg` shell-out), so run them concurrently rather
