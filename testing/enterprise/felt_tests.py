@@ -267,7 +267,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             return
 
         elif path == "/api/browser/config":
-            m = json.dumps({
+            config = {
                 "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
                 "company_logo_url": "",
                 "policies": {"polling_frequency": 500},
@@ -277,7 +277,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "tokenserver_url": "",
                 },
                 "extra_prefs": [["marionette.port", 0]],
-            })
+            }
+            # Only include posture_elements when the test set one, so the
+            # absent-field (probe-nothing) path is exercised by default.
+            posture_elements = getattr(self.server, "config_posture_elements", None)
+            raw = posture_elements.value if posture_elements is not None else ""
+            if raw:
+                config["posture_elements"] = json.loads(raw)
+            m = json.dumps(config)
 
         elif path == "/api/browser/key":
             if not self.check_auth():
@@ -621,6 +628,7 @@ def serve(
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
+    config_posture_elements=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -660,6 +668,8 @@ def serve(
         token_fail_request if token_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
+    if config_posture_elements is not None:
+        httpd.config_posture_elements = config_posture_elements
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -779,6 +789,9 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
+        # JSON string served as the config's "posture_elements". Empty means the
+        # console omits the field entirely (older-console / probe-nothing case).
+        self.config_posture_elements = SharedString("")
 
         self.console_httpd = Process(
             target=serve,
@@ -798,6 +811,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
+                config_posture_elements=self.config_posture_elements,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),
