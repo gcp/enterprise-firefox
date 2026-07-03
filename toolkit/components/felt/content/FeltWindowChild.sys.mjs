@@ -51,10 +51,12 @@ export class FeltWindowChild extends JSWindowActorChild {
     const consoleTokenData = JSON.parse(tokenData.textContent);
     if (
       consoleTokenData &&
-      "access_token" in consoleTokenData &&
-      consoleTokenData.access_token !== ""
+      "one_time_token" in consoleTokenData &&
+      consoleTokenData.one_time_token !== ""
     ) {
-      lazy.log.debug("FeltWindowChild: Sending token data to start Firefox");
+      lazy.log.debug(
+        "FeltWindowChild: Sending one-time token to start Firefox"
+      );
       this.#tokensSent = true;
       this.processActor.sendAsyncMessage(
         "FeltChild:StartFirefox",

@@ -453,6 +453,53 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
+   * Stores the console-supplied posture-elements descriptor (which EDR agents to
+   * probe) into a local pref in the FELT process, so the pre-launch posture
+   * collection here can read it. The browser gets its own copy via
+   * _applyFirefoxConfigs. The descriptor is also expected to carry a parallel
+   * osquery query list, which would be stored here once osquery collection is
+   * implemented.
+   *
+   * @param {{edr?: string[]}} [postureElements]
+   */
+  _storePostureElements(postureElements) {
+    if (!postureElements) {
+      return;
+    }
+    Services.prefs.setStringPref(
+      "enterprise.posture.edr_agents",
+      JSON.stringify(postureElements.edr ?? [])
+    );
+  }
+
+  /**
+   * Submits the initial device posture (collected pre-launch in
+   * startFirefoxProcess, so its on-disk extension read cannot race the browser's
+   * AddonManager) via a posture-carrying token refresh. Posture is
+   * supplementary, so a failure here must not block browser startup.
+   */
+  async _submitInitialPosture() {
+    try {
+      const posture = this._initialPosture;
+      if (!posture) {
+        return;
+      }
+      const { access_token, refresh_token, expires_at, config } =
+        await lazy.ConsoleClient.refreshTokens({ posture });
+      Services.felt.setTokens(access_token, refresh_token, expires_at);
+      // A refresh may carry a fresh posture-elements descriptor; keep the local
+      // copy current so subsequent posture collection stays console-driven.
+      this._storePostureElements(config?.posture_elements);
+      // Cache the submitted posture only after a successful submission, so a
+      // failed submission is retried by the monitor instead of being masked as
+      // "unchanged".
+      this._lastPostureJson = JSON.stringify(posture);
+    } catch (e) {
+      lazy.log.error("Failed to submit initial device posture:", e);
+    }
+  }
+
+  /**
    * Sends preference to Firefox through felt
    *
    * @param {[key: string, value: boolean|string|number]} pref
@@ -569,6 +616,12 @@ export class FeltProcessParent extends JSProcessActorParent {
           return;
         }
         await this.sendPrefsToFirefox();
+
+        // Submit the initial device posture -- including the full extension list
+        // read from the derived profile on disk -- via a posture-carrying token
+        // refresh, before handing the (refreshed) access token to the browser.
+        await this._submitInitialPosture();
+
         Services.felt.sendAccessToken();
 
         await this._applyFirefoxConfigs();
@@ -764,6 +817,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       profilePath = PathUtils.normalize(profilePath.replaceAll("/", "\\"));
     }
 
+    // Remember the resolved profile directory so the initial posture can read
+    // its on-disk extension list before the browser starts.
+    this._profilePath = profilePath;
+
     let extraRunArgs = [];
     if (lazy.isTesting()) {
       extraRunArgs = [
@@ -813,6 +870,13 @@ export class FeltProcessParent extends JSProcessActorParent {
       /* environmentAppend: true,
       environment: env, */
     };
+
+    // Collect the initial device posture -- including the profile's on-disk
+    // extension list -- BEFORE launching the browser, so reading extensions.json
+    // cannot race the browser's AddonManager rewriting it during startup.
+    this._initialPosture = await lazy.ConsoleClient.collectDevicePosture({
+      profileDir: this._profilePath,
+    });
 
     try {
       this.proc = await lazy.Subprocess.call(firefoxRun);
@@ -997,20 +1061,31 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
+          const { one_time_token = "" } = message.data;
+
+          // Exchange the SSO one-time-token for session tokens plus the user id
+          // and initial browser config. This carries no posture (the profile,
+          // and thus the extension list, isn't known until the exchange returns
+          // the user id) and retires the previous WHOAMI call for user info.
           const {
+            user_id,
+            email,
             access_token = "",
             refresh_token = "",
             expires_in = 0,
-          } = message.data;
+            config,
+          } = await lazy.ConsoleClient.exchangeOneTimeToken(one_time_token);
+
           const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
           Services.felt.setTokens(access_token, refresh_token, expires_at);
 
-          // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
-          this.loggedInUserInfo =
-            await lazy.ConsoleClient.getLoggedInUserInfo();
-          lazy.FeltStorage.updateLastSignedInUserEmail(
-            this.loggedInUserInfo?.email
-          );
+          this.loggedInUserInfo = { id: user_id, email };
+          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+
+          // Store the console-supplied posture-elements descriptor so posture
+          // collection (here in Felt before launch, and later in the browser)
+          // knows which EDR agents to probe.
+          this._storePostureElements(config?.posture_elements);
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
