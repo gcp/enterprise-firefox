@@ -295,6 +295,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps({"data": TEST_PRIMARY_SECRET})
             contentType = "application/json"
 
+        elif path == "/api/browser/policies":
+            # Policies are fetched with a plain authenticated GET; posture is
+            # reported separately via the posture-carrying token refresh.
+            if not self.check_auth():
+                return
+            if self.server.policies_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
+            m = self.build_policies_response()
+            contentType = "application/json"
+
         elif path == "/api/browser/whoami":
             if not self.check_auth():
                 return
@@ -415,7 +426,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         # Not a real end point, just used for tests
         elif path == "/sso/get_device_posture":
-            m = json.dumps(self.server.device_posture_payload)
+            # Default to null when no posture has been submitted yet, matching
+            # the sibling GET handlers; a bare attribute access would raise and
+            # break the connection for tests that poll before the first submit.
+            m = json.dumps(getattr(self.server, "device_posture_payload", None))
             contentType = "application/json"
 
         elif path == "/sso/get_device_posture_history":
@@ -533,8 +547,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             if raw:
                 config["posture_elements"] = json.loads(raw)
 
+            # Return a user_id that is a distinct opaque identifier (not the
+            # email), so the id-carrying profile-derivation path is not
+            # validated only by the coincidence of id == email.
             m = json.dumps({
-                "user_id": "nobody@mozilla.org",
+                "user_id": "8f14e45f-ceea-467d-9a3e-000000000042",
                 "email": "nobody@mozilla.org",
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",

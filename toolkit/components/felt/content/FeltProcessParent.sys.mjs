@@ -18,7 +18,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setInterval: "resource://gre/modules/Timer.sys.mjs",
+  clearInterval: "resource://gre/modules/Timer.sys.mjs",
 });
+
+// Fallback cadence for device-posture monitoring if the console config does not
+// specify a polling frequency.
+const DEFAULT_POSTURE_POLL_MS = 60000;
 
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -406,6 +412,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         polling_frequency
       );
     }
+    // Monitor device posture on the same cadence as the policy poll.
+    this._posturePollMs = polling_frequency ?? DEFAULT_POSTURE_POLL_MS;
 
     if (tokenserver_url === null) {
       lazy.log.error("No tokenserver_url in Firefox configuration");
@@ -496,6 +504,60 @@ export class FeltProcessParent extends JSProcessActorParent {
       this._lastPostureJson = JSON.stringify(posture);
     } catch (e) {
       lazy.log.error("Failed to submit initial device posture:", e);
+    }
+  }
+
+  /**
+   * Starts monitoring device posture on the policy-poll cadence. Posture is
+   * reported independently of the policy fetch: on each tick we collect the
+   * current posture and, only if it changed since the last submission, report it
+   * via a posture-carrying token refresh. This avoids churning tokens when
+   * nothing changed. Idempotent; safe to call across browser restarts.
+   */
+  _startPostureMonitor() {
+    this._stopPostureMonitor();
+    this._postureMonitor = lazy.setInterval(
+      () => this._maybeRefreshOnPostureChange(),
+      this._posturePollMs ?? DEFAULT_POSTURE_POLL_MS
+    );
+  }
+
+  _stopPostureMonitor() {
+    if (this._postureMonitor) {
+      lazy.clearInterval(this._postureMonitor);
+      this._postureMonitor = null;
+    }
+  }
+
+  async _maybeRefreshOnPostureChange() {
+    // Guard against overlapping ticks: a slow collect/refresh must not let the
+    // next interval start a second, racing refresh.
+    if (this._postureRefreshInFlight) {
+      return;
+    }
+    this._postureRefreshInFlight = true;
+    try {
+      const posture = await lazy.ConsoleClient.collectDevicePosture({
+        profileDir: this._profilePath,
+      });
+      const postureJson = JSON.stringify(posture);
+      if (postureJson === this._lastPostureJson) {
+        return;
+      }
+      lazy.log.debug("Device posture changed; refreshing.");
+      const { access_token, refresh_token, expires_at, config } =
+        await lazy.ConsoleClient.refreshTokens({ posture });
+      Services.felt.setTokens(access_token, refresh_token, expires_at);
+      // The browser must switch to the rotated access token immediately;
+      // otherwise its next authenticated call 401s and forces a second,
+      // posture-less refresh.
+      Services.felt.sendAccessToken();
+      this._storePostureElements(config?.posture_elements);
+      this._lastPostureJson = postureJson;
+    } catch (e) {
+      lazy.log.error("Posture-change refresh failed:", e);
+    } finally {
+      this._postureRefreshInFlight = false;
     }
   }
 
@@ -635,6 +697,10 @@ export class FeltProcessParent extends JSProcessActorParent {
           await this.forwardPendingURLs();
         }
         notifyFirefoxReady();
+
+        // Monitor device posture on the policy-poll cadence and refresh when it
+        // changes (independently of the policy GET).
+        this._startPostureMonitor();
       })
       .then(() => {
         lazy.log.debug(
@@ -643,6 +709,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise.then(ev => {
+          this._stopPostureMonitor();
           lazy.log.debug(`firefox exit: ev`, JSON.stringify(ev));
           lazy.log.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
