@@ -191,6 +191,23 @@ export const ConsoleClient = {
   },
 
   /**
+   * Checks that the configured console is reachable before starting the SSO
+   * flow. Any HTTP response (even an error status) means the host is reachable;
+   * only network-level failures (DNS, connection refused, TLS, timeout) reject,
+   * with the same error shape as the other XHR calls so callers can route them
+   * through FeltErrorReport.handleXhrError. This restores the fast, dedicated
+   * pre-login connectivity error that the removed pre-login posture POST used to
+   * provide, without sending any posture.
+   *
+   * @throws {TypeError} On a network-level failure.
+   * @returns {Promise<void>}
+   */
+  async probeConsoleReachable() {
+    const url = (await this.consoleBaseURI).href;
+    await this._xhrFetch(url, { method: "GET" });
+  },
+
+  /**
    * Constructs the SSO login URL for the provided email.
    *
    * @param {string} email - Email address to prefill for SSO initiation.
