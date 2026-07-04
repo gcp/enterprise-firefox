@@ -109,14 +109,19 @@ class FeltDevicePosture(FeltTests):
     def get_device_posture(self):
         console_addr = f"http://localhost:{self.console_port}"
         max_try = 0
+        # The endpoint returns null until FELT's pre-launch submission lands, so
+        # poll until a posture is present rather than returning the null.
         while max_try < 20:
             max_try += 1
             try:
                 r = requests.get(f"{console_addr}/sso/get_device_posture")
-                return r.json()
+                posture = r.json()
+                if posture:
+                    return posture
             except Exception as ex:
                 self._logger.info(f"Console not yet online at {console_addr}: {ex}")
-                time.sleep(0.5)
+            time.sleep(0.5)
+        raise AssertionError("Device posture was not submitted within the timeout")
 
         """
     def test_felt_1_perform_sso_auth(self):
@@ -306,29 +311,19 @@ class FeltDevicePosture(FeltTests):
 
     def run_posture_history(self):
         console_addr = f"http://localhost:{self.console_port}"
-        # Wait until the browser poll has submitted a posture on top of the FELT
-        # pre-launch posture.
-        max_tries = 40
-        for _ in range(max_tries):
-            r = requests.get(f"{console_addr}/sso/get_device_posture_history")
-            history = r.json()
-            if len(history) >= 2:
-                break
-            time.sleep(0.5)
-        else:
-            assert False, f"Expected at least 2 posture submissions, got {len(history)}"
+        r = requests.get(f"{console_addr}/sso/get_device_posture_history")
+        history = r.json()
 
-        # The first submission is the FELT pre-launch posture, whose extension
-        # list is read from the profile on disk (a list, empty on a brand-new
-        # profile) -- so the console has the list at the very first posture. Later
-        # browser postures report either null (the startup poll, before
-        # AddonManager is ready) or the live list.
-        assert isinstance(history[0]["extensions"], list), (
-            f"FELT pre-launch posture reports an extension list, got {history[0]['extensions']!r}"
-        )
+        # At least the FELT pre-launch posture is always submitted. Posture is
+        # reported independently of policies and only re-sent when it changes, so
+        # the count depends on runtime changes (e.g. extensions appearing on disk
+        # after first run); assert the shape rather than a fixed count. Every
+        # submission reads the extension list (from disk in FELT), so extensions
+        # is always a list, never null.
+        assert len(history) >= 1, "At least one posture was submitted"
         for p in history:
-            assert p["extensions"] is None or isinstance(p["extensions"], list), (
-                f"Posture extensions should be null or a list, got {p['extensions']!r}"
+            assert isinstance(p["extensions"], list), (
+                f"Posture extensions should be a list, got {p['extensions']!r}"
             )
 
     def run_access(self):

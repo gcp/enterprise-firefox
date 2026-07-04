@@ -281,29 +281,17 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetches remote enterprise policies, including device posture in the body.
+   * Fetches remote enterprise policies.
    *
-   * The endpoint is POST-based; when posture is unavailable (either
-   * collection failed or is disabled) we POST an empty object rather than
-   * falling back to GET.
+   * Policies are decoupled from device posture: this is a plain authenticated
+   * GET. Posture is reported independently, on the same cadence, via a
+   * posture-carrying token refresh whenever it changes (see FeltProcessParent's
+   * posture monitoring).
    *
-   * @param {object} [options]
-   * @param {boolean} [options.isStartup=true] - Whether this is the initial
-   *   startup fetch, as opposed to a periodic poll.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies({ isStartup = true } = {}) {
-    // Device posture is supplementary; if collecting it fails, fall back to
-    // a plain policy fetch rather than failing the policy update.
-    let devicePosture = null;
-    try {
-      devicePosture = await this.collectDevicePosture({
-        waitForAddons: !isStartup,
-      });
-    } catch (e) {
-      lazy.log.error("Failed to collect device posture:", e);
-    }
-    return this._post(this._paths.REMOTE_POLICIES, devicePosture ?? {});
+  async getRemotePolicies() {
+    return this._get(this._paths.REMOTE_POLICIES);
   },
 
   /**

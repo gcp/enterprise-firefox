@@ -1449,7 +1449,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = true;
     try {
       lazy.log.debug("Polling for remote policies.");
-      const changed = await this.ingestPolicies({ isStartup: false });
+      const changed = await this.ingestPolicies();
       if (!changed) {
         lazy.log.debug("Remote policies unchanged, not firing an update.");
         return;
@@ -1484,14 +1484,11 @@ class RemotePoliciesProvider extends PoliciesProvider {
   /**
    * Fetch the remote policies and store them.
    *
-   * @param {object} [options]
-   * @param {boolean} [options.isStartup=true] passed through to
-   *   ConsoleClient.getRemotePolicies(); see its documentation.
    * @returns {Promise<boolean>} whether the policies or the failure state
    *   changed, i.e. whether the engine should re-evaluate
    */
-  async ingestPolicies({ isStartup = true } = {}) {
-    const res = await lazy.ConsoleClient.getRemotePolicies({ isStartup });
+  async ingestPolicies() {
+    const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res?.policies) {
       lazy.log.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`

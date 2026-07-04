@@ -14,34 +14,29 @@ from felt_tests import FeltTests
 
 
 class FeltDevicePosturePoll(FeltTests):
-    """Verify that device posture is sent from the browser on policy poll."""
+    """Verify that the FELT posture monitor reports posture -- including the
+    profile's installed extensions -- on its polling cadence."""
 
     def test_device_posture_updated_by_poll(self):
         self.policy_extensions.value = 1
         super().run_felt_base()
         self.connect_child_browser()
-        self.run_posture_updated_by_browser_poll()
+        self.run_posture_updated_by_monitor()
 
     def get_device_posture(self):
         console_addr = f"http://localhost:{self.console_port}"
         r = requests.get(f"{console_addr}/sso/get_device_posture")
         return r.json()
 
-    def run_posture_updated_by_browser_poll(self):
-        # Regression: the initial FELT UI posture has extensions=null (JSON
-        # null -> Python None). Verify the extraction logic doesn't crash.
-        null_posture = {"extensions": None}
-        null_exts = null_posture.get("extensions") or []
-        assert [e["id"] for e in null_exts] == [], (
-            "Null extensions must not raise TypeError"
-        )
-
-        # Poll the mock server until the browser's policy poll has sent a
-        # posture that includes the force-installed extension.
+    def run_posture_updated_by_monitor(self):
+        # Poll the mock server until the FELT posture monitor has reported a
+        # posture (via a posture-carrying token refresh) that includes the
+        # force-installed extension read from the profile on disk.
         max_tries = 40
         for attempt in range(max_tries):
             posture = self.get_device_posture()
-            extensions = posture.get("extensions") or []
+            # posture is null until the first submission lands.
+            extensions = (posture or {}).get("extensions") or []
             ext_ids = [e["id"] for e in extensions]
             if "treestyletab@piro.sakura.ne.jp" in ext_ids:
                 break
