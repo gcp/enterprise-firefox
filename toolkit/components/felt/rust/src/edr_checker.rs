@@ -301,8 +301,8 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
 // polls, yet short enough to reflect an agent install/removal in time.
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 
-// (captured_at, present? for every known agent). Guarded by a Mutex because
-// detection runs on a moz_task background thread.
+// (captured_at, present? for each agent evaluated in the most recent sweep).
+// Guarded by a Mutex because detection runs on a moz_task background thread.
 static CACHE: Mutex<Option<(Instant, HashMap<EdrId, bool>)>> = Mutex::new(None);
 
 // Upper bound on a single external probe (a service-status command, the
@@ -367,6 +367,24 @@ pub(crate) fn run_command_bounded(program: &str, args: &[&str]) -> Option<std::p
 // sweep publishes its results, then finds the cache warm.
 static DETECTION_LOCK: Mutex<()> = Mutex::new(());
 
+/// Whether the cached sweep can answer `requested` without re-probing: it must
+/// be within the TTL and must already contain every requested agent. A sweep
+/// only evaluates the agents that were requested at the time, so asking for a
+/// previously-unseen agent forces a re-sweep rather than silently reporting it
+/// absent.
+fn cache_is_usable(
+    cache: &Option<(Instant, HashMap<EdrId, bool>)>,
+    requested: &[EdrId],
+    now: Instant,
+) -> bool {
+    match cache {
+        Some((at, map)) => {
+            now.duration_since(*at) < CACHE_TTL && requested.iter().all(|id| map.contains_key(id))
+        }
+        None => false,
+    }
+}
+
 /// Determines which of `requested` agents are present, returning their string
 /// identifiers. Runs on a background thread; must not touch main-thread-only
 /// state.
@@ -377,21 +395,25 @@ fn detect_present_edrs(requested: &[EdrId]) -> Vec<&'static str> {
 
     let now = Instant::now();
 
-    let stale = match &*CACHE.lock().unwrap_or_else(|e| e.into_inner()) {
-        Some((at, _)) => now.duration_since(*at) >= CACHE_TTL,
-        None => true,
-    };
+    let usable = cache_is_usable(
+        &CACHE.lock().unwrap_or_else(|e| e.into_inner()),
+        requested,
+        now,
+    );
 
-    if stale {
-        // Capture the system state once and evaluate the whole known catalog
-        // against it. The snapshot is the cost, not the per-agent match, and
-        // the requested set is stable, so detecting every agent keeps the cache
-        // complete for any later request. Done without holding the cache lock,
-        // which is taken only briefly afterwards to publish.
+    if !usable {
+        // Evaluate ONLY the requested agents. The console decides which agents
+        // to probe, and probing one can shell out (e.g. querying service status
+        // on Linux for agents that aren't even installed), so we must not touch
+        // agents that were not requested. The snapshot is captured without
+        // holding the cache lock, which is taken only briefly to publish. The
+        // requested set is console-driven and stable, so this steady-states to
+        // one sweep of that set per TTL.
         let snapshot = Snapshot::capture();
-        let map: HashMap<EdrId, bool> = EdrId::ALL
+        let map: HashMap<EdrId, bool> = requested
             .iter()
-            .map(|&id| {
+            .copied()
+            .map(|id| {
                 let present = detection_methods(id)
                     .iter()
                     .any(|method| snapshot.matches(id.as_str(), method));
@@ -514,4 +536,35 @@ pub extern "C" fn edr_checker_constructor(
 ) -> nsresult {
     let obj = EdrCheckerXPCOM::new();
     unsafe { obj.QueryInterface(iid, result) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cache_usable_only_when_fresh_and_complete() {
+        let now = Instant::now();
+
+        // Nothing cached yet: must sweep.
+        assert!(!cache_is_usable(&None, &[EdrId::CrowdStrike], now));
+
+        // Fresh cache that contains the requested agent is usable.
+        let mut map = HashMap::new();
+        map.insert(EdrId::CrowdStrike, true);
+        let fresh = Some((now, map.clone()));
+        assert!(cache_is_usable(&fresh, &[EdrId::CrowdStrike], now));
+
+        // Fresh cache missing a newly requested agent forces a re-sweep, so the
+        // narrowing never silently reports an unseen agent as absent.
+        assert!(!cache_is_usable(
+            &fresh,
+            &[EdrId::CrowdStrike, EdrId::SentinelOne],
+            now
+        ));
+
+        // A complete but stale cache is not usable.
+        let stale = Some((now - (CACHE_TTL + Duration::from_secs(1)), map));
+        assert!(!cache_is_usable(&stale, &[EdrId::CrowdStrike], now));
+    }
 }
