@@ -9,19 +9,9 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
 
-// The console tells us which EDR agents to probe for via the browser
-// configuration; Felt stores that into this preference (a JSON string). When the
-// preference is absent, empty, or malformed we probe nothing: we never probe
-// every known agent by default. The console descriptor is also expected to carry
-// a parallel osquery query list, but osquery collection is not implemented yet.
-const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
-
 ChromeUtils.defineESModuleGetters(lazy, {
-  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
-  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
-  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
@@ -408,34 +398,6 @@ export const ConsoleClient = {
   },
 
   /**
-   * Collect the device posture data and send them to the console.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false]
-   * @returns {Promise<{posture: string}>} Token reported by console.
-   */
-  async sendDevicePosture({ waitForAddons = false } = {}) {
-    const devicePosture = await this.collectDevicePosture({ waitForAddons });
-    const url = await this.constructURI(this._paths.DEVICE_POSTURE);
-
-    const res = await this._xhrFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(devicePosture),
-    });
-
-    if (res.ok) {
-      return await res.json();
-    }
-
-    const text = await res.text().catch(() => "");
-    throw new Error(`Post failed (${res.status}): ${text}`);
-  },
-
-  /**
    * Fetches user information from the current session.
    *
    * @returns {Promise<object>}
@@ -609,8 +571,11 @@ export const ConsoleClient = {
    *   into the refresh; when provided, the console records it and may return
    *   updated policies/config.
    * @throws {ReauthRequiredError | Error} If unable to refresh session
-   * @returns {Promise<{ access_token, refresh_token, expires_at, config }>}
-   *   where config is the refreshed browser config (may be undefined).
+   * @returns {Promise<{ access_token, refresh_token, expires_at, config,
+   *   postureSubmitted }>} where config is the refreshed browser config (may be
+   *   undefined) and postureSubmitted reports whether this call actually sent
+   *   the supplied posture (false when it piggybacked on an in-flight refresh
+   *   that did not carry it).
    */
   async refreshTokens({ posture = null } = {}) {
     // Assert we are in Felt context
@@ -620,11 +585,15 @@ export const ConsoleClient = {
       );
     }
 
-    // If a felt refresh is already underway, just return the promise. Note this
-    // means a caller supplying posture may receive an in-flight refresh that did
-    // not carry it; posture is supplementary, so that is acceptable.
+    // If a felt refresh is already underway, just return the promise. That
+    // in-flight refresh may not have carried this caller's posture, so report
+    // postureSubmitted=false: the caller must not record its posture as
+    // submitted (it will be retried on the next posture-monitor tick).
     if (this._feltRefreshPromise) {
-      return this._feltRefreshPromise;
+      return this._feltRefreshPromise.then(result => ({
+        ...result,
+        postureSubmitted: false,
+      }));
     }
 
     // At this point, we are in the Felt UI context and no
@@ -682,7 +651,13 @@ export const ConsoleClient = {
       const { access_token, refresh_token, expires_in, config } =
         await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-      return { access_token, refresh_token, expires_at, config };
+      return {
+        access_token,
+        refresh_token,
+        expires_at,
+        config,
+        postureSubmitted: !!posture,
+      };
     })().finally(() => {
       // In any case, clear the felt refresh promise so that a new one can be started.
       this._feltRefreshPromise = null;
@@ -763,248 +738,6 @@ export const ConsoleClient = {
     Services.felt.refreshTokens();
 
     return this._refreshPromise;
-  },
-
-  /**
-   * @typedef {object} DeviceNetwork
-   * @property {null} ipv4 IPv4 address, TBD
-   * @property {null} ipv6 IPv6 address, TBD
-   */
-
-  /**
-   * @typedef {object} DeviceAddon
-   * @property {string} id Addon identifier.
-   * @property {string} name Human-readable display name.
-   * @property {string} type Addon type (extension, plugin, sitepermission, etc).
-   * @property {string} version Addon version string.
-   * @property {boolean} enabled Whether the addon is currently active.
-   */
-
-  /**
-   * @typedef {object} DeviceMachineId
-   * @property {string} id Raw platform machine identifier (e.g. device serial).
-   * @property {string|null} source Source tier the identifier was resolved from.
-   */
-
-  /**
-   * @typedef {object} DeviceEdr
-   * @property {string} name EDR agent identifier (e.g. "crowdstrike").
-   */
-
-  /**
-   * @typedef {object} DevicePosture
-   * @property {object} os Telemetry-reported os information.
-   * @property {object|undefined} security Telemetry-reported security software info (windows only)
-   * @property {object} build Telemetry-reported build info info
-   * @property {DeviceNetwork} network Network posture (placeholders for now).
-   * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
-   * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
-   * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
-   * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
-   * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none, or if the console asked us to probe none).
-   */
-
-  /**
-   * Collects the device posture from TelemetryEnvironment.currentEnvironment
-   * and others data sources.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false] - Whether to block until
-   *   AddonManager is ready so extensions are always reported (browser context).
-   * @param {string|null} [options.profileDir=null] - When set (Felt context,
-   *   before the browser starts), read the extension list from this profile's
-   *   on-disk addon database instead of AddonManager.
-   * @returns {Promise<DevicePosture>} devicePosture
-   */
-  async collectDevicePosture({
-    waitForAddons = false,
-    profileDir = null,
-  } = {}) {
-    const getImeiValue = async () => {
-      try {
-        return await Cc["@mozilla.org/imei/provider;1"]
-          .getService()
-          .QueryInterface(Ci.nsIImeiProvider).imei;
-      } catch {
-        return "";
-      }
-    };
-
-    // AddonManager is only available in the full browser process, not in the
-    // FELT login/launcher process. There, if we know which profile is about to
-    // start (profileDir), read its on-disk addon database so the initial posture
-    // still carries the (previously installed) extension list; otherwise return
-    // null. In the browser, use AddonManager: when waitForAddons is true block
-    // until it is ready so the current list is always reported, else return null
-    // to avoid blocking startup.
-    const getExtensions = async () => {
-      try {
-        if (Services.felt.isFeltUI()) {
-          return profileDir
-            ? await this._readProfileExtensions(profileDir)
-            : null;
-        }
-        if (!lazy.AddonManager.isReady) {
-          if (waitForAddons) {
-            await lazy.AddonManager.readyPromise;
-          } else {
-            return null;
-          }
-        }
-        const addons = await lazy.AddonManager.getAddonsByTypes([
-          "extension",
-          "sitepermission",
-          "siteperm_deprecated",
-          "plugin",
-          "mlmodel",
-        ]);
-        return addons.map(addon => ({
-          id: addon.id,
-          name: addon.name ?? "",
-          type: addon.type,
-          version: addon.version ?? "",
-          enabled: addon.isActive,
-        }));
-      } catch {
-        return null;
-      }
-    };
-
-    const getMachineId = async () => {
-      try {
-        const id = await lazy.MachineId.getRawId();
-        if (!id) {
-          return null;
-        }
-        return {
-          id,
-          source: await lazy.MachineId.getSource(),
-        };
-      } catch {
-        return null;
-      }
-    };
-
-    const networkInterfaces = Cc["@mozilla.org/network/network-link-service;1"]
-      .getService()
-      .QueryInterface(Ci.nsINetworkLinkService).networkInterfaces;
-
-    const baseOs = lazy.TelemetryEnvironment.currentEnvironment.system.os;
-    const { long: os_long_name, short: os_short_name } =
-      await lazy.composeOSNames(baseOs);
-    const os = {
-      ...baseOs,
-      ...(os_long_name != null && { os_long_name }),
-      ...(os_short_name != null && { os_short_name }),
-    };
-
-    // Read the console-supplied probe lists. An absent, empty, or malformed
-    // preference means "probe nothing". This matters especially for EDR:
-    // EdrDetection.getPresentEdrs([]) treats an empty list as "probe every known
-    // agent", so we must short-circuit rather than pass it an empty array.
-    const readJsonArrayPref = pref => {
-      const raw = Services.prefs.getStringPref(pref, "");
-      if (!raw) {
-        return [];
-      }
-      try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        lazy.log.error(`Malformed ${pref}, probing nothing:`, e);
-        return [];
-      }
-    };
-
-    const edrAgentsToProbe = readJsonArrayPref(EDR_AGENTS_PREF);
-
-    const getPresentEDRs = async () => {
-      if (!edrAgentsToProbe.length) {
-        return [];
-      }
-      return (await lazy.EdrDetection.getPresentEdrs(edrAgentsToProbe)).map(
-        name => ({ name })
-      );
-    };
-
-    // The console descriptor is also expected to carry an osquery query list,
-    // parallel to the EDR agent list above; when osquery execution lands it would
-    // be collected here (read from an OSQUERY_QUERIES_PREF, probe-none default)
-    // and added to the payload below.
-
-    // These probes are independent, and some are slow (subprocess spawns, addon
-    // manager readiness, an `ioreg` shell-out), so run them concurrently rather
-    // than serializing the awaits.
-    const [mobileEquipmentId, extensions, machineId, presentEdrs] =
-      await Promise.all([
-        getImeiValue(),
-        getExtensions(),
-        getMachineId(),
-        getPresentEDRs(),
-      ]);
-
-    const devicePosturePayload = {
-      os,
-      security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
-      build: lazy.TelemetryEnvironment.currentEnvironment.build,
-      network: {
-        mobileEquipmentId,
-        interfaces: networkInterfaces,
-      },
-      extensions,
-      machineId,
-      secureBootEnabled:
-        Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
-      isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
-      presentEdrs,
-    };
-    return devicePosturePayload;
-  },
-
-  /**
-   * Reads a profile's installed add-ons from its on-disk XPIDatabase
-   * (extensions.json) without a running AddonManager, so the initial posture can
-   * report extensions before the browser starts. Mirrors the shape produced by
-   * the AddonManager path in collectDevicePosture. On a brand-new profile the
-   * file does not exist yet (extensions are only persisted during the first
-   * browser run); that is expected and yields an empty list.
-   *
-   * @param {string} profileDir - Absolute path to the profile directory.
-   * @returns {Promise<DeviceAddon[]>} Reported add-ons, or [] if none/unreadable.
-   */
-  async _readProfileExtensions(profileDir) {
-    const REPORTED_TYPES = new Set([
-      "extension",
-      "sitepermission",
-      "siteperm_deprecated",
-      "plugin",
-      "mlmodel",
-    ]);
-    try {
-      const path = PathUtils.join(profileDir, "extensions.json");
-      const db = await IOUtils.readJSON(path);
-      const addons = Array.isArray(db?.addons) ? db.addons : [];
-      return addons
-        .filter(a => REPORTED_TYPES.has(a.type) && a.visible !== false)
-        .map(a => ({
-          id: a.id,
-          name: a.defaultLocale?.name ?? "",
-          type: a.type,
-          version: a.version ?? "",
-          enabled: !!a.active,
-        }));
-    } catch (e) {
-      if (DOMException.isInstance(e) && e.name === "NotFoundError") {
-        // No extensions.json yet on a brand-new profile (first login) is
-        // expected; report an empty list.
-        lazy.log.debug(`No extensions.json in ${profileDir} yet`);
-      } else {
-        // A present-but-unreadable or corrupt database is unexpected; surface it
-        // rather than silently reporting "no extensions".
-        lazy.log.error(`Failed to read extensions from ${profileDir}:`, e);
-      }
-      return [];
-    }
   },
 
   /**

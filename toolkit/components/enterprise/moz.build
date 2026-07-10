@@ -12,6 +12,7 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/ConsoleClient.sys.mjs",
     "modules/ConsoleProxyBypassFilter.sys.mjs",
     "modules/EnterpriseBadge.sys.mjs",
+    "modules/DevicePosture.sys.mjs",
     "modules/EnterpriseCommon.sys.mjs",
     "modules/EnterpriseEndpoints.sys.mjs",
     "modules/EnterpriseOSInfo.sys.mjs",

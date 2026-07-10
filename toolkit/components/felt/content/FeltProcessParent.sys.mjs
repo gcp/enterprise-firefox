@@ -7,6 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
     "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
@@ -15,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -25,6 +27,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // Fallback cadence for device-posture monitoring if the console config does not
 // specify a polling frequency.
 const DEFAULT_POSTURE_POLL_MS = 60000;
+
+// Pref holding the console-supplied EDR probe list (a JSON array string) read
+// by DevicePosture.collect. Must match DevicePosture's EDR_AGENTS_PREF.
+const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -441,15 +447,15 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     // The console tells the browser which EDR agents to include in device
     // posture. Forward them as a JSON string pref that
-    // ConsoleClient.collectDevicePosture reads; an absent/empty list means
+    // DevicePosture.collect reads; an absent/empty list means
     // "probe nothing". Skip when the config omits the field so we don't clobber
     // a descriptor delivered through the token exchange/refresh responses. The
     // descriptor is also expected to carry a parallel osquery query list, which
     // would be forwarded here once osquery collection is implemented.
     if (posture_elements) {
       Services.felt.sendStringPreference(
-        "enterprise.posture.edr_agents",
-        JSON.stringify(posture_elements.edr ?? [])
+        EDR_AGENTS_PREF,
+        this._serializePostureEdr(posture_elements)
       );
     } else {
       lazy.log.debug("No posture_elements in Firefox configuration");
@@ -461,12 +467,38 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Stores the console-supplied posture-elements descriptor (which EDR agents to
-   * probe) into a local pref in the FELT process, so the pre-launch posture
-   * collection here can read it. The browser gets its own copy via
-   * _applyFirefoxConfigs. The descriptor is also expected to carry a parallel
-   * osquery query list, which would be stored here once osquery collection is
-   * implemented.
+   * Serializes a posture-elements descriptor's EDR list to the JSON-array string
+   * stored in EDR_AGENTS_PREF. A missing list serializes to "[]" (probe none).
+   * The descriptor is also expected to carry a parallel osquery query list,
+   * which would be serialized here once osquery collection is implemented.
+   *
+   * @param {{edr?: string[]}} [postureElements]
+   * @returns {string}
+   */
+  _serializePostureEdr(postureElements) {
+    return JSON.stringify(postureElements?.edr ?? []);
+  }
+
+  /**
+   * Writes the console-supplied posture-elements descriptor into the local FELT
+   * pref that the pre-launch posture collection reads. The browser gets its own
+   * copy via _applyFirefoxConfigs.
+   *
+   * @param {{edr?: string[]}} [postureElements]
+   */
+  _writePostureElements(postureElements) {
+    Services.prefs.setStringPref(
+      EDR_AGENTS_PREF,
+      this._serializePostureEdr(postureElements)
+    );
+  }
+
+  /**
+   * Stores a posture-elements descriptor received mid-session (token refresh or
+   * config fetch). Such responses may legitimately omit the descriptor when it
+   * was delivered via another channel, so an absent descriptor preserves the
+   * current value rather than clearing it. The login exchange, by contrast, is
+   * authoritative for the session and clears on omit (see receiveMessage).
    *
    * @param {{edr?: string[]}} [postureElements]
    */
@@ -474,10 +506,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     if (!postureElements) {
       return;
     }
-    Services.prefs.setStringPref(
-      "enterprise.posture.edr_agents",
-      JSON.stringify(postureElements.edr ?? [])
-    );
+    this._writePostureElements(postureElements);
   }
 
   /**
@@ -492,16 +521,24 @@ export class FeltProcessParent extends JSProcessActorParent {
       if (!posture) {
         return;
       }
-      const { access_token, refresh_token, expires_at, config } =
-        await lazy.ConsoleClient.refreshTokens({ posture });
+      const {
+        access_token,
+        refresh_token,
+        expires_at,
+        config,
+        postureSubmitted,
+      } = await lazy.ConsoleClient.refreshTokens({ posture });
       Services.felt.setTokens(access_token, refresh_token, expires_at);
       // A refresh may carry a fresh posture-elements descriptor; keep the local
       // copy current so subsequent posture collection stays console-driven.
       this._storePostureElements(config?.posture_elements);
-      // Cache the submitted posture only after a successful submission, so a
-      // failed submission is retried by the monitor instead of being masked as
-      // "unchanged".
-      this._lastPostureJson = JSON.stringify(posture);
+      // Cache the submitted posture only after it was actually sent, so a
+      // failed submission -- or one that piggybacked on an in-flight refresh
+      // that did not carry this posture -- is retried by the monitor instead of
+      // being masked as "unchanged".
+      if (postureSubmitted) {
+        this._lastPostureJson = JSON.stringify(posture);
+      }
     } catch (e) {
       lazy.log.error("Failed to submit initial device posture:", e);
     }
@@ -537,7 +574,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
     this._postureRefreshInFlight = true;
     try {
-      const posture = await lazy.ConsoleClient.collectDevicePosture({
+      const posture = await lazy.DevicePosture.collect({
         profileDir: this._profilePath,
       });
       const postureJson = JSON.stringify(posture);
@@ -545,15 +582,25 @@ export class FeltProcessParent extends JSProcessActorParent {
         return;
       }
       lazy.log.debug("Device posture changed; refreshing.");
-      const { access_token, refresh_token, expires_at, config } =
-        await lazy.ConsoleClient.refreshTokens({ posture });
+      const {
+        access_token,
+        refresh_token,
+        expires_at,
+        config,
+        postureSubmitted,
+      } = await lazy.ConsoleClient.refreshTokens({ posture });
       Services.felt.setTokens(access_token, refresh_token, expires_at);
       // The browser must switch to the rotated access token immediately;
       // otherwise its next authenticated call 401s and forces a second,
       // posture-less refresh.
       Services.felt.sendAccessToken();
       this._storePostureElements(config?.posture_elements);
-      this._lastPostureJson = postureJson;
+      // Only record the posture as submitted if this call actually sent it; if
+      // it piggybacked on an in-flight (posture-less) refresh, leave
+      // _lastPostureJson so the next tick retries rather than losing the change.
+      if (postureSubmitted) {
+        this._lastPostureJson = postureJson;
+      }
     } catch (e) {
       lazy.log.error("Posture-change refresh failed:", e);
     } finally {
@@ -678,6 +725,14 @@ export class FeltProcessParent extends JSProcessActorParent {
           return;
         }
         await this.sendPrefsToFirefox();
+
+        // Forward the posture-elements-derived probe list (written during token
+        // exchange) to Firefox. _applyFirefoxConfigs() may omit posture_elements,
+        // and Firefox-side DevicePosture.collect reads this pref.
+        Services.felt.sendStringPreference(
+          EDR_AGENTS_PREF,
+          Services.prefs.getStringPref(EDR_AGENTS_PREF, "[]")
+        );
 
         // Submit the initial device posture -- including the full extension list
         // read from the derived profile on disk -- via a posture-carrying token
@@ -850,42 +905,10 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     const firefoxBin = Services.felt.binPath();
 
-    let profilePath = Services.prefs.getStringPref(
-      "enterprise.profile_path",
-      ""
-    );
-    let foundProfile = null;
-
-    if (!profilePath) {
-      let profileService = Cc[
-        "@mozilla.org/toolkit/profile-service;1"
-      ].getService(Ci.nsIToolkitProfileService);
-
-      let profileName = await this.profileName();
-
-      for (let profile of profileService.profiles) {
-        if (profile.name === profileName) {
-          foundProfile = profile;
-          break;
-        }
-      }
-
-      if (!foundProfile) {
-        lazy.log.debug(`creating new ${profileName} profile`);
-        foundProfile = profileService.createProfile(
-          null,
-          profileName,
-          "felt-firstrun"
-        );
-
-        await profileService.asyncFlush();
-      }
-    } else if (Services.appinfo.OS == "WINNT") {
-      profilePath = PathUtils.normalize(profilePath.replaceAll("/", "\\"));
-    }
-
     // Remember the resolved profile directory so the initial posture can read
     // its on-disk extension list before the browser starts.
+    const { profile: foundProfile, path: profilePath } =
+      await lazy.resolveManagedProfile(this.loggedInUserInfo);
     this._profilePath = profilePath;
 
     let extraRunArgs = [];
@@ -941,9 +964,16 @@ export class FeltProcessParent extends JSProcessActorParent {
     // Collect the initial device posture -- including the profile's on-disk
     // extension list -- BEFORE launching the browser, so reading extensions.json
     // cannot race the browser's AddonManager rewriting it during startup.
-    this._initialPosture = await lazy.ConsoleClient.collectDevicePosture({
-      profileDir: this._profilePath,
-    });
+    // Posture is supplementary, so a collection failure (e.g. a platform-specific
+    // probe throwing) must not block launch: leave it null and carry on.
+    try {
+      this._initialPosture = await lazy.DevicePosture.collect({
+        profileDir: this._profilePath,
+      });
+    } catch (e) {
+      lazy.log.error("Failed to collect initial device posture:", e);
+      this._initialPosture = null;
+    }
 
     try {
       this.proc = await lazy.Subprocess.call(firefoxRun);
@@ -1134,6 +1164,19 @@ export class FeltProcessParent extends JSProcessActorParent {
           // and initial browser config. This carries no posture (the profile,
           // and thus the extension list, isn't known until the exchange returns
           // the user id) and retires the previous WHOAMI call for user info.
+          // A network/HTTP failure here would otherwise become an unhandled
+          // rejection and leave the login flow stuck, so surface it as a launch
+          // failure the FELT UI can act on.
+          let exchange;
+          try {
+            exchange =
+              await lazy.ConsoleClient.exchangeOneTimeToken(one_time_token);
+          } catch (e) {
+            lazy.log.error("One-time-token exchange failed:", e);
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure");
+            break;
+          }
+
           const {
             user_id,
             email,
@@ -1141,7 +1184,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             refresh_token = "",
             expires_in = 0,
             config,
-          } = await lazy.ConsoleClient.exchangeOneTimeToken(one_time_token);
+          } = exchange;
 
           const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
           Services.felt.setTokens(access_token, refresh_token, expires_at);
@@ -1151,8 +1194,11 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           // Store the console-supplied posture-elements descriptor so posture
           // collection (here in Felt before launch, and later in the browser)
-          // knows which EDR agents to probe.
-          this._storePostureElements(config?.posture_elements);
+          // knows which EDR agents to probe. Login starts a fresh session, so
+          // the exchange config is authoritative: an absent descriptor clears
+          // any list left over from a previous user/session rather than
+          // preserving it.
+          this._writePostureElements(config?.posture_elements);
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
@@ -1184,22 +1230,4 @@ export class FeltProcessParent extends JSProcessActorParent {
       })
     );
   }
-
-  async profileName() {
-    if (this.loggedInUserInfo !== null) {
-      return `${lazy.FeltCommon.ENTERPRISE_PROFILE}-${await hashTo40bits(this.loggedInUserInfo.id)}`;
-    }
-    lazy.log.error(`loggedInUserInfo not set`);
-    return lazy.FeltCommon.ENTERPRISE_PROFILE;
-  }
-}
-
-async function hashTo40bits(s) {
-  const msgUint8 = new TextEncoder().encode(s);
-  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", msgUint8);
-  const base64 = new Uint8Array(hashBuffer).slice(0, 5).toBase64({
-    omitPadding: true,
-    alphabet: "base64url",
-  });
-  return base64;
 }
