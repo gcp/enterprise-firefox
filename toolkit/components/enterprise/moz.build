@@ -11,6 +11,7 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/CaptivePortal.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
     "modules/ConsoleProxyBypassFilter.sys.mjs",
+    "modules/DevicePosture.sys.mjs",
     "modules/EnterpriseCommon.sys.mjs",
     "modules/EnterpriseEndpoints.sys.mjs",
     "modules/EnterpriseHandler.sys.mjs",
