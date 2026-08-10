@@ -162,7 +162,7 @@ export const DevicePosture = {
    * @property {object} os Telemetry-reported os information.
    * @property {object|undefined} security Telemetry-reported security software info (windows only)
    * @property {object} build Telemetry-reported build info info
-   * @property {DeviceNetwork} network Network posture (placeholders for now).
+   * @property {DeviceNetwork} network Network posture.
    * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
    * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
    * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.

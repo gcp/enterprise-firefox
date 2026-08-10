@@ -280,6 +280,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             if raw:
                 config["posture_elements"] = json.loads(raw)
             m = json.dumps(config)
+            contentType = "application/json"
 
         elif path == "/api/browser/key":
             if not self.check_auth():
