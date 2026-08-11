@@ -325,25 +325,42 @@ export class FeltProcessParent extends JSProcessActorParent {
             }
             const client = lazy.ConsoleClient;
             // Refreshes credentials. The browser reaches this when its access
-            // token expires, e.g. a 401 on the policy poll. Posture travels its
-            // own path: the Felt posture monitor collects it on the poll cadence
-            // and submits it when it changes.
-            client
-              .refreshTokens()
-              .then(({ access_token, refresh_token, expires_at, config }) => {
-                lazy.log.debug("refreshTokens successful");
-                Services.felt.setTokens(
-                  access_token,
-                  refresh_token,
-                  expires_at
-                );
-                Services.felt.sendAccessToken();
-                // The response may carry a fresh posture-elements descriptor;
-                // apply it to both processes like the other refresh paths do.
-                gFeltProcessParentInstance._storePostureElements(
-                  config?.posture_elements
-                );
-              })
+            // token expires, e.g. a 401 on the policy poll, and it stays blocked
+            // until a token comes back, so this path reports the last posture
+            // instead of measuring a new one (see _postureForRefresh).
+            gFeltProcessParentInstance
+              ._postureForRefresh()
+              .then(({ posture, measuredAt }) =>
+                client.refreshTokens({ posture }).then(result => {
+                  const {
+                    access_token,
+                    refresh_token,
+                    expires_at,
+                    config,
+                    postureSubmitted,
+                  } = result;
+                  lazy.log.debug("refreshTokens successful");
+                  Services.felt.setTokens(
+                    access_token,
+                    refresh_token,
+                    expires_at
+                  );
+                  Services.felt.sendAccessToken();
+                  // The response may carry a fresh posture-elements descriptor;
+                  // apply it to both processes like the other refresh paths do.
+                  gFeltProcessParentInstance._storePostureElements(
+                    config?.posture_elements
+                  );
+                  // Only a posture measured here is news to the console; a
+                  // replayed one is already recorded against the session.
+                  if (postureSubmitted && measuredAt) {
+                    gFeltProcessParentInstance._recordSubmittedPosture(
+                      posture,
+                      measuredAt
+                    );
+                  }
+                })
+              )
               .catch(error => {
                 // A refresh failure tears the browser down.
                 // TODO: define a more refined behaviour for these conditions and implement.
@@ -515,6 +532,40 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
+   * The posture to report on the browser-driven refresh. The browser is blocked
+   * on that refresh, so the last measurement is reported rather than collected
+   * again -- a collect can spawn subprocesses (EDR detection, and `ioreg` for the
+   * machine ID on macOS). Staleness is bounded by the monitor, which re-measures
+   * on the poll cadence; if the last measurement is older than that anyway, take
+   * a new one.
+   *
+   * @returns {Promise<{posture: DevicePosture|null, measuredAt: number|null}>}
+   *   measuredAt is null for a replayed posture, which is already recorded
+   *   against the session.
+   */
+  async _postureForRefresh() {
+    const maxAge = this._posturePollMs ?? DEFAULT_POSTURE_POLL_MS;
+    if (this._lastPostureJson && Date.now() - this._lastPostureAt < maxAge) {
+      return { posture: JSON.parse(this._lastPostureJson), measuredAt: null };
+    }
+    try {
+      const measuredAt = Date.now();
+      const posture = await lazy.DevicePosture.collect({
+        profileDir: this._profilePath,
+      });
+      return { posture, measuredAt };
+    } catch (e) {
+      lazy.log.error("Failed to collect posture for the token refresh:", e);
+      return {
+        posture: this._lastPostureJson
+          ? JSON.parse(this._lastPostureJson)
+          : null,
+        measuredAt: null,
+      };
+    }
+  }
+
+  /**
    * Starts monitoring device posture on the policy-poll cadence. Posture is
    * reported independently of the policy fetch: on each tick we collect the
    * current posture and, only if it changed since the last submission, report it
@@ -561,6 +612,9 @@ export class FeltProcessParent extends JSProcessActorParent {
       });
       const postureJson = JSON.stringify(posture);
       if (postureJson === this._lastPostureJson) {
+        // Unchanged, so what the console holds is current as of this
+        // measurement: stamp it, which keeps the refresh path replaying.
+        this._lastPostureAt = measuredAt;
         return;
       }
       lazy.log.debug("Device posture changed; refreshing.");
