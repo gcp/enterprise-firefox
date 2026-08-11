@@ -563,8 +563,14 @@ mod tests {
             now
         ));
 
-        // A complete but stale cache is not usable.
-        let stale = Some((now - (CACHE_TTL + Duration::from_secs(1)), map));
-        assert!(!cache_is_usable(&stale, &[EdrId::CrowdStrike], now));
+        // A complete but stale cache is not usable. Age it by advancing the
+        // reference time rather than subtracting from `now`, which panics when
+        // the monotonic clock has not been running for a whole TTL yet.
+        let stale = Some((now, map));
+        assert!(!cache_is_usable(
+            &stale,
+            &[EdrId::CrowdStrike],
+            now + CACHE_TTL + Duration::from_secs(1)
+        ));
     }
 }
