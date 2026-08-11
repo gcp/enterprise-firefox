@@ -300,7 +300,9 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox();
+            gFeltProcessParentInstance.logoutFirefox().catch(err => {
+              lazy.log.error(`Logout failed: ${err}`);
+            });
             break;
 
           case "felt-firefox-tokens": {
@@ -349,6 +351,9 @@ export class FeltProcessParent extends JSProcessActorParent {
                 );
                 Services.felt.clearTokens();
                 gFeltProcessParentInstance.logoutReported = true;
+                // The session is over, so end posture reporting here rather than
+                // let further ticks refresh against the tokens just cleared.
+                gFeltProcessParentInstance._stopPostureMonitor();
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxSessionInterrupted",
@@ -541,13 +546,24 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
   }
 
-  async _maybeRefreshOnPostureChange() {
-    // Guard against overlapping ticks: a slow collect/refresh must not let the
-    // next interval start a second, racing refresh.
-    if (this._postureRefreshInFlight) {
-      return;
+  /**
+   * Runs one posture tick, at most one at a time: a slow collect/refresh keeps
+   * the promise in place so the next interval joins it instead of starting a
+   * second, racing refresh. The promise is also what logoutFirefox() awaits, so
+   * keep it resolving (the tick handles its own errors).
+   *
+   * @returns {Promise<void>}
+   */
+  _maybeRefreshOnPostureChange() {
+    if (!this._postureRefresh) {
+      this._postureRefresh = this._refreshOnPostureChange().finally(() => {
+        this._postureRefresh = null;
+      });
     }
-    this._postureRefreshInFlight = true;
+    return this._postureRefresh;
+  }
+
+  async _refreshOnPostureChange() {
     try {
       const posture = await lazy.DevicePosture.collect({
         profileDir: this._profilePath,
@@ -564,6 +580,13 @@ export class FeltProcessParent extends JSProcessActorParent {
         config,
         postureSubmitted,
       } = await lazy.ConsoleClient.refreshTokens({ posture });
+      // Logout may have landed while the refresh was in flight; its tokens are
+      // for a session that is being torn down, so drop the whole response
+      // rather than re-arm the session that logoutFirefox() just cleared.
+      if (this.logoutReported) {
+        lazy.log.debug("Logout in progress; dropping the posture refresh.");
+        return;
+      }
       Services.felt.setTokens(access_token, refresh_token, expires_at);
       // The browser must switch to the rotated access token immediately;
       // otherwise its next authenticated call 401s and forces a second,
@@ -578,8 +601,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       }
     } catch (e) {
       lazy.log.error("Posture-change refresh failed:", e);
-    } finally {
-      this._postureRefreshInFlight = false;
     }
   }
 
@@ -1091,8 +1112,10 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   /**
    * Perform all the logout operations on FELT side.
+   *
+   * @returns {Promise<void>} Resolves once the browser shutdown was requested.
    */
-  logoutFirefox() {
+  async logoutFirefox() {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
@@ -1107,23 +1130,29 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     gFeltProcessParentInstance.logoutReported = true;
 
+    // End posture reporting before the session is torn down: no further ticks,
+    // and the tick that may be mid-refresh sees logoutReported and drops its
+    // response. Awaiting it orders that decision before the clearTokens() below.
+    gFeltProcessParentInstance._stopPostureMonitor();
+    await gFeltProcessParentInstance._postureRefresh;
+
     // Send the logout request to the server.
     // Handle any errors that occur during signout gracefully,
     // i.e. report, but ignore them and proceed with the signout.
-    lazy.ConsoleClient.performServerSignout()
-      .catch(err => {
-        lazy.log.error(`Server signout failed: ${err}`);
-      })
-      .finally(() => {
-        // clear token data on the FELT side, then shut Firefox down
-        Services.felt.clearTokens();
-        Services.felt.shutdownFirefox();
-        gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-            reason: "logout",
-          });
-        });
+    try {
+      await lazy.ConsoleClient.performServerSignout();
+    } catch (err) {
+      lazy.log.error(`Server signout failed: ${err}`);
+    }
+
+    // clear token data on the FELT side, then shut Firefox down
+    Services.felt.clearTokens();
+    Services.felt.shutdownFirefox();
+    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+        reason: "logout",
       });
+    });
   }
 
   async receiveMessage(message) {
