@@ -222,11 +222,97 @@ class FeltDevicePostureElements(FeltTests):
         finally:
             self._driver.set_context("content")
 
+    # A minimal on-disk add-on database, in the shape XPIDatabase serializes:
+    # an active and a disabled add-on that posture reports, plus an invisible
+    # add-on and a type it does not report.
+    ADDON_DB = {
+        "schemaVersion": 36,
+        "addons": [
+            {
+                "id": "active@example.com",
+                "type": "extension",
+                "version": "1.2",
+                "visible": True,
+                "active": True,
+                "defaultLocale": {"name": "Active Extension"},
+                "locales": [],
+            },
+            {
+                "id": "disabled@example.com",
+                "type": "extension",
+                "version": "0.9",
+                "visible": True,
+                "active": False,
+                "defaultLocale": {"name": "Disabled Extension"},
+                "locales": [],
+            },
+            {
+                "id": "invisible@example.com",
+                "type": "extension",
+                "version": "3.0",
+                "visible": False,
+                "active": True,
+                "defaultLocale": {"name": "Invisible Extension"},
+                "locales": [],
+            },
+            {
+                "id": "theme@example.com",
+                "type": "theme",
+                "version": "1.0",
+                "visible": True,
+                "active": True,
+                "defaultLocale": {"name": "A Theme"},
+                "locales": [],
+            },
+        ],
+    }
+
+    def test_felt_reads_the_addon_db_without_writing_it(self):
+        """Felt reports the launching profile's add-ons from its on-disk database,
+        and the read leaves both that database and this process's own add-on state
+        alone."""
+        # FELT-only test (see test_profile_derivation_from_user_id): getExtensions
+        # takes the isFeltUI() on-disk path, so no login/child browser is needed.
+        self._manually_closed_child = True
+        rv = self._collect_with_addon_db(json.dumps(self.ADDON_DB))
+        assert "_error" not in rv, f"DevicePosture.collect threw: {rv.get('_error')}"
+        assert isinstance(rv["extensions"], list), (
+            f"the add-on list was read, got {rv['extensions']!r}"
+        )
+
+        reported = {addon["id"]: addon for addon in rv["extensions"]}
+        assert set(reported) == {"active@example.com", "disabled@example.com"}, (
+            "only visible add-ons of a reported type are reported, got "
+            f"{sorted(reported)}"
+        )
+        assert reported["active@example.com"] == {
+            "id": "active@example.com",
+            "name": "Active Extension",
+            "type": "extension",
+            "version": "1.2",
+            "enabled": True,
+        }, f"the reported fields match the database, got {reported}"
+        assert reported["disabled@example.com"]["enabled"] is False, (
+            "an inactive add-on is reported as disabled"
+        )
+        self._assert_addon_db_untouched(rv)
+
+    def test_posture_without_an_addon_db(self):
+        """A profile that has never been launched has no add-on database yet:
+        posture reports the list as unknown rather than inventing one on disk."""
+        self._manually_closed_child = True
+        rv = self._collect_with_addon_db(None)
+        assert "_error" not in rv, f"DevicePosture.collect threw: {rv.get('_error')}"
+        assert rv["extensions"] is None, (
+            f"extensions is unknown without a database, got {rv['extensions']!r}"
+        )
+        assert rv["hasOs"], "the rest of the posture is still collected"
+        assert rv["dbAfter"] is None, "no add-on database is created for the profile"
+        self._assert_addon_db_untouched(rv)
+
     def test_posture_survives_unreadable_addon_db(self):
         """A malformed on-disk add-on database must not break posture collection:
         extensions degrades to null/empty and the rest is still reported."""
-        # FELT-only test (see test_profile_derivation_from_user_id): getExtensions
-        # takes the isFeltUI() on-disk path, so no login/child browser is needed.
         self._manually_closed_child = True
         rv = self._collect_with_addon_db("{ this is not valid json")
         assert "_error" not in rv, (
@@ -236,23 +322,43 @@ class FeltDevicePostureElements(FeltTests):
             f"extensions degrades gracefully, got {rv['extensions']!r}"
         )
         assert rv["hasOs"], "the rest of the posture is still collected"
+        self._assert_addon_db_untouched(rv)
+
+    def _assert_addon_db_untouched(self, rv):
+        assert rv["dbAfter"] == rv["dbBefore"], (
+            "the launching profile's add-on database is left byte-identical"
+        )
+        assert rv["jsonFilePathAfter"] == rv["jsonFilePathBefore"], (
+            "this process's own XPIDatabase still points at its own profile, got "
+            f"{rv['jsonFilePathAfter']}"
+        )
 
     def _collect_with_addon_db(self, extensions_json):
+        """Collects posture against a scratch profile directory holding
+        extensions_json, or holding no database at all when it is None."""
         self._driver.set_context("chrome")
         try:
             return self._driver.execute_async_script(
                 """
-                const badJson = arguments[0];
+                const dbJson = arguments[0];
                 const callback = arguments[arguments.length - 1];
                 (async () => {
-                  const dir = PathUtils.join(PathUtils.tempDir, "felt-posture-baddb");
+                  const dir = PathUtils.join(PathUtils.tempDir, "felt-posture-addondb");
+                  const dbPath = PathUtils.join(dir, "extensions.json");
+                  const readOrNull = async path =>
+                    (await IOUtils.exists(path)) ? IOUtils.readUTF8(path) : null;
                   await IOUtils.makeDirectory(dir, { ignoreExisting: true });
-                  await IOUtils.writeUTF8(
-                    PathUtils.join(dir, "extensions.json"), badJson
+                  if (dbJson !== null) {
+                    await IOUtils.writeUTF8(dbPath, dbJson);
+                  }
+                  const { XPIDatabase } = ChromeUtils.importESModule(
+                    "resource://gre/modules/addons/XPIDatabase.sys.mjs"
                   );
                   const { DevicePosture } = ChromeUtils.importESModule(
                     "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
                   );
+                  const dbBefore = await readOrNull(dbPath);
+                  const jsonFilePathBefore = XPIDatabase.jsonFilePath;
                   try {
                     const posture = await DevicePosture.collect({
                       profileDir: dir,
@@ -260,6 +366,10 @@ class FeltDevicePostureElements(FeltTests):
                     return {
                       extensions: posture.extensions,
                       hasOs: !!(posture.os && posture.os.name),
+                      dbBefore,
+                      dbAfter: await readOrNull(dbPath),
+                      jsonFilePathBefore,
+                      jsonFilePathAfter: XPIDatabase.jsonFilePath,
                     };
                   } finally {
                     await IOUtils.remove(dir, { recursive: true });
