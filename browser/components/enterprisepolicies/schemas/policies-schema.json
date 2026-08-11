@@ -7,6 +7,26 @@
       "type": "string",
       "anyOf": [{ "format": "uri" }, { "maxLength": 0 }]
     },
+    "urlLoggingLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "const": "full",
+          "title": "Full URLs",
+          "description": "Log complete URLs, including paths and parameters."
+        },
+        {
+          "const": "domain",
+          "title": "Domains only",
+          "description": "Log only URL hostnames."
+        },
+        {
+          "const": "none",
+          "title": "No URLs",
+          "description": "Do not log URL information."
+        }
+      ]
+    },
     "origin": {
       "type": "string",
       "format": "uri",
@@ -673,40 +693,6 @@
       "x-restart-required": false,
       "description": "Block access to Troubleshooting Information ('about:support').",
       "examples": [true]
-    },
-
-    "BlocklistDomainBrowsedTelemetry": {
-      "type": "object",
-      "x-category": "Cloud reporting",
-      "x-compatibility": {
-        "firefox": { "version_added": false },
-        "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
-      },
-      "x-restart-required": false,
-      "description": "Enable and configure security logging when Firefox blocks a visit to a blocklisted domain.",
-      "examples": [
-        {
-          "Enabled": true,
-          "UrlLogging": "full"
-        },
-        {
-          "Enabled": false
-        },
-        {
-          "Enabled": true,
-          "UrlLogging": "none"
-        }
-      ],
-      "properties": {
-        "Enabled": {
-          "type": "boolean"
-        },
-        "UrlLogging": {
-          "type": "string",
-          "enum": ["full", "domain", "none"]
-        }
-      }
     },
 
     "Bookmarks": {
@@ -1979,46 +1965,6 @@
       "x-restart-required": true,
       "description": "Set and lock the download directory.",
       "examples": ["${home}/Downloads"]
-    },
-
-    "DownloadTelemetry": {
-      "type": "object",
-      "x-category": "Cloud reporting",
-      "x-compatibility": {
-        "firefox": { "version_added": false },
-        "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
-      },
-      "x-restart-required": false,
-      "description": "Enable and configure security logging when a download is triggered. 'UrlLogging' and 'FileLogging' control how much detail about the download source and the file is included in the log.",
-      "examples": [
-        {
-          "Enabled": true,
-          "UrlLogging": "full",
-          "FileLogging": "metadata"
-        },
-        {
-          "Enabled": false
-        },
-        {
-          "Enabled": true,
-          "UrlLogging": "none",
-          "FileLogging": "none"
-        }
-      ],
-      "properties": {
-        "Enabled": {
-          "type": "boolean"
-        },
-        "UrlLogging": {
-          "type": "string",
-          "enum": ["full", "domain", "none"]
-        },
-        "FileLogging": {
-          "type": "string",
-          "enum": ["full", "metadata", "none"]
-        }
-      }
     },
 
     "EnableTrackingProtection": {
@@ -3604,40 +3550,6 @@
       "examples": [false]
     },
 
-    "PrintPageTelemetry": {
-      "type": "object",
-      "x-category": "Cloud reporting",
-      "x-compatibility": {
-        "firefox": { "version_added": false },
-        "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
-      },
-      "x-restart-required": false,
-      "description": "Enable and configure security logging when a page is printed. 'UrlLogging' controls how much detail about the printed page's address is included in the log.",
-      "examples": [
-        {
-          "Enabled": true,
-          "UrlLogging": "domain"
-        },
-        {
-          "Enabled": false
-        },
-        {
-          "Enabled": true,
-          "UrlLogging": "none"
-        }
-      ],
-      "properties": {
-        "Enabled": {
-          "type": "boolean"
-        },
-        "UrlLogging": {
-          "type": "string",
-          "enum": ["full", "domain", "none"]
-        }
-      }
-    },
-
     "PrivateBrowsingModeAvailability": {
       "type": "number",
       "x-category": "Browsing restrictions",
@@ -4105,6 +4017,124 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+
+    "SecurityLogging": {
+      "type": "object",
+      "x-category": "Cloud reporting",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "156" }
+      },
+      "x-restart-required": false,
+      "description": "Enable and configure security logging/telemetry for security-relevant events.",
+      "examples": [
+        {
+          "Download": {
+            "Enabled": true,
+            "UrlLogging": "full",
+            "FileLogging": "full"
+          },
+          "PrintPage": {
+            "Enabled": true,
+            "UrlLogging": "domain"
+          },
+          "BlocklistDomainBrowsed": {
+            "Enabled": true,
+            "UrlLogging": "full"
+          },
+          "UnsafeSiteVisit": {
+            "Enabled": true,
+            "UrlLogging": "full"
+          },
+          "UnsafeDownload": {
+            "Enabled": true,
+            "UrlLogging": "full"
+          }
+        },
+        {
+          "Download": {
+            "Enabled": false
+          },
+          "PrintPage": {
+            "Enabled": false
+          }
+        },
+        {
+          "UnsafeSiteVisit": {
+            "Enabled": true,
+            "UrlLogging": "none"
+          }
+        }
+      ],
+      "properties": {
+        "BlocklistDomainBrowsed": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "UrlLogging": { "$ref": "#/definitions/urlLoggingLevel" }
+          }
+        },
+        "Download": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "UrlLogging": { "$ref": "#/definitions/urlLoggingLevel" },
+            "FileLogging": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "full",
+                  "title": "Full file information",
+                  "description": "Log filenames, file paths, extensions, and MIME types."
+                },
+                {
+                  "const": "metadata",
+                  "title": "File metadata only",
+                  "description": "Log only file extensions and MIME types."
+                },
+                {
+                  "const": "none",
+                  "title": "No file information",
+                  "description": "Do not log file information."
+                }
+              ]
+            }
+          }
+        },
+        "PrintPage": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "UrlLogging": { "$ref": "#/definitions/urlLoggingLevel" }
+          }
+        },
+        "UnsafeDownload": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "UrlLogging": { "$ref": "#/definitions/urlLoggingLevel" }
+          }
+        },
+        "UnsafeSiteVisit": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "UrlLogging": { "$ref": "#/definitions/urlLoggingLevel" }
           }
         }
       }

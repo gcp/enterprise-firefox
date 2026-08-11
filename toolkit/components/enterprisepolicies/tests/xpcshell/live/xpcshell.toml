@@ -5,4 +5,6 @@ run-if = ["enterprise"]
 
 ["test_live_policy_Proxy.js"]
 
+["test_live_policy_SecurityLogging.js"]
+
 ["test_live_policy_Sync.js"]

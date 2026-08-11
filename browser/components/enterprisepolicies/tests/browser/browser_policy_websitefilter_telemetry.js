@@ -24,19 +24,14 @@ add_task(async function test_policy_enterprise_telemetry() {
       WebsiteFilter: `{
         "Block": ["*://mochi.test/*policy_websitefilter_block*"]
       }`,
+      SecurityLogging: {
+        BlocklistDomainBrowsed: { Enabled: true, UrlLogging: "full" },
+      },
     },
   });
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
-      [
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
-        true,
-      ],
-      [
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
-        "full",
-      ],
     ],
   });
 

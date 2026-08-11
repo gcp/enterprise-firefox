@@ -16,10 +16,12 @@
  *
  * {
  *   "policies": {
- *     "DownloadTelemetry": {
- *       "Enabled": true,
- *       "UrlLogging": "full",
- *       "FileLogging": "full"
+ *     "SecurityLogging": {
+ *       "Download": {
+ *         "Enabled": true,
+ *         "UrlLogging": "full",
+ *         "FileLogging": "full"
+ *       }
  *     }
  *   }
  * }

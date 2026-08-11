@@ -83,6 +83,9 @@ skip-if = ["enterprise"] # Bug 2065476: skip tests for enterprise builds ; re-en
 
 ["test_security_devices.js"]
 
+["test_security_logging.js"]
+run-if = ["enterprise"]
+
 ["test_simple_pref_policies.js"]
 
 ["test_sitepolicies.js"]

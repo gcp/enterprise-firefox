@@ -74,8 +74,9 @@ downloads:
         type: quantity
       source_url:
         description: >
-          The download source URL. Collection level configurable via enterprise
-          policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
+          The download source URL. Collection level configurable via the
+          SecurityLogging policy's Download.UrlLogging setting: "full"
+          (default), "domain", or "none".
         type: string
       is_private:
         description: >
@@ -118,8 +119,9 @@ downloads:
         type: string
       source_url:
         description: >
-          The download source URL. Collection level configurable via enterprise
-          policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
+          The download source URL. Collection level configurable via the
+          SecurityLogging policy's Download.UrlLogging setting: "full"
+          (default), "domain", or "none".
         type: string
       is_private:
         description: >

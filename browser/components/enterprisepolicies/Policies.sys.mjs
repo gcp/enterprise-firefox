@@ -31,6 +31,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  SecurityLoggingPolicy:
+    "resource:///modules/policies/SecurityLoggingPolicy.sys.mjs",
   AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
@@ -605,47 +607,6 @@ export var Policies = {
     onRemove(manager, _oldParams) {
       lazy.unblockAboutPage(manager, "about:support");
       manager.allowFeature("aboutSupport");
-    },
-  },
-
-  BlocklistDomainBrowsedTelemetry: {
-    onBeforeAddons(manager, param) {
-      if (param && typeof param === "object") {
-        // Enable/disable blocklist domain browsed telemetry
-        if (typeof param.Enabled === "boolean") {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
-            param.Enabled
-          );
-        } else {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
-          );
-        }
-
-        // Set URL logging level
-        if (
-          typeof param.UrlLogging === "string" &&
-          ["full", "domain", "none"].includes(param.UrlLogging)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
-            param.UrlLogging
-          );
-        } else {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
-          );
-        }
-      }
-    },
-    onRemove(_manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
-      );
     },
   },
 
@@ -1711,61 +1672,6 @@ export var Policies = {
         "browser.download.useDownloadDir",
         true
       );
-    },
-  },
-
-  DownloadTelemetry: {
-    onBeforeAddons(manager, param) {
-      if (param && typeof param === "object") {
-        // Enable/disable download telemetry
-        if (typeof param.Enabled === "boolean") {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.download.enterprise.telemetry.enabled",
-            param.Enabled
-          );
-        }
-
-        // Set URL logging level
-        if (
-          typeof param.UrlLogging === "string" &&
-          ["full", "domain", "none"].includes(param.UrlLogging)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.download.enterprise.telemetry.urlLogging",
-            param.UrlLogging
-          );
-        }
-
-        // Set file logging level
-        if (
-          typeof param.FileLogging === "string" &&
-          ["full", "metadata", "none"].includes(param.FileLogging)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.download.enterprise.telemetry.fileLogging",
-            param.FileLogging
-          );
-        }
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams && typeof oldParams === "object") {
-        if ("Enabled" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.download.enterprise.telemetry.enabled"
-          );
-        }
-        if ("UrlLogging" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.download.enterprise.telemetry.urlLogging"
-          );
-        }
-        if ("FileLogging" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.download.enterprise.telemetry.fileLogging"
-          );
-        }
-      }
     },
   },
 
@@ -3185,45 +3091,6 @@ export var Policies = {
     },
   },
 
-  PrintPageTelemetry: {
-    onBeforeAddons(manager, param) {
-      if (param && typeof param === "object") {
-        // Enable/disable print page telemetry
-        if (typeof param.Enabled === "boolean") {
-          lazy.PoliciesUtils.setAndLockPref(
-            "print.enterprise.telemetry.printPage.enabled",
-            param.Enabled
-          );
-        }
-
-        // Set URL logging level
-        if (
-          typeof param.UrlLogging === "string" &&
-          ["full", "domain", "none"].includes(param.UrlLogging)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "print.enterprise.telemetry.printPage.urlLogging",
-            param.UrlLogging
-          );
-        }
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams && typeof oldParams === "object") {
-        if ("Enabled" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "print.enterprise.telemetry.printPage.enabled"
-          );
-        }
-        if ("UrlLogging" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "print.enterprise.telemetry.printPage.urlLogging"
-          );
-        }
-      }
-    },
-  },
-
   PrivateBrowsingModeAvailability: {
     onBeforeAddons(manager, param) {
       switch (param) {
@@ -3767,6 +3634,15 @@ export var Policies = {
           lazy.log.error(`Error running SecurityDevices.onProfileAfterChange`);
           lazy.log.debug(ex);
         });
+    },
+  },
+
+  SecurityLogging: {
+    onBeforeAddons(_manager, param) {
+      lazy.SecurityLoggingPolicy.apply(param);
+    },
+    onRemove(_manager, oldParams) {
+      lazy.SecurityLoggingPolicy.remove(oldParams);
     },
   },
 
