@@ -20,11 +20,64 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 // The console tells us which EDR agents to probe for via the browser
-// configuration; Felt stores that into this preference (a JSON string). When the
-// preference is absent, empty, or malformed we probe nothing: we never probe
-// every known agent by default. The console descriptor is also expected to carry
-// a parallel osquery query list, but osquery collection is not implemented yet.
-const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
+// configuration; Felt stores that into this preference (a JSON string). An
+// absent, empty, or malformed preference means "probe nothing" -- the probe list
+// is always exactly what the console asked for. The console descriptor is also
+// expected to carry a parallel osquery query list, for when osquery collection
+// is implemented.
+export const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
+
+// Our key into the console's platform-keyed posture-elements descriptor: the OS
+// name we report in the posture payload below (sysinfo "name", i.e.
+// PR_SI_SYSNAME -- "Windows_NT", "Darwin", "Linux"), so the console keys the
+// descriptor on the same value it already receives for each device. An
+// indeterminate name selects no section, and we probe nothing.
+ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
+  try {
+    return Services.sysinfo.getProperty("name");
+  } catch (e) {
+    lazy.log.error("Could not determine the OS name for posture elements:", e);
+    return null;
+  }
+});
+
+/**
+ * The write side of the EDR_AGENTS_PREF contract: turns the console's
+ * posture-elements descriptor into the probe list DevicePosture.collect reads.
+ *
+ * The console serves one global descriptor keyed by platform, and the client
+ * selects its own section here, so the probe list follows the platform the
+ * client actually runs on. Each section is also expected to carry a parallel
+ * osquery query list, which would be handled here once osquery collection is
+ * implemented.
+ */
+export const PostureElements = {
+  /**
+   * Selects this platform's section and serializes its EDR list to the
+   * JSON-array string stored in EDR_AGENTS_PREF. A missing section or list
+   * serializes to "[]" (probe none).
+   *
+   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
+   * @returns {string}
+   */
+  serializeEdr(postureElements) {
+    return JSON.stringify(postureElements?.[lazy.posturePlatform]?.edr ?? []);
+  },
+
+  /**
+   * Writes the descriptor into this process's own EDR_AGENTS_PREF. Used by the
+   * Felt process for its pre-launch posture collection; the browser receives its
+   * copy over IPC instead.
+   *
+   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
+   */
+  write(postureElements) {
+    Services.prefs.setStringPref(
+      EDR_AGENTS_PREF,
+      this.serializeEdr(postureElements)
+    );
+  },
+};
 
 // Add-on types we report in device posture.
 const REPORTED_ADDON_TYPES = [

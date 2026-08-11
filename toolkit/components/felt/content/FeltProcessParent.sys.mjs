@@ -8,6 +8,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  PostureElements: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
     "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
@@ -27,10 +29,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // Fallback cadence for device-posture monitoring if the console config does not
 // specify a polling frequency.
 const DEFAULT_POSTURE_POLL_MS = 60000;
-
-// Pref holding the console-supplied EDR probe list (a JSON array string) read
-// by DevicePosture.collect. Must match DevicePosture's EDR_AGENTS_PREF.
-const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -446,16 +444,17 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // The console tells the browser which EDR agents to include in device
-    // posture. Forward them as a JSON string pref that
-    // DevicePosture.collect reads; an absent/empty list means
-    // "probe nothing". Skip when the config omits the field so we don't clobber
-    // a descriptor delivered through the token exchange/refresh responses. The
-    // descriptor is also expected to carry a parallel osquery query list, which
-    // would be forwarded here once osquery collection is implemented.
+    // posture, as one global platform-keyed descriptor. Select our platform's
+    // section and forward it as a JSON string pref that DevicePosture.collect
+    // reads; an empty list means "probe nothing". A config that omits the field
+    // leaves the value delivered through the token exchange/refresh responses in
+    // place. Each section is also expected to carry a parallel osquery query
+    // list, which would be forwarded here once osquery collection is
+    // implemented.
     if (posture_elements) {
       Services.felt.sendStringPreference(
-        EDR_AGENTS_PREF,
-        this._serializePostureEdr(posture_elements)
+        lazy.EDR_AGENTS_PREF,
+        lazy.PostureElements.serializeEdr(posture_elements)
       );
     } else {
       lazy.log.debug("No posture_elements in Firefox configuration");
@@ -467,46 +466,18 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Serializes a posture-elements descriptor's EDR list to the JSON-array string
-   * stored in EDR_AGENTS_PREF. A missing list serializes to "[]" (probe none).
-   * The descriptor is also expected to carry a parallel osquery query list,
-   * which would be serialized here once osquery collection is implemented.
-   *
-   * @param {{edr?: string[]}} [postureElements]
-   * @returns {string}
-   */
-  _serializePostureEdr(postureElements) {
-    return JSON.stringify(postureElements?.edr ?? []);
-  }
-
-  /**
-   * Writes the console-supplied posture-elements descriptor into the local FELT
-   * pref that the pre-launch posture collection reads. The browser gets its own
-   * copy via _applyFirefoxConfigs.
-   *
-   * @param {{edr?: string[]}} [postureElements]
-   */
-  _writePostureElements(postureElements) {
-    Services.prefs.setStringPref(
-      EDR_AGENTS_PREF,
-      this._serializePostureEdr(postureElements)
-    );
-  }
-
-  /**
    * Stores a posture-elements descriptor received mid-session (token refresh or
-   * config fetch). Such responses may legitimately omit the descriptor when it
-   * was delivered via another channel, so an absent descriptor preserves the
-   * current value rather than clearing it. The login exchange, by contrast, is
-   * authoritative for the session and clears on omit (see receiveMessage).
+   * config fetch), where the descriptor may have been delivered via another
+   * channel: an absent descriptor preserves the current value. The login exchange
+   * is authoritative for the session and clears on omit (see receiveMessage).
    *
-   * @param {{edr?: string[]}} [postureElements]
+   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
    */
   _storePostureElements(postureElements) {
     if (!postureElements) {
       return;
     }
-    this._writePostureElements(postureElements);
+    lazy.PostureElements.write(postureElements);
   }
 
   /**
@@ -730,8 +701,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         // exchange) to Firefox. _applyFirefoxConfigs() may omit posture_elements,
         // and Firefox-side DevicePosture.collect reads this pref.
         Services.felt.sendStringPreference(
-          EDR_AGENTS_PREF,
-          Services.prefs.getStringPref(EDR_AGENTS_PREF, "[]")
+          lazy.EDR_AGENTS_PREF,
+          Services.prefs.getStringPref(lazy.EDR_AGENTS_PREF, "[]")
         );
 
         // Submit the initial device posture -- including the full extension list
@@ -1198,7 +1169,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           // the exchange config is authoritative: an absent descriptor clears
           // any list left over from a previous user/session rather than
           // preserving it.
-          this._writePostureElements(config?.posture_elements);
+          lazy.PostureElements.write(config?.posture_elements);
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);

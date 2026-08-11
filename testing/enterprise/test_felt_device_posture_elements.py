@@ -16,17 +16,41 @@ from felt_tests import FeltTests
 class FeltDevicePostureElements(FeltTests):
     """The console drives which EDR agents device posture probes.
 
-    The console publishes a `posture_elements` descriptor in the browser config;
-    Felt stores it into the enterprise.posture.* prefs, and
-    DevicePosture.collect uses it -- probing nothing when unset (it
-    must never fall back to probing every known EDR agent). The descriptor is also
-    expected to carry a parallel osquery query list, but osquery collection is not
-    implemented yet, so it is not exercised here.
+    The console publishes one global, platform-keyed `posture_elements`
+    descriptor in the browser config; Felt selects the section for the platform
+    it is running on, stores it into the enterprise.posture.* prefs, and
+    DevicePosture.collect probes exactly that list, probing nothing when the
+    prefs are unset. Each section is also expected to carry a parallel osquery
+    query list, but osquery collection is not implemented yet, so it is not
+    exercised here.
     """
 
+    # Keyed by the OS name the client reports in the posture payload
+    # (sysinfo "name" / PR_SI_SYSNAME), with a distinct list per platform so a
+    # wrong selection shows up as a mismatch.
     POSTURE_ELEMENTS = {
-        "edr": ["crowdstrike"],
+        "Windows_NT": {"edr": ["crowdstrike", "cortex-xdr"]},
+        "Darwin": {"edr": ["crowdstrike"]},
+        "Linux": {"edr": ["sentinelone"]},
     }
+
+    @property
+    def expected_edr(self):
+        """The section the client should have selected. Reads the key back from
+        the browser so the test resolves it through the product's own source of
+        truth, and requires that the reported OS name has a section."""
+        self._child_driver.set_context("chrome")
+        try:
+            os_name = self._child_driver.execute_script(
+                "return Services.sysinfo.getProperty('name');"
+            )
+        finally:
+            self._child_driver.set_context("content")
+        assert os_name in self.POSTURE_ELEMENTS, (
+            f"reported OS name {os_name!r} has no posture_elements section; "
+            f"known sections: {sorted(self.POSTURE_ELEMENTS)}"
+        )
+        return self.POSTURE_ELEMENTS[os_name]["edr"]
 
     def test_posture_elements(self):
         # The config is fetched before the child browser starts, so the console
@@ -37,19 +61,19 @@ class FeltDevicePostureElements(FeltTests):
         super().run_felt_base()
         self.connect_child_browser()
 
-        self.run_os_version_passed_to_sso()
+        self.run_os_version_not_sent_to_sso()
         self.run_config_pref_plumbing()
         self.run_console_driven_probes()
         self.run_probe_none_when_unconfigured()
 
-    def run_os_version_passed_to_sso(self):
-        """The client passes its OS version to the SSO flow so the console can
-        return an OS-tailored posture-elements descriptor."""
+    def run_os_version_not_sent_to_sso(self):
+        """Platform selection happens on the client, so the login request
+        identifies only the user and the device."""
         console_addr = f"http://localhost:{self.console_port}"
         r = requests.get(f"{console_addr}/sso/get_sso_os_version")
         os_version = r.json()
-        assert os_version, (
-            f"SSO login should receive a non-empty osVersion, got {os_version!r}"
+        assert os_version is None, (
+            f"SSO login must not carry an osVersion, got {os_version!r}"
         )
 
     def _wait_for_string_pref(self, name):
@@ -64,10 +88,12 @@ class FeltDevicePostureElements(FeltTests):
             self._child_driver.set_context("content")
 
     def run_config_pref_plumbing(self):
-        """The config's posture_elements is pushed to the browser as JSON prefs."""
+        """This platform's section of posture_elements is pushed to the browser as
+        JSON prefs; the other platforms' sections are not."""
         edr_pref = self._wait_for_string_pref("enterprise.posture.edr_agents")
-        assert json.loads(edr_pref) == self.POSTURE_ELEMENTS["edr"], (
-            f"edr_agents pref reflects the console config, got {edr_pref}"
+        assert json.loads(edr_pref) == self.expected_edr, (
+            "edr_agents pref reflects this platform's section of the console "
+            f"config, got {edr_pref}"
         )
 
     def run_console_driven_probes(self):
@@ -109,8 +135,9 @@ class FeltDevicePostureElements(FeltTests):
             self._child_driver.set_context("content")
 
         assert "_error" not in rv, f"DevicePosture.collect threw: {rv.get('_error')}"
-        assert rv["recorded"] == self.POSTURE_ELEMENTS["edr"], (
-            f"getPresentEdrs called with the console-configured list, got {rv['recorded']}"
+        assert rv["recorded"] == self.expected_edr, (
+            "getPresentEdrs called with this platform's console-configured list, "
+            f"got {rv['recorded']}"
         )
 
     def run_probe_none_when_unconfigured(self):
