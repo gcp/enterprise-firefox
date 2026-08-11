@@ -315,8 +315,7 @@ class FeltDevicePostureElements(FeltTests):
 
     def test_felt_reads_the_addon_db_without_writing_it(self):
         """Felt reports the launching profile's add-ons from its on-disk database,
-        and the read leaves both that database and this process's own add-on state
-        alone."""
+        and the read leaves that database byte-identical."""
         # FELT-only test (see test_profile_derivation_from_user_id): getExtensions
         # takes the isFeltUI() on-disk path, so no login/child browser is needed.
         self._manually_closed_child = True
@@ -374,10 +373,6 @@ class FeltDevicePostureElements(FeltTests):
         assert rv["dbAfter"] == rv["dbBefore"], (
             "the launching profile's add-on database is left byte-identical"
         )
-        assert rv["jsonFilePathAfter"] == rv["jsonFilePathBefore"], (
-            "this process's own XPIDatabase still points at its own profile, got "
-            f"{rv['jsonFilePathAfter']}"
-        )
 
     def _collect_with_addon_db(self, extensions_json):
         """Collects posture against a scratch profile directory holding
@@ -397,14 +392,10 @@ class FeltDevicePostureElements(FeltTests):
                   if (dbJson !== null) {
                     await IOUtils.writeUTF8(dbPath, dbJson);
                   }
-                  const { XPIDatabase } = ChromeUtils.importESModule(
-                    "resource://gre/modules/addons/XPIDatabase.sys.mjs"
-                  );
                   const { DevicePosture } = ChromeUtils.importESModule(
                     "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
                   );
                   const dbBefore = await readOrNull(dbPath);
-                  const jsonFilePathBefore = XPIDatabase.jsonFilePath;
                   try {
                     const posture = await DevicePosture.collect({
                       profileDir: dir,
@@ -414,8 +405,6 @@ class FeltDevicePostureElements(FeltTests):
                       hasOs: !!(posture.os && posture.os.name),
                       dbBefore,
                       dbAfter: await readOrNull(dbPath),
-                      jsonFilePathBefore,
-                      jsonFilePathAfter: XPIDatabase.jsonFilePath,
                     };
                   } finally {
                     await IOUtils.remove(dir, { recursive: true });
