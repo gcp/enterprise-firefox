@@ -247,8 +247,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.forbidden()
                 return
 
-            # The client passes its OS version so the console can tailor the
-            # posture-elements descriptor; record it for test assertions.
+            # Record any osVersion the client sends, for the test assertion.
             if "osVersion" in query.keys():
                 self.server.sso_os_version = query["osVersion"][0]
 

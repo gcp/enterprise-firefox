@@ -12,13 +12,11 @@ const XHR_TIMEOUT_MS = 60000;
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
-  TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
-  composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -171,31 +169,12 @@ export const ConsoleClient = {
   },
 
   /**
-   * The composed OS version string (e.g. "Windows 11 22H2 (build 22621)"),
-   * passed to the SSO flow so the console can tailor the posture-elements
-   * descriptor (which EDR agents / osquery queries to probe) to this platform.
-   *
-   * @returns {Promise<string>} OS version string, or "" if unavailable.
-   */
-  async _getOsVersion() {
-    try {
-      const baseOs = lazy.TelemetryEnvironment.currentEnvironment.system.os;
-      const { long } = await lazy.composeOSNames(baseOs);
-      return long ?? "";
-    } catch (e) {
-      lazy.log.error("Failed to compose OS version for SSO:", e);
-      return "";
-    }
-  },
-
-  /**
    * Checks that the configured console is reachable before starting the SSO
    * flow. Any HTTP response (even an error status) means the host is reachable;
    * only network-level failures (DNS, connection refused, TLS, timeout) reject,
    * with the same error shape as the other XHR calls so callers can route them
-   * through FeltErrorReport.handleXhrError. This restores the fast, dedicated
-   * pre-login connectivity error that the removed pre-login posture POST used to
-   * provide, without sending any posture.
+   * through FeltErrorReport.handleXhrError and show a dedicated connectivity
+   * error while the user is still on the login form.
    *
    * @throws {TypeError} On a network-level failure.
    * @returns {Promise<void>}
@@ -208,20 +187,20 @@ export const ConsoleClient = {
   /**
    * Constructs the SSO login URL for the provided email.
    *
+   * Identifies the user and the device. Platform selection for posture elements
+   * happens on the client (see PostureElements in DevicePosture.sys.mjs), which
+   * keeps the console's descriptor global and this request platform-agnostic.
+   *
    * @param {string} email - Email address to prefill for SSO initiation.
    * @returns {Promise<nsIURI>}
    */
   async constructSsoLoginURI(email) {
     const deviceId = lazy.FeltStorage.getDeviceId();
-    const osVersion = await this._getOsVersion();
     const url = await this.consoleBaseURI;
     url.pathname = this._paths.SSO;
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
     url.searchParams.set("deviceId", deviceId);
-    if (osVersion) {
-      url.searchParams.set("osVersion", osVersion);
-    }
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
@@ -229,9 +208,8 @@ export const ConsoleClient = {
 
   /**
    * Exchanges the SSO one-time-token for session tokens and the initial
-   * policies/config. The one-time-token carries no posture: the user id (and
-   * therefore the profile and its extension list) is only known once this
-   * exchange returns it.
+   * policies/config. This is where the user id -- and therefore the profile and
+   * its extension list -- becomes known, so posture is collected once it returns.
    *
    * @param {string} oneTimeToken
    * @returns {Promise<object>} {user_id, email, access_token, refresh_token,

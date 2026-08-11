@@ -115,11 +115,9 @@ async function connectToConsole(email) {
   const attempt = ++signInGeneration;
   pendingSignInEmail = email;
 
-  // We no longer POST device posture before login: the profile (and thus the
-  // extension list) isn't known until the SSO one-time-token is exchanged for a
-  // user id. We do still probe the console for reachability first so an
-  // unreachable or misconfigured console address surfaces a clear error
-  // immediately, rather than only failing later during SSO navigation.
+  // Probe the console for reachability before starting SSO, so an unreachable or
+  // misconfigured console address surfaces a clear error here, at the point the
+  // user submitted.
   try {
     await lazy.ConsoleClient.probeConsoleReachable();
   } catch (err) {
@@ -130,15 +128,13 @@ async function connectToConsole(email) {
     lazy.log.error(`Console not reachable: ${err}`);
     signInInFlight = false;
     pendingSignInEmail = null;
-    // Re-probe so a real portal surfaces as the banner, not a dead-end error.
+    // Re-probe so a real portal surfaces as the captive-portal banner.
     lazy.CaptivePortal.recheck();
     lazy.CaptivePortal.maybeResumeUpdates();
     await lazy.FeltErrorReport.handleXhrError(err);
     return;
   }
 
-  // We pass the OS version so the console can return an OS-tailored
-  // posture-elements descriptor with the one-time-token.
   const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(email);
 
   if (attempt !== signInGeneration) {
