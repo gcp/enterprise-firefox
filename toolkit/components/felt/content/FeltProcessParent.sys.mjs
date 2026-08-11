@@ -330,7 +330,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             // and submits it when it changes.
             client
               .refreshTokens()
-              .then(({ access_token, refresh_token, expires_at }) => {
+              .then(({ access_token, refresh_token, expires_at, config }) => {
                 lazy.log.debug("refreshTokens successful");
                 Services.felt.setTokens(
                   access_token,
@@ -338,6 +338,11 @@ export class FeltProcessParent extends JSProcessActorParent {
                   expires_at
                 );
                 Services.felt.sendAccessToken();
+                // The response may carry a fresh posture-elements descriptor;
+                // apply it to both processes like the other refresh paths do.
+                gFeltProcessParentInstance._storePostureElements(
+                  config?.posture_elements
+                );
               })
               .catch(error => {
                 // A refresh failure tears the browser down.
@@ -454,17 +459,14 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     // The console tells the browser which EDR agents to include in device
     // posture, as one global platform-keyed descriptor. Select our platform's
-    // section and forward it as a JSON string pref that DevicePosture.collect
-    // reads; an empty list means "probe nothing". A config that omits the field
-    // leaves the value delivered through the token exchange/refresh responses in
-    // place. Each section is also expected to carry a parallel osquery query
-    // list, which would be forwarded here once osquery collection is
-    // implemented.
+    // section and store it as the JSON string pref that DevicePosture.collect
+    // reads in both processes; an empty list means "probe nothing". A config that
+    // omits the field leaves the value delivered through the token
+    // exchange/refresh responses in place. Each section is also expected to carry
+    // a parallel osquery query list, which would be handled here once osquery
+    // collection is implemented.
     if (posture_elements) {
-      Services.felt.sendStringPreference(
-        lazy.EDR_AGENTS_PREF,
-        lazy.PostureElements.serializeEdr(posture_elements)
-      );
+      this._storePostureElements(posture_elements);
     } else {
       lazy.log.debug("No posture_elements in Firefox configuration");
     }
@@ -480,13 +482,22 @@ export class FeltProcessParent extends JSProcessActorParent {
    * channel: an absent descriptor preserves the current value. The login exchange
    * is authoritative for the session and clears on omit (see receiveMessage).
    *
+   * Both processes collect posture from their own copy of the probe list, so a
+   * descriptor that arrives once the browser is running is pushed across as well;
+   * otherwise the browser would keep probing the list it was launched with.
+   *
    * @param {{[key: string]: {edr?: string[]}}} [postureElements]
    */
   _storePostureElements(postureElements) {
     if (!postureElements) {
       return;
     }
-    lazy.PostureElements.write(postureElements);
+    const edrAgents = lazy.PostureElements.write(postureElements);
+    try {
+      Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, edrAgents);
+    } catch (e) {
+      lazy.log.error("Could not send the EDR probe list to the browser:", e);
+    }
   }
 
   /**

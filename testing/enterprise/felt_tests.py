@@ -171,6 +171,16 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def build_config_response(self):
+        """The browser config the console folds into the token responses, with a
+        posture-elements descriptor only when the test configured one."""
+        config = {}
+        posture_elements = getattr(self.server, "config_posture_elements", None)
+        raw = posture_elements.value if posture_elements is not None else ""
+        if raw:
+            config["posture_elements"] = json.loads(raw)
+        return config
+
     def build_policies_response(self):
         policy_content = {}
 
@@ -528,12 +538,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     self.server.device_posture_history = []
                 self.server.device_posture_history.append(parsed_payload["posture"])
 
-            # Sending back the same session
+            # Sending back the same session, plus the current browser config:
+            # the console folds config updates into the refresh response, which
+            # is how a descriptor changed mid-session reaches the client.
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
                 "expires_in": 71999,
                 "refresh_token": self.server.policy_refresh_token.value,
+                "config": self.build_config_response(),
             })
 
         elif path == "/sso/exchange":
@@ -550,14 +563,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.server.policy_access_token.value = str(uuid.uuid4())
             self.server.policy_refresh_token.value = str(uuid.uuid4())
 
-            # Return the initial browser config, including the OS-tailored
-            # posture-elements descriptor when the test configured one.
-            config = {}
-            posture_elements = getattr(self.server, "config_posture_elements", None)
-            raw = posture_elements.value if posture_elements is not None else ""
-            if raw:
-                config["posture_elements"] = json.loads(raw)
-
             # Return a user_id that is a distinct opaque identifier (not the
             # email), so the id-carrying profile-derivation path is not
             # validated only by the coincidence of id == email.
@@ -569,7 +574,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "expires_in": 71999,
                 "refresh_token": self.server.policy_refresh_token.value,
                 "policies": {},
-                "config": config,
+                "config": self.build_config_response(),
             })
 
         elif path == "/sso/device_posture":

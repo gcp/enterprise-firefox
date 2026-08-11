@@ -52,29 +52,20 @@ ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
  */
 export const PostureElements = {
   /**
-   * Selects this platform's section and serializes its EDR list to the
-   * JSON-array string stored in EDR_AGENTS_PREF. A missing section or list
-   * serializes to "[]" (probe none).
+   * Selects this platform's section and writes its EDR list into this process's
+   * EDR_AGENTS_PREF, as the JSON-array string DevicePosture.collect parses. A
+   * missing section or list writes "[]" (probe none).
    *
    * @param {{[key: string]: {edr?: string[]}}} [postureElements]
-   * @returns {string}
-   */
-  serializeEdr(postureElements) {
-    return JSON.stringify(postureElements?.[lazy.posturePlatform]?.edr ?? []);
-  },
-
-  /**
-   * Writes the descriptor into this process's own EDR_AGENTS_PREF. Used by the
-   * Felt process for its pre-launch posture collection; the browser receives its
-   * copy over IPC instead.
-   *
-   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
+   * @returns {string} The value written, so callers can relay the same value to
+   *   the other process.
    */
   write(postureElements) {
-    Services.prefs.setStringPref(
-      EDR_AGENTS_PREF,
-      this.serializeEdr(postureElements)
+    const edrAgents = JSON.stringify(
+      postureElements?.[lazy.posturePlatform]?.edr ?? []
     );
+    Services.prefs.setStringPref(EDR_AGENTS_PREF, edrAgents);
+    return edrAgents;
   },
 };
 
