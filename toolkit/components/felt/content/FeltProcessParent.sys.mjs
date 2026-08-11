@@ -322,6 +322,10 @@ export class FeltProcessParent extends JSProcessActorParent {
               break;
             }
             const client = lazy.ConsoleClient;
+            // Refreshes credentials. The browser reaches this when its access
+            // token expires, e.g. a 401 on the policy poll. Posture travels its
+            // own path: the Felt posture monitor collects it on the poll cadence
+            // and submits it when it changes.
             client
               .refreshTokens()
               .then(({ access_token, refresh_token, expires_at }) => {
