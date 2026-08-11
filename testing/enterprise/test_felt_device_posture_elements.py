@@ -34,11 +34,19 @@ class FeltDevicePostureElements(FeltTests):
         "Linux": {"edr": ["sentinelone"]},
     }
 
-    @property
-    def expected_edr(self):
-        """The section the client should have selected. Reads the key back from
-        the browser so the test resolves it through the product's own source of
-        truth, and requires that the reported OS name has a section."""
+    # A second descriptor, to check that a descriptor arriving mid-session
+    # replaces the one the browser was launched with. Distinct lists again.
+    UPDATED_POSTURE_ELEMENTS = {
+        "Windows_NT": {"edr": ["sentinelone"]},
+        "Darwin": {"edr": ["sentinelone", "cortex-xdr"]},
+        "Linux": {"edr": ["cortex-xdr"]},
+    }
+
+    def expected_edr(self, posture_elements):
+        """The section the client should have selected out of posture_elements.
+        Reads the key back from the browser so the test resolves it through the
+        product's own source of truth, and requires that the reported OS name has
+        a section."""
         self._child_driver.set_context("chrome")
         try:
             os_name = self._child_driver.execute_script(
@@ -46,11 +54,11 @@ class FeltDevicePostureElements(FeltTests):
             )
         finally:
             self._child_driver.set_context("content")
-        assert os_name in self.POSTURE_ELEMENTS, (
+        assert os_name in posture_elements, (
             f"reported OS name {os_name!r} has no posture_elements section; "
-            f"known sections: {sorted(self.POSTURE_ELEMENTS)}"
+            f"known sections: {sorted(posture_elements)}"
         )
-        return self.POSTURE_ELEMENTS[os_name]["edr"]
+        return posture_elements[os_name]["edr"]
 
     def test_posture_elements(self):
         # The config is fetched before the child browser starts, so the console
@@ -65,6 +73,8 @@ class FeltDevicePostureElements(FeltTests):
         self.run_config_pref_plumbing()
         self.run_console_driven_probes()
         self.run_probe_none_when_unconfigured()
+        # Runs last: it replaces the descriptor the console serves.
+        self.run_mid_session_descriptor_reaches_browser()
 
     def run_os_version_not_sent_to_sso(self):
         """Platform selection happens on the client, so the login request
@@ -91,7 +101,7 @@ class FeltDevicePostureElements(FeltTests):
         """This platform's section of posture_elements is pushed to the browser as
         JSON prefs; the other platforms' sections are not."""
         edr_pref = self._wait_for_string_pref("enterprise.posture.edr_agents")
-        assert json.loads(edr_pref) == self.expected_edr, (
+        assert json.loads(edr_pref) == self.expected_edr(self.POSTURE_ELEMENTS), (
             "edr_agents pref reflects this platform's section of the console "
             f"config, got {edr_pref}"
         )
@@ -135,7 +145,7 @@ class FeltDevicePostureElements(FeltTests):
             self._child_driver.set_context("content")
 
         assert "_error" not in rv, f"DevicePosture.collect threw: {rv.get('_error')}"
-        assert rv["recorded"] == self.expected_edr, (
+        assert rv["recorded"] == self.expected_edr(self.POSTURE_ELEMENTS), (
             "getPresentEdrs called with this platform's console-configured list, "
             f"got {rv['recorded']}"
         )
@@ -156,6 +166,42 @@ class FeltDevicePostureElements(FeltTests):
             assert rv["presentEdrs"] == [], (
                 f"presentEdrs is empty when no EDR configured, got {rv['presentEdrs']}"
             )
+
+    def run_mid_session_descriptor_reaches_browser(self):
+        """A descriptor delivered after the browser started reaches it too, so
+        both processes collect posture from the same probe list."""
+        expected = self.expected_edr(self.UPDATED_POSTURE_ELEMENTS)
+        self.config_posture_elements.value = json.dumps(
+            self.UPDATED_POSTURE_ELEMENTS, separators=(",", ":")
+        )
+
+        # Have the browser ask Felt for a token refresh: the console folds the
+        # descriptor it currently serves into that response. A refresh that was
+        # already in flight carries the previous descriptor, so keep asking
+        # (roughly every 20th poll, to leave each attempt time to complete).
+        polls = 0
+
+        def refreshed(_):
+            nonlocal polls
+            if polls % 20 == 0:
+                self._child_driver.execute_script("Services.felt.refreshTokens();")
+            polls += 1
+            value = self._child_driver.execute_script(
+                "return Services.prefs.getStringPref("
+                "'enterprise.posture.edr_agents', '');"
+            )
+            return value if value and json.loads(value) == expected else None
+
+        self._child_driver.set_context("chrome")
+        try:
+            edr_pref = self._child_longwait.until(refreshed)
+        finally:
+            self._child_driver.set_context("content")
+
+        assert json.loads(edr_pref) == expected, (
+            "the mid-session descriptor replaced the launch-time probe list, got "
+            f"{edr_pref}"
+        )
 
     def test_profile_derivation_from_user_id(self):
         """A distinct user id derives a stable, per-user managed profile name;
