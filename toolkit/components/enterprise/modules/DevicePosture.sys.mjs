@@ -12,7 +12,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
-  XPIDatabase: "resource://gre/modules/addons/XPIDatabase.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -88,40 +87,85 @@ const REPORTED_ADDON_TYPES = [
   "mlmodel",
 ];
 
+// The name for a serialized add-on, negotiated the way AddonInternal does it:
+// the best match for the requested app locales, falling back to the add-on's
+// default locale, so the Felt-side read reports the same name the browser would.
+function localizedAddonName(addon) {
+  const locales = Array.isArray(addon.locales) ? addon.locales : [];
+  const requestedLocales = [...Services.locale.requestedLocales];
+  if (!requestedLocales.includes("en-US")) {
+    requestedLocales.push("en-US");
+  }
+  const bestLocale = Services.locale.negotiateLanguages(
+    requestedLocales,
+    locales.flatMap(locale => locale.locales ?? []),
+    "und",
+    Services.locale.langNegStrategyLookup
+  )[0];
+  const selected =
+    bestLocale === "und"
+      ? addon.defaultLocale
+      : locales.find(locale => locale.locales?.includes(bestLocale));
+  return selected?.name ?? addon.defaultLocale?.name ?? "";
+}
+
 export const DevicePosture = {
   /**
-   * Returns an add-on database for the profile that is about to launch, for use
-   * from the Felt login/launcher process where AddonManager is not running.
+   * Reads the add-ons of the profile that is about to launch, for use from the
+   * Felt login/launcher process.
    *
-   * Rather than parse extensions.json by hand, we point the XPIDatabase at the
-   * target profile's database and read it through the same getAddonsByTypes API
-   * the browser uses, so the Felt and browser paths report identical shape and
-   * semantics (locale-negotiated names, AddonWrapper.isActive, hidden-add-on
-   * filtering). This mutates the process-global XPIDatabase singleton, which is
-   * safe here: the Felt process does not run AddonManager for its own profile.
+   * Felt runs its own AddonManager against its own profile, so this parses the
+   * target profile's extensions.json and nothing else: it opens no database,
+   * leaves add-on state in this process untouched, and never writes to the
+   * profile it reads. The reported fields match what the browser reports for the
+   * same add-on -- the entries XPIDatabase considers visible, the
+   * locale-negotiated display name, and the stored active flag that backs
+   * AddonWrapper.isActive.
    *
    * @param {string} profileDir - Absolute path to the target profile directory.
-   * @returns {Promise<object>} The XPIDatabase, pointed at profileDir.
+   * @returns {Promise<DeviceAddon[]|null>} null when the database cannot be read.
    */
-  async getDatabaseForFelt(profileDir) {
+  async readAddonsForFelt(profileDir) {
     if (!Services.felt.isFeltUI()) {
-      throw new Error("getDatabaseForFelt() must only be called in Felt");
+      throw new Error("readAddonsForFelt() must only be called in Felt");
     }
 
     const extensionsJson = PathUtils.join(profileDir, "extensions.json");
-    lazy.log.debug(`getDatabaseForFelt(): ${extensionsJson}`);
+    lazy.log.debug(`readAddonsForFelt(): ${extensionsJson}`);
 
-    // Point the database at the target profile and force a fresh load, so
-    // repeated posture collections (the change monitor) always read current
-    // on-disk state rather than a cached view of another profile.
-    lazy.XPIDatabase.jsonFilePath = extensionsJson;
-    lazy.XPIDatabase._dbPromise = null;
+    let database;
+    try {
+      database = await IOUtils.readJSON(extensionsJson);
+    } catch (e) {
+      if (DOMException.isInstance(e) && e.name === "NotFoundError") {
+        // A profile that has never been launched has no database yet.
+        lazy.log.debug(`No add-on database at ${extensionsJson}`);
+      } else {
+        lazy.log.error(`Could not read ${extensionsJson}:`, e);
+      }
+      return null;
+    }
 
-    return lazy.XPIDatabase;
+    if (!Array.isArray(database?.addons)) {
+      lazy.log.error(`No add-on list in ${extensionsJson}`);
+      return null;
+    }
+
+    return database.addons
+      .filter(
+        addon => addon.visible && REPORTED_ADDON_TYPES.includes(addon.type)
+      )
+      .map(addon => ({
+        id: addon.id,
+        name: localizedAddonName(addon),
+        type: addon.type,
+        version: addon.version ?? "",
+        enabled: !!addon.active,
+      }));
   },
 
   /**
-   * Returns the AddonManager as the add-on database for the running browser.
+   * Returns the AddonManager the running browser reports its add-ons from.
    *
    * @param {object} [options]
    * @param {boolean} [options.waitForAddons=false] - Block until AddonManager is
@@ -129,7 +173,7 @@ export const DevicePosture = {
    *   is not ready yet, to avoid blocking startup.
    * @returns {Promise<object|null>}
    */
-  async getDatabaseForApp({ waitForAddons = false } = {}) {
+  async getAddonManagerForApp({ waitForAddons = false } = {}) {
     if (!lazy.AddonManager.isReady) {
       if (waitForAddons) {
         await lazy.AddonManager.readyPromise;
@@ -154,23 +198,25 @@ export const DevicePosture = {
    */
   async getExtensions({ profileDir = null, waitForAddons = false } = {}) {
     try {
-      let database = null;
       if (Services.felt.isFeltUI()) {
         // The profile (and thus its extension list) is only known once SSO has
         // resolved the user id; without it we cannot report extensions.
         if (!profileDir) {
           return null;
         }
-        database = await this.getDatabaseForFelt(profileDir);
-      } else if (Services.felt.isFeltBrowser()) {
-        database = await this.getDatabaseForApp({ waitForAddons });
+        return await this.readAddonsForFelt(profileDir);
       }
 
-      if (!database) {
+      if (!Services.felt.isFeltBrowser()) {
         return null;
       }
 
-      const addons = await database.getAddonsByTypes(REPORTED_ADDON_TYPES);
+      const addonManager = await this.getAddonManagerForApp({ waitForAddons });
+      if (!addonManager) {
+        return null;
+      }
+
+      const addons = await addonManager.getAddonsByTypes(REPORTED_ADDON_TYPES);
       return addons.map(addon => ({
         id: addon.id,
         name: addon.name ?? "",

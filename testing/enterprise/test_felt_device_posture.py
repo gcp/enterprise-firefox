@@ -294,11 +294,15 @@ class FeltDevicePosture(FeltTests):
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
 
         # Every posture now originates from FELT (the pre-launch collection and
-        # the change monitor), which reads extensions from the profile on disk,
-        # so the field is always a list (empty at worst on a fresh profile),
-        # never the pre-2040659 null placeholder.
+        # the change monitor), which reads extensions from the profile's on-disk
+        # add-on database. A profile that has never been launched has no database
+        # yet, and FELT reports that as null rather than substituting its own
+        # add-ons. test_felt_device_posture_elements covers the populated read.
         assert "extensions" in device_posture, "Device posture reports extensions"
-        assert isinstance(device_posture["extensions"], list), "extensions is a list"
+        extensions = device_posture["extensions"]
+        assert extensions is None or isinstance(extensions, list), (
+            f"extensions is null or a list, got {extensions!r}"
+        )
 
         # machineId is nullable (null when no platform identifier resolves); when
         # present, only its structure can be asserted, not the actual values.
@@ -317,13 +321,13 @@ class FeltDevicePosture(FeltTests):
         # At least the FELT pre-launch posture is always submitted. Posture is
         # reported independently of policies and only re-sent when it changes, so
         # the count depends on runtime changes (e.g. extensions appearing on disk
-        # after first run); assert the shape rather than a fixed count. Every
-        # submission reads the extension list (from disk in FELT), so extensions
-        # is always a list, never null.
+        # after first run); assert the shape rather than a fixed count. FELT reads
+        # the extension list from the profile's on-disk add-on database, which the
+        # pre-launch submission reports as null when the profile has none yet.
         assert len(history) >= 1, "At least one posture was submitted"
         for p in history:
-            assert isinstance(p["extensions"], list), (
-                f"Posture extensions should be a list, got {p['extensions']!r}"
+            assert p["extensions"] is None or isinstance(p["extensions"], list), (
+                f"Posture extensions should be null or a list, got {p['extensions']!r}"
             )
 
     def run_access(self):
