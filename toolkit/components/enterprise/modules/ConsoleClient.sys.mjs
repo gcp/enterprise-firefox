@@ -146,8 +146,6 @@ export const ConsoleClient = {
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
-      EXCHANGE: "/sso/exchange",
-      DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
       // Right now we always pass 0.0.0 as the current version
@@ -207,32 +205,46 @@ export const ConsoleClient = {
   },
 
   /**
-   * Exchanges the SSO one-time-token for session tokens and the initial
-   * policies/config. This is where the user id -- and therefore the profile and
-   * its extension list -- becomes known, so posture is collected once it returns.
+   * Redeems the SSO one-time-token for the session tokens, reporting the device
+   * posture in the same request. The console mints no session without a posture
+   * to record against it, so this is the one call that starts a session: the
+   * user id needed to derive the profile (and with it the extension list) comes
+   * from the SSO callback, ahead of this request.
    *
    * @param {string} oneTimeToken
-   * @returns {Promise<object>} {user_id, email, access_token, refresh_token,
-   *   expires_in, policies, config}
+   * @param {DevicePosture|null} posture
+   * @returns {Promise<{access_token, refresh_token, expires_in}>}
    * @throws {Error}
    */
-  async exchangeOneTimeToken(oneTimeToken) {
-    const url = await this.constructURI(this._paths.EXCHANGE);
+  async redeemOneTimeToken(oneTimeToken, posture) {
+    const url = await this.constructURI(this._paths.TOKEN);
     const res = await this._xhrFetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ one_time_token: oneTimeToken }),
+      body: JSON.stringify({
+        grant_type: "one_time_token",
+        one_time_token: oneTimeToken,
+        posture,
+      }),
     });
 
     if (res.ok) {
       return res.json();
     }
 
+    // The one-time token is single use, so a rejection ends the login attempt
+    // rather than being retried. The status is kept on the error to tell a
+    // console that refused the request (4xx, e.g. a posture it will not accept)
+    // from one that could not answer.
     const text = await res.text().catch(() => "");
-    throw new Error(`Token exchange failed (${res.status}): ${text}`);
+    const e = new Error(
+      `One-time-token redemption failed (${res.status}): ${text}`
+    );
+    e.status = res.status;
+    throw e;
   },
 
   /**
