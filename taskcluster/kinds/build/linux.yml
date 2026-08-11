@@ -1590,6 +1590,8 @@ linux64-enterprise-rusttests/opt:
     index:
         product: firefox
         job-name: linux64-enterprise-rusttests-opt
+    attributes:
+        code-review: true
     treeherder:
         platform: linux64-enterprise/opt
         symbol: BR
