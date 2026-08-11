@@ -172,8 +172,9 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
     def build_config_response(self):
-        """The browser config the console folds into the token responses, with a
-        posture-elements descriptor only when the test configured one."""
+        """Builds the browser config. The console sends it with the SSO callback
+        and with every token response. It carries a posture-elements descriptor
+        only when the test asked for one."""
         config = {}
         posture_elements = getattr(self.server, "config_posture_elements", None)
         raw = posture_elements.value if posture_elements is not None else ""
@@ -404,10 +405,20 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/sso/callback":
-            # The SSO callback now returns only a short-lived one-time-token; the
-            # browser exchanges it at /sso/exchange for session tokens + config.
+            # The SSO callback returns the short-lived one-time-token together
+            # with the identity and config the client needs to derive the profile
+            # and collect posture. It redeems all of it at /sso/token in one
+            # request, so no session exists before a posture is reported.
+            # The user id is a distinct opaque identifier (not the email), so the
+            # id-carrying profile-derivation path is not validated only by the
+            # coincidence of id == email.
             self.server.one_time_token = str(uuid.uuid4())
-            obj = json.dumps({"one_time_token": self.server.one_time_token})
+            obj = json.dumps({
+                "one_time_token": self.server.one_time_token,
+                "user_id": "8f14e45f-ceea-467d-9a3e-000000000042",
+                "email": "nobody@mozilla.org",
+                "config": self.build_config_response(),
+            })
 
             m = f"""
 <html>
@@ -502,14 +513,24 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.reply("", 500, "Internal Server Error")
                 return
 
-            if parsed_payload["grant_type"] != "refresh_token":
-                self.reply("", 401, "Authorization required")
-                return
-
-            if (
-                parsed_payload["refresh_token"]
-                != self.server.policy_refresh_token.value
-            ):
+            grant_type = parsed_payload["grant_type"]
+            if grant_type == "one_time_token":
+                # Starting a session: the one-time token from the SSO callback is
+                # redeemed here, and it is single use.
+                if parsed_payload["one_time_token"] != getattr(
+                    self.server, "one_time_token", None
+                ):
+                    self.reply("", 401, "Authorization required")
+                    return
+                self.server.one_time_token = None
+            elif grant_type == "refresh_token":
+                if (
+                    parsed_payload["refresh_token"]
+                    != self.server.policy_refresh_token.value
+                ):
+                    self.reply("", 401, "Authorization required")
+                    return
+            else:
                 self.reply("", 401, "Authorization required")
                 return
 
@@ -519,17 +540,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 f"Refreshed tokens: ({self.server.policy_access_token.value}, {self.server.policy_refresh_token.value})"
             )
 
-            # Device posture is folded into the refresh; record it so tests can
+            # Device posture rides on the token request; record it so tests can
             # read the posture the client submits (e.g. before the browser starts).
-            if "posture" in parsed_payload:
+            if parsed_payload.get("posture") is not None:
                 self.server.device_posture_payload = parsed_payload["posture"]
                 if not hasattr(self.server, "device_posture_history"):
                     self.server.device_posture_history = []
                 self.server.device_posture_history.append(parsed_payload["posture"])
 
-            # Sending back the same session, plus the current browser config:
-            # the console folds config updates into the refresh response, which
-            # is how a descriptor changed mid-session reaches the client.
+            # Sending back the session, plus the current browser config: the
+            # console folds config updates into the token response, which is how a
+            # descriptor changed mid-session reaches the client.
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
@@ -537,45 +558,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "refresh_token": self.server.policy_refresh_token.value,
                 "config": self.build_config_response(),
             })
-
-        elif path == "/sso/exchange":
-            payload = json.loads(
-                self.rfile.read(int(self.headers.get("Content-Length")))
-            )
-            if payload.get("one_time_token") != getattr(
-                self.server, "one_time_token", None
-            ):
-                self.reply("", 401, "Authorization required")
-                return
-
-            # Mint the session tokens the browser will use from here on.
-            self.server.policy_access_token.value = str(uuid.uuid4())
-            self.server.policy_refresh_token.value = str(uuid.uuid4())
-
-            # Return a user_id that is a distinct opaque identifier (not the
-            # email), so the id-carrying profile-derivation path is not
-            # validated only by the coincidence of id == email.
-            m = json.dumps({
-                "user_id": "8f14e45f-ceea-467d-9a3e-000000000042",
-                "email": "nobody@mozilla.org",
-                "access_token": self.server.policy_access_token.value,
-                "token_type": "Bearer",
-                "expires_in": 71999,
-                "refresh_token": self.server.policy_refresh_token.value,
-                "policies": {},
-                "config": self.build_config_response(),
-            })
-
-        elif path == "/sso/device_posture":
-            payload = json.loads(
-                self.rfile.read(int(self.headers.get("Content-Length")))
-            )
-            self.server.device_posture_payload = payload
-            if not hasattr(self.server, "device_posture_history"):
-                self.server.device_posture_history = []
-            self.server.device_posture_history.append(payload)
-            self.server.device_posture_token = str(uuid.uuid4())
-            m = json.dumps({"posture": self.server.device_posture_token})
 
         elif path == "/api/browser/policies":
             if not self.check_auth():

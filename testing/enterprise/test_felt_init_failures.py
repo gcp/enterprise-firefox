@@ -31,21 +31,19 @@ class AppInitFailures(FeltTests):
         # fails the launch is aborted and the launch-failure error is shown to
         # the user, rather than leaving Felt backgrounded with no browser.
         self.key_fail_request.value = 1
-        self.run_felt_base()
-        # The child Firefox is never spawned, so there is nothing to close.
-        self._manually_closed_child = True
-
-        # On SSO completion Felt asynchronously backgrounds its window, fetches
-        # the primarySecret (which fails here), and only then surfaces the
-        # launch-failure window -- a chain that does network I/O and briefly
-        # leaves no Felt window open. Poll for that window to actually appear
-        # and show the error, rather than racing a transient window count on
-        # the short waiter; this returns as soon as the error is shown. Keep
+        # On SSO completion Felt backgrounds its auth window, collects posture,
+        # redeems the one-time token, fetches the primarySecret (which fails
+        # here), and only then re-opens the auth window to surface the error.
+        # Wait for that replacement rather than for a window count, which the
+        # original window still satisfies while the chain is in flight. Keep
         # key_fail_request set until the failure is observed: the getPrimarySecret
         # fetch happens after run_felt_base() returns, so resetting it earlier
         # races the fetch and lets the launch succeed.
-        self.await_felt_auth_window()
-        self.force_window()
+        with self.expect_new_felt_auth_window():
+            self.run_felt_base()
+            # The child Firefox is never spawned, so there is nothing to close.
+            self._manually_closed_child = True
+
         self._driver.set_context("chrome")
         error_msg = self.get_elem(".felt-error-primary-secret")
 
