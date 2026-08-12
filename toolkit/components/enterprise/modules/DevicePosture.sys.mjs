@@ -7,12 +7,19 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
+  setInterval: "resource://gre/modules/Timer.sys.mjs",
+  clearInterval: "resource://gre/modules/Timer.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
 });
+
+// Fallback cadence for posture monitoring if the console config does not
+// specify a polling frequency.
+const DEFAULT_POSTURE_POLL_MS = 60000;
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("DevicePosture");
@@ -374,5 +381,159 @@ export const DevicePosture = {
       presentEdrs,
     };
     return devicePosturePayload;
+  },
+};
+
+/**
+ * Reports device posture to the console for the Felt process: it collects on the
+ * policy-poll cadence and submits, via a posture-carrying token refresh, only
+ * what changed, so an unchanged posture does not churn tokens every interval.
+ *
+ * It also remembers the last posture the console holds and when that was
+ * measured, which is what the browser-driven refresh reports instead of
+ * blocking on a collect of its own.
+ *
+ * State lives on the module rather than on the caller: the Felt process actor is
+ * re-created when the content process hosting the login page is recycled, and
+ * the record has to outlive that.
+ */
+export const PostureMonitor = {
+  _timer: null,
+  _inFlight: null,
+  _lastJson: null,
+  _lastAt: 0,
+  _profileDir: null,
+  _intervalMs: DEFAULT_POSTURE_POLL_MS,
+  _onRefreshed: null,
+  _isSessionOver: null,
+
+  /**
+   * Starts (or restarts) monitoring. Idempotent, so it is safe to call again
+   * across browser restarts and on a new console config.
+   *
+   * @param {object} options
+   * @param {string|null} options.profileDir - Profile whose on-disk add-on list
+   *   is reported; see DevicePosture.collect.
+   * @param {number} [options.intervalMs]
+   * @param {(session: {access_token, refresh_token, expires_at, config}) => void}
+   *   options.onRefreshed - Applies a submission's response: the caller owns the
+   *   session, so it sets the tokens and relays any posture-elements descriptor.
+   * @param {() => boolean} options.isSessionOver - Whether the session was torn
+   *   down while a submission was in flight, in which case its response is
+   *   dropped rather than used to re-arm a session that is going away.
+   */
+  start({ profileDir, intervalMs, onRefreshed, isSessionOver }) {
+    this.stop();
+    this._profileDir = profileDir;
+    this._intervalMs = intervalMs ?? DEFAULT_POSTURE_POLL_MS;
+    this._onRefreshed = onRefreshed;
+    this._isSessionOver = isSessionOver;
+    this._timer = lazy.setInterval(() => this.tick(), this._intervalMs);
+  },
+
+  stop() {
+    if (this._timer) {
+      lazy.clearInterval(this._timer);
+      this._timer = null;
+    }
+  },
+
+  /**
+   * Runs one tick, at most one at a time: a slow collect or refresh keeps the
+   * promise in place so the next interval joins it instead of starting a second,
+   * racing submission. Also what idle() awaits, so it always resolves (the tick
+   * handles its own errors).
+   *
+   * @returns {Promise<void>}
+   */
+  tick() {
+    if (!this._inFlight) {
+      this._inFlight = this._submitIfChanged().finally(() => {
+        this._inFlight = null;
+      });
+    }
+    return this._inFlight;
+  },
+
+  /**
+   * Resolves once no submission is in flight, so a caller tearing the session
+   * down can wait for a tick to finish dropping its response.
+   *
+   * @returns {Promise<void>}
+   */
+  idle() {
+    return Promise.resolve(this._inFlight);
+  },
+
+  /**
+   * Records the posture the console now holds, and when it was measured. The
+   * login submission seeds this, and it is the baseline every later tick diffs
+   * against.
+   *
+   * @param {DevicePosture} posture
+   * @param {number} measuredAt - Date.now() when the posture was collected.
+   */
+  record(posture, measuredAt) {
+    this._lastJson = JSON.stringify(posture);
+    this._lastAt = measuredAt;
+  },
+
+  /**
+   * The posture to report on a refresh the browser is blocked on. A collect can
+   * spawn subprocesses (EDR detection, and `ioreg` for the machine ID on macOS),
+   * so the last measurement is reported as-is; staleness is bounded by the
+   * monitor's own cadence, and anything older than that is measured again.
+   *
+   * @returns {Promise<{posture: DevicePosture|null, measuredAt: number|null}>}
+   *   measuredAt is null for a posture the console already holds.
+   */
+  async postureForRefresh() {
+    if (this._lastJson && Date.now() - this._lastAt < this._intervalMs) {
+      return { posture: JSON.parse(this._lastJson), measuredAt: null };
+    }
+    try {
+      const measuredAt = Date.now();
+      const posture = await DevicePosture.collect({
+        profileDir: this._profileDir,
+      });
+      return { posture, measuredAt };
+    } catch (e) {
+      lazy.log.error("Failed to collect posture for the token refresh:", e);
+      return {
+        posture: this._lastJson ? JSON.parse(this._lastJson) : null,
+        measuredAt: null,
+      };
+    }
+  },
+
+  async _submitIfChanged() {
+    try {
+      const measuredAt = Date.now();
+      const posture = await DevicePosture.collect({
+        profileDir: this._profileDir,
+      });
+      const postureJson = JSON.stringify(posture);
+      if (postureJson === this._lastJson) {
+        // Unchanged, so what the console holds is current as of this
+        // measurement: stamp it, which keeps the refresh path replaying.
+        this._lastAt = measuredAt;
+        return;
+      }
+      lazy.log.debug("Device posture changed; refreshing.");
+      const session = await lazy.ConsoleClient.refreshTokens({ posture });
+      if (this._isSessionOver()) {
+        lazy.log.debug("Session is over; dropping the posture refresh.");
+        return;
+      }
+      this._onRefreshed(session);
+      // Only record the posture as submitted if this call actually sent it; if
+      // it piggybacked on an in-flight refresh carrying an older posture, leave
+      // the record alone so the next tick retries rather than losing the change.
+      if (session.postureSubmitted) {
+        this.record(posture, measuredAt);
+      }
+    } catch (e) {
+      lazy.log.error("Posture-change refresh failed:", e);
+    }
   },
 };
