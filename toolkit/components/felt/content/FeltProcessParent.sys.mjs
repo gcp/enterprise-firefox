@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   PostureElements: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  PostureMonitor: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
     "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
@@ -22,13 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
-  setInterval: "resource://gre/modules/Timer.sys.mjs",
-  clearInterval: "resource://gre/modules/Timer.sys.mjs",
 });
-
-// Fallback cadence for device-posture monitoring if the console config does not
-// specify a polling frequency.
-const DEFAULT_POSTURE_POLL_MS = 60000;
 
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -327,9 +322,8 @@ export class FeltProcessParent extends JSProcessActorParent {
             // Refreshes credentials. The browser reaches this when its access
             // token expires, e.g. a 401 on the policy poll, and it stays blocked
             // until a token comes back, so this path reports the last posture
-            // instead of measuring a new one (see _postureForRefresh).
-            gFeltProcessParentInstance
-              ._postureForRefresh()
+            // instead of measuring a new one (see PostureMonitor).
+            lazy.PostureMonitor.postureForRefresh()
               .then(({ posture, measuredAt }) =>
                 client.refreshTokens({ posture }).then(result => {
                   const {
@@ -354,10 +348,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                   // Only a posture measured here is news to the console; a
                   // replayed one is already recorded against the session.
                   if (postureSubmitted && measuredAt) {
-                    gFeltProcessParentInstance._recordSubmittedPosture(
-                      posture,
-                      measuredAt
-                    );
+                    lazy.PostureMonitor.record(posture, measuredAt);
                   }
                 })
               )
@@ -375,7 +366,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                 gFeltProcessParentInstance.logoutReported = true;
                 // The session is over, so end posture reporting here rather than
                 // let further ticks refresh against the tokens just cleared.
-                gFeltProcessParentInstance._stopPostureMonitor();
+                lazy.PostureMonitor.stop();
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxSessionInterrupted",
@@ -448,7 +439,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       );
     }
     // Monitor device posture on the same cadence as the policy poll.
-    this._posturePollMs = polling_frequency ?? DEFAULT_POSTURE_POLL_MS;
+    this._posturePollMs = polling_frequency;
 
     if (tokenserver_url === null) {
       lazy.log.error("No tokenserver_url in Firefox configuration");
@@ -515,137 +506,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, edrAgents);
     } catch (e) {
       lazy.log.error("Could not send the EDR probe list to the browser:", e);
-    }
-  }
-
-  /**
-   * Records the posture the console now holds for this session, and when it was
-   * measured. The monitor diffs against it to submit only on change, and the
-   * browser-driven refresh reports it as-is.
-   *
-   * @param {DevicePosture} posture
-   * @param {number} measuredAt - Date.now() when the posture was collected.
-   */
-  _recordSubmittedPosture(posture, measuredAt) {
-    this._lastPostureJson = JSON.stringify(posture);
-    this._lastPostureAt = measuredAt;
-  }
-
-  /**
-   * The posture to report on the browser-driven refresh. The browser is blocked
-   * on that refresh, so the last measurement is reported rather than collected
-   * again -- a collect can spawn subprocesses (EDR detection, and `ioreg` for the
-   * machine ID on macOS). Staleness is bounded by the monitor, which re-measures
-   * on the poll cadence; if the last measurement is older than that anyway, take
-   * a new one.
-   *
-   * @returns {Promise<{posture: DevicePosture|null, measuredAt: number|null}>}
-   *   measuredAt is null for a replayed posture, which is already recorded
-   *   against the session.
-   */
-  async _postureForRefresh() {
-    const maxAge = this._posturePollMs ?? DEFAULT_POSTURE_POLL_MS;
-    if (this._lastPostureJson && Date.now() - this._lastPostureAt < maxAge) {
-      return { posture: JSON.parse(this._lastPostureJson), measuredAt: null };
-    }
-    try {
-      const measuredAt = Date.now();
-      const posture = await lazy.DevicePosture.collect({
-        profileDir: this._profilePath,
-      });
-      return { posture, measuredAt };
-    } catch (e) {
-      lazy.log.error("Failed to collect posture for the token refresh:", e);
-      return {
-        posture: this._lastPostureJson
-          ? JSON.parse(this._lastPostureJson)
-          : null,
-        measuredAt: null,
-      };
-    }
-  }
-
-  /**
-   * Starts monitoring device posture on the policy-poll cadence. Posture is
-   * reported independently of the policy fetch: on each tick we collect the
-   * current posture and, only if it changed since the last submission, report it
-   * via a posture-carrying token refresh. This avoids churning tokens when
-   * nothing changed. Idempotent; safe to call across browser restarts.
-   */
-  _startPostureMonitor() {
-    this._stopPostureMonitor();
-    this._postureMonitor = lazy.setInterval(
-      () => this._maybeRefreshOnPostureChange(),
-      this._posturePollMs ?? DEFAULT_POSTURE_POLL_MS
-    );
-  }
-
-  _stopPostureMonitor() {
-    if (this._postureMonitor) {
-      lazy.clearInterval(this._postureMonitor);
-      this._postureMonitor = null;
-    }
-  }
-
-  /**
-   * Runs one posture tick, at most one at a time: a slow collect/refresh keeps
-   * the promise in place so the next interval joins it instead of starting a
-   * second, racing refresh. The promise is also what logoutFirefox() awaits, so
-   * keep it resolving (the tick handles its own errors).
-   *
-   * @returns {Promise<void>}
-   */
-  _maybeRefreshOnPostureChange() {
-    if (!this._postureRefresh) {
-      this._postureRefresh = this._refreshOnPostureChange().finally(() => {
-        this._postureRefresh = null;
-      });
-    }
-    return this._postureRefresh;
-  }
-
-  async _refreshOnPostureChange() {
-    try {
-      const measuredAt = Date.now();
-      const posture = await lazy.DevicePosture.collect({
-        profileDir: this._profilePath,
-      });
-      const postureJson = JSON.stringify(posture);
-      if (postureJson === this._lastPostureJson) {
-        // Unchanged, so what the console holds is current as of this
-        // measurement: stamp it, which keeps the refresh path replaying.
-        this._lastPostureAt = measuredAt;
-        return;
-      }
-      lazy.log.debug("Device posture changed; refreshing.");
-      const {
-        access_token,
-        refresh_token,
-        expires_at,
-        config,
-        postureSubmitted,
-      } = await lazy.ConsoleClient.refreshTokens({ posture });
-      // Logout may have landed while the refresh was in flight; its tokens are
-      // for a session that is being torn down, so drop the whole response
-      // rather than re-arm the session that logoutFirefox() just cleared.
-      if (this.logoutReported) {
-        lazy.log.debug("Logout in progress; dropping the posture refresh.");
-        return;
-      }
-      Services.felt.setTokens(access_token, refresh_token, expires_at);
-      // The browser must switch to the rotated access token immediately;
-      // otherwise its next authenticated call 401s and forces a second,
-      // posture-less refresh.
-      Services.felt.sendAccessToken();
-      this._storePostureElements(config?.posture_elements);
-      // Only record the posture as submitted if this call actually sent it; if
-      // it piggybacked on an in-flight refresh carrying an older posture, leave
-      // the record alone so the next tick retries rather than losing the change.
-      if (postureSubmitted) {
-        this._recordSubmittedPosture(posture, measuredAt);
-      }
-    } catch (e) {
-      lazy.log.error("Posture-change refresh failed:", e);
     }
   }
 
@@ -792,7 +652,24 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         // Monitor device posture on the policy-poll cadence and refresh when it
         // changes (independently of the policy GET).
-        this._startPostureMonitor();
+        lazy.PostureMonitor.start({
+          profileDir: this._profilePath,
+          intervalMs: this._posturePollMs,
+          onRefreshed: ({
+            access_token,
+            refresh_token,
+            expires_at,
+            config,
+          }) => {
+            Services.felt.setTokens(access_token, refresh_token, expires_at);
+            // The browser must switch to the rotated access token immediately;
+            // otherwise its next authenticated call 401s and forces a second,
+            // posture-less refresh.
+            Services.felt.sendAccessToken();
+            this._storePostureElements(config?.posture_elements);
+          },
+          isSessionOver: () => this.logoutReported,
+        });
       })
       .then(() => {
         lazy.log.debug(
@@ -801,7 +678,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise.then(ev => {
-          this._stopPostureMonitor();
+          lazy.PostureMonitor.stop();
           lazy.log.debug(`firefox exit: ev`, JSON.stringify(ev));
           lazy.log.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
@@ -1174,8 +1051,8 @@ export class FeltProcessParent extends JSProcessActorParent {
     // End posture reporting before the session is torn down: no further ticks,
     // and the tick that may be mid-refresh sees logoutReported and drops its
     // response. Awaiting it orders that decision before the clearTokens() below.
-    gFeltProcessParentInstance._stopPostureMonitor();
-    await gFeltProcessParentInstance._postureRefresh;
+    lazy.PostureMonitor.stop();
+    await lazy.PostureMonitor.idle();
 
     // Send the logout request to the server.
     // Handle any errors that occur during signout gracefully,
@@ -1263,7 +1140,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           // The console has this posture now, so it is the baseline the monitor
           // diffs against and the value the browser-driven refresh reports.
           if (posture) {
-            this._recordSubmittedPosture(posture, measuredAt);
+            lazy.PostureMonitor.record(posture, measuredAt);
           }
 
           const ssoCollectedCookies = this.getAllCookies();
