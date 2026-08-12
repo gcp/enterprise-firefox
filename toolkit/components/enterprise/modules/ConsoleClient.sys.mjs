@@ -10,7 +10,7 @@ const FELT_REFRESH_TIMEOUT = 60000;
 const XHR_TIMEOUT_MS = 60000;
 
 // The login flow this client speaks, reported on the SSO login URL: a callback
-// carrying a one-time token that /sso/token redeems together with the posture.
+// carrying a one-time token that the token endpoint redeems with the posture.
 const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -143,13 +143,13 @@ export const ConsoleClient = {
       ""
     );
     return {
-      SSO: "/sso/login",
+      SSO: "/api/browser/sso/login",
       SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
       CONFIG: "/api/browser/config",
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
-      TOKEN: "/sso/token",
+      TOKEN: "/api/browser/sso/token",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
       // Right now we always pass 0.0.0 as the current version

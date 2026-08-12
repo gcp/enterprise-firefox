@@ -54,7 +54,7 @@ class FeltTokenRefresh5xx(FeltTests):
         """A 5xx on the token refresh brings FELT back and clears the tokens.
 
         A 401 on the policy poll makes the browser ask FELT to refresh the
-        session; the refresh POST /sso/token then returns 5xx. After the
+        session; the refresh POST to the token endpoint then returns 5xx. After the
         browser is torn down, FELT must return to the foreground showing the
         "session interrupted" notice, and the tokens are cleared.
         """
