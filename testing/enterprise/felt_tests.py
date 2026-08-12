@@ -258,6 +258,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.forbidden()
                 return
 
+            # This console only answers the flow it implements: a callback with a
+            # one-time token that /sso/token redeems together with the posture.
+            if query.get("version") != ["v2"]:
+                self.forbidden()
+                return
+
             # Record any osVersion the client sends, for the test assertion.
             if "osVersion" in query.keys():
                 self.server.sso_os_version = query["osVersion"][0]
