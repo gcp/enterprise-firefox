@@ -252,7 +252,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         path = parsed.path
         print("path: ", path)
 
-        if path == "/sso/login":
+        if path == "/api/browser/sso/login":
             query = urllib.parse.parse_qs(parsed.query)
             if "deviceId" not in query.keys():
                 self.forbidden()
@@ -499,7 +499,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         print("path: ", path)
-        if path == "/sso/token":
+        if path == "/api/browser/sso/token":
             payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
                 "utf-8"
             )
