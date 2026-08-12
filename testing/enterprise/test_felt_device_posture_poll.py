@@ -68,4 +68,5 @@ class FeltDevicePosturePoll(FeltTests):
         assert tst["type"] == "extension", (
             f"Extension type is 'extension', got '{tst['type']}'"
         )
+        assert len(tst["version"]) > 0, "Extension has a version string"
         assert tst["enabled"] is True, "Force-installed extension is enabled"
