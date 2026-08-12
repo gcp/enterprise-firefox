@@ -20,6 +20,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  RelaunchEnforcer:
+    "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs",
   SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
@@ -1507,6 +1509,17 @@ class RemotePoliciesProvider extends PoliciesProvider {
       lazy.log.warn(
         "RemotePoliciesProvider recovered after a previous failure."
       );
+    }
+
+    // The console re-states the restart deadline on every poll, so only a
+    // well-formed response updates it: a failed poll leaves an armed deadline
+    // standing. The policies are stored above and errors here are logged rather
+    // than thrown, so a failure while applying the deadline does not throw away
+    // the policies we just fetched.
+    try {
+      lazy.RelaunchEnforcer.onConsolePoll(res.relaunch ?? null);
+    } catch (e) {
+      lazy.log.error("Failed to apply the restart deadline", e);
     }
 
     // The console returns byte-identical JSON when the remote policy set is

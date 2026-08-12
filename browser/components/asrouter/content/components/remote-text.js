@@ -45,6 +45,21 @@
       }
     }
 
+    /**
+     * Puts a new value in one Fluent variable of a rendered message, leaving the
+     * surrounding element in place.
+     *
+     * @param {string} name - The variable name, without the attribute prefix.
+     * @param {string|number} value - The value to substitute.
+     */
+    setVariable(name, value) {
+      this.setAttribute(`fluent-variable-${name}`, value);
+      if (this._content) {
+        this.render();
+        RemoteL10n.l10n.translateFragment(this._content);
+      }
+    }
+
     static get observedAttributes() {
       return ["fluent-remote-id"];
     }

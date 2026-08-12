@@ -4,3 +4,13 @@
 
 compulsory-restart-message = <strong>A new version of { -brand-short-name } is available.</strong> Your administrator will restart your browser at { DATETIME($datetime, dateStyle: "short", timeStyle: "short") }. Tabs will reopen.
 policy-update-now = Update now
+
+# $datetime (Date) - The time the browser will be restarted at.
+enterprise-relaunch-warning-message = <strong>Your administrator requires { -brand-short-name } to restart.</strong> It will restart at { DATETIME($datetime, dateStyle: "short", timeStyle: "short") }. Tabs will reopen.
+# $minutes (Number) - How many minutes are left before the browser restarts.
+enterprise-relaunch-imminent-message =
+    { $minutes ->
+        [one] <strong>{ -brand-short-name } will restart in { $minutes } minute.</strong> Save your work now. Tabs will reopen.
+       *[other] <strong>{ -brand-short-name } will restart in { $minutes } minutes.</strong> Save your work now. Tabs will reopen.
+    }
+enterprise-relaunch-restart-now = Restart now

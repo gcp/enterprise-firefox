@@ -224,7 +224,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 }
             })
 
-        return json.dumps({"policies": policy_content})
+        response = {"policies": policy_content}
+
+        # An empty string omits the key.
+        relaunch = getattr(self.server, "relaunch", None)
+        raw = relaunch.value if relaunch is not None else ""
+        if raw:
+            response["relaunch"] = json.loads(raw)
+
+        return json.dumps(response)
 
     def check_auth(self):
         auth = self.headers.get("Authorization")
@@ -574,7 +582,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             if self.server.policies_fail_request.value:
                 self.reply("", 500, "Internal Server Error")
                 return
-            m = self.build_policies_response()
+            if self.server.policies_omit_policies.value:
+                m = json.dumps({})
+            else:
+                m = self.build_policies_response()
 
         elif path == "/sso/logout":
             if not self.check_auth():
@@ -645,10 +656,12 @@ def serve(
     policy_refresh_token=None,
     policy_access_connector=None,
     policies_fail_request=None,
+    policies_omit_policies=None,
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
     posture_edr_agents=None,
+    relaunch=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -681,6 +694,9 @@ def serve(
     httpd.policies_fail_request = (
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
     )
+    httpd.policies_omit_policies = (
+        policies_omit_policies if policies_omit_policies is not None else Value("B", 0)
+    )
     httpd.key_fail_request = (
         key_fail_request if key_fail_request is not None else Value("B", 0)
     )
@@ -690,6 +706,8 @@ def serve(
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
     if posture_edr_agents is not None:
         httpd.posture_edr_agents = posture_edr_agents
+    if relaunch is not None:
+        httpd.relaunch = relaunch
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -799,6 +817,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_extensions = Value("B", 0)
         self.policy_watermark = Value("b", 0)
         self.policies_fail_request = Value("B", 0)
+        # Serves "{}", a 200 that carries neither policies nor a relaunch key.
+        self.policies_omit_policies = Value("B", 0)
         self.key_fail_request = Value("B", 0)
         self.token_fail_request = Value("B", 0)
         """
@@ -812,6 +832,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         # JSON string served as the posture configuration's "edr_agents". Empty
         # omits the field entirely.
         self.posture_edr_agents = SharedString("")
+        # JSON served as the policy response's "relaunch" key; empty omits it.
+        self.relaunch = SharedString("")
 
         self.console_httpd = Process(
             target=serve,
@@ -828,10 +850,12 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
+                policies_omit_policies=self.policies_omit_policies,
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
                 posture_edr_agents=self.posture_edr_agents,
+                relaunch=self.relaunch,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),

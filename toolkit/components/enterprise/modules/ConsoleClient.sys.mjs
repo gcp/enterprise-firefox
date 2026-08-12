@@ -657,9 +657,11 @@ export const ConsoleClient = {
    * Quit Firefox, ignoring any callbacks installed by the page
    * preventing the tab/window from closing.
    *
+   * @param {number} [aFlags] - nsIAppStartup quit flags, to which eRestart can
+   *   be added to come back up. eForceQuit on its own by default.
    * returns {void}
    */
-  quitIgnoringCanClose() {
+  quitIgnoringCanClose(aFlags = Ci.nsIAppStartup.eForceQuit) {
     if (Services.felt.isFeltUI()) {
       throw new Error(
         "quitIgnoringCanClose(): Called from Felt context, which is not allowed."
@@ -668,7 +670,7 @@ export const ConsoleClient = {
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
       win.skipNextCanClose = true;
     }
-    Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+    Services.startup.quit(aFlags);
   },
 
   /**
