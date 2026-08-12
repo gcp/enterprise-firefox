@@ -24,19 +24,13 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("DevicePosture");
 });
 
-// The console tells us which EDR agents to probe for via the browser
-// configuration; Felt stores that into this preference (a JSON string). An
-// absent, empty, or malformed preference means "probe nothing" -- the probe list
-// is always exactly what the console asked for. The console descriptor is also
-// expected to carry a parallel osquery query list, for when osquery collection
-// is implemented.
+// The EDR agents the console asked us to probe for, as a JSON string. Absent,
+// empty or malformed means "probe nothing".
 export const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
 // Our key into the console's platform-keyed posture-elements descriptor: the OS
-// name we report in the posture payload below (sysinfo "name", i.e.
-// PR_SI_SYSNAME -- "Windows_NT", "Darwin", "Linux"), so the console keys the
-// descriptor on the same value it already receives for each device. An
-// indeterminate name selects no section, and we probe nothing.
+// name we report in the posture payload below (sysinfo "name", i.e. PR_SI_SYSNAME
+// -- "Windows_NT", "Darwin", "Linux"). An indeterminate name selects no section.
 ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
   try {
     return Services.sysinfo.getProperty("name");
@@ -47,24 +41,17 @@ ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
 });
 
 /**
- * The write side of the EDR_AGENTS_PREF contract: turns the console's
- * posture-elements descriptor into the probe list DevicePosture.collect reads.
- *
- * The console serves one global descriptor keyed by platform, and the client
- * selects its own section here, so the probe list follows the platform the
- * client actually runs on. Each section is also expected to carry a parallel
- * osquery query list, which would be handled here once osquery collection is
- * implemented.
+ * The write side of EDR_AGENTS_PREF: the console serves one descriptor keyed by
+ * platform, and the client picks its own section.
  */
 export const PostureElements = {
   /**
    * Selects this platform's section and writes its EDR list into this process's
-   * EDR_AGENTS_PREF, as the JSON-array string DevicePosture.collect parses. A
-   * missing section or list writes "[]" (probe none).
+   * EDR_AGENTS_PREF. A missing section or list writes "[]".
    *
    * @param {{[key: string]: {edr?: string[]}}} [postureElements]
-   * @returns {string} The value written, so callers can relay the same value to
-   *   the other process.
+   * @returns {string} The value written, so callers can relay it to the other
+   *   process.
    */
   write(postureElements) {
     const edrAgents = JSON.stringify(
@@ -111,11 +98,10 @@ export const DevicePosture = {
    * Felt login/launcher process.
    *
    * Felt runs its own AddonManager against its own profile, so this parses the
-   * target profile's extensions.json and nothing else: it opens no database,
-   * leaves add-on state in this process untouched, and never writes to the
-   * profile it reads. It reports the entries XPIDatabase considers visible, the
-   * name in REPORTED_ADDON_LOCALE, and the stored active flag that backs
-   * AddonWrapper.isActive.
+   * target profile's extensions.json and nothing else: it opens no database and
+   * never writes to the profile it reads. It reports the entries XPIDatabase
+   * considers visible, the name in REPORTED_ADDON_LOCALE, and the stored active
+   * flag that backs AddonWrapper.isActive.
    *
    * @param {string} profileDir - Absolute path to the target profile directory.
    * @returns {Promise<DeviceAddon[]|null>} null when the database cannot be read.
@@ -270,10 +256,8 @@ export const DevicePosture = {
       ...(os_short_name != null && { os_short_name }),
     };
 
-    // Read the console-supplied probe list. An absent, empty, or malformed
-    // preference means "probe nothing". This matters especially for EDR:
-    // EdrDetection.getPresentEdrs([]) treats an empty list as "probe every known
-    // agent", so we must short-circuit rather than pass it an empty array.
+    // EdrDetection.getPresentEdrs([]) probes every known agent, so an empty probe
+    // list has to short-circuit rather than be passed through.
     const readJsonArrayPref = pref => {
       try {
         // getStringPref's default only covers an unset pref; a pref set to a
@@ -301,14 +285,8 @@ export const DevicePosture = {
       );
     };
 
-    // The console descriptor is also expected to carry an osquery query list,
-    // parallel to the EDR agent list above; when osquery execution lands it would
-    // be collected here (read from an OSQUERY_QUERIES_PREF, probe-none default)
-    // and added to the payload below.
-
     // These probes are independent, and some are slow (subprocess spawns, an
-    // `ioreg` shell-out), so run them concurrently rather than serializing the
-    // awaits.
+    // `ioreg` shell-out), so run them concurrently.
     const [mobileEquipmentId, extensions, machineId, presentEdrs] =
       await Promise.all([
         getImeiValue(),
@@ -338,16 +316,13 @@ export const DevicePosture = {
 
 /**
  * Reports device posture to the console for the Felt process: it collects on the
- * policy-poll cadence and submits, via a posture-carrying token refresh, only
- * what changed, so an unchanged posture does not churn tokens every interval.
- *
- * It also remembers the last posture the console holds and when that was
- * measured, which is what the browser-driven refresh reports instead of
- * blocking on a collect of its own.
+ * policy-poll cadence and submits only what changed, via a posture-carrying token
+ * refresh. It also remembers the posture the console holds, which is what the
+ * browser-driven refresh reports.
  *
  * State lives on the module rather than on the caller: the Felt process actor is
- * re-created when the content process hosting the login page is recycled, and
- * the record has to outlive that.
+ * re-created when the content process hosting the login page is recycled, and the
+ * record has to outlive that.
  */
 export const PostureMonitor = {
   _timer: null,
@@ -368,11 +343,10 @@ export const PostureMonitor = {
    *   is reported; see DevicePosture.collect.
    * @param {number} [options.intervalMs]
    * @param {(session: {access_token, refresh_token, expires_at, config}) => void}
-   *   options.onRefreshed - Applies a submission's response: the caller owns the
-   *   session, so it sets the tokens and relays any posture-elements descriptor.
+   *   options.onRefreshed - Applies a submission's response; the caller owns the
+   *   session.
    * @param {() => boolean} options.isSessionOver - Whether the session was torn
-   *   down while a submission was in flight, in which case its response is
-   *   dropped rather than used to re-arm a session that is going away.
+   *   down while a submission was in flight, whose response is then dropped.
    */
   start({ profileDir, intervalMs, onRefreshed, isSessionOver }) {
     this.stop();
@@ -392,9 +366,7 @@ export const PostureMonitor = {
 
   /**
    * Runs one tick, at most one at a time: a slow collect or refresh keeps the
-   * promise in place so the next interval joins it instead of starting a second,
-   * racing submission. Also what idle() awaits, so it always resolves (the tick
-   * handles its own errors).
+   * promise in place so the next interval joins it instead of racing it.
    *
    * @returns {Promise<void>}
    */
@@ -408,8 +380,8 @@ export const PostureMonitor = {
   },
 
   /**
-   * Resolves once no submission is in flight, so a caller tearing the session
-   * down can wait for a tick to finish dropping its response.
+   * Resolves once no submission is in flight, for a caller tearing the session
+   * down.
    *
    * @returns {Promise<void>}
    */
@@ -418,9 +390,8 @@ export const PostureMonitor = {
   },
 
   /**
-   * Records the posture the console now holds, and when it was measured. The
-   * login submission seeds this, and it is the baseline every later tick diffs
-   * against.
+   * Records the posture the console now holds, and when it was measured: the
+   * baseline every later tick diffs against.
    *
    * @param {DevicePosture} posture
    * @param {number} measuredAt - Date.now() when the posture was collected.
@@ -432,9 +403,8 @@ export const PostureMonitor = {
 
   /**
    * The posture to report on a refresh the browser is blocked on. A collect can
-   * spawn subprocesses (EDR detection, and `ioreg` for the machine ID on macOS),
-   * so the last measurement is reported as-is; staleness is bounded by the
-   * monitor's own cadence, and anything older than that is measured again.
+   * spawn subprocesses, so the last measurement is replayed unless it is older
+   * than one interval.
    *
    * @returns {Promise<{posture: DevicePosture|null, measuredAt: number|null}>}
    *   measuredAt is null for a posture the console already holds.
@@ -466,8 +436,8 @@ export const PostureMonitor = {
       });
       const postureJson = JSON.stringify(posture);
       if (postureJson === this._lastJson) {
-        // Unchanged, so what the console holds is current as of this
-        // measurement: stamp it, which keeps the refresh path replaying.
+        // What the console holds is current as of this measurement, so stamp it
+        // and keep the refresh path replaying.
         this._lastAt = measuredAt;
         return;
       }
@@ -478,9 +448,8 @@ export const PostureMonitor = {
         return;
       }
       this._onRefreshed(session);
-      // Only record the posture as submitted if this call actually sent it; if
-      // it piggybacked on an in-flight refresh carrying an older posture, leave
-      // the record alone so the next tick retries rather than losing the change.
+      // A call that piggybacked on an in-flight refresh sent an older posture,
+      // so leave the record alone and let the next tick retry.
       if (session.postureSubmitted) {
         this.record(posture, measuredAt);
       }

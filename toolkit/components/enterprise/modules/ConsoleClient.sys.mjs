@@ -163,12 +163,9 @@ export const ConsoleClient = {
   },
 
   /**
-   * Checks that the configured console is reachable before starting the SSO
-   * flow. Any HTTP response (even an error status) means the host is reachable;
-   * only network-level failures (DNS, connection refused, TLS, timeout) reject,
-   * with the same error shape as the other XHR calls so callers can route them
-   * through FeltErrorReport.handleXhrError and show a dedicated connectivity
-   * error while the user is still on the login form.
+   * Checks that the configured console is reachable before starting the SSO flow.
+   * Any HTTP response means the host is reachable; only network-level failures
+   * reject, in the shape FeltErrorReport.handleXhrError expects.
    *
    * @throws {TypeError} On a network-level failure.
    * @returns {Promise<void>}
@@ -182,10 +179,9 @@ export const ConsoleClient = {
    * Constructs the SSO login URL for the provided email.
    *
    * Identifies the user, the device, and the login flow this client speaks, which
-   * selects the callback and the token grant the console answers with. Platform
-   * selection for posture elements happens on the client (see PostureElements in
-   * DevicePosture.sys.mjs), which keeps the console's descriptor global and this
-   * request platform-agnostic.
+   * selects the callback and the token grant the console answers with. It names no
+   * platform: the client selects its own section of the posture-elements
+   * descriptor (see PostureElements in DevicePosture.sys.mjs).
    *
    * @param {string} email - Email address to prefill for SSO initiation.
    * @returns {Promise<nsIURI>}
@@ -205,10 +201,8 @@ export const ConsoleClient = {
 
   /**
    * Redeems the SSO one-time-token for the session tokens, reporting the device
-   * posture in the same request. The console mints no session without a posture
-   * to record against it, so this is the one call that starts a session: the
-   * user id needed to derive the profile (and with it the extension list) comes
-   * from the SSO callback, ahead of this request.
+   * posture in the same request: the console mints no session without a posture to
+   * record against it, so this is the one call that starts a session.
    *
    * @param {string} oneTimeToken
    * @param {DevicePosture|null} posture
@@ -234,10 +228,8 @@ export const ConsoleClient = {
       return res.json();
     }
 
-    // The one-time token is single use, so a rejection ends the login attempt
-    // rather than being retried. The status is kept on the error to tell a
-    // console that refused the request (4xx, e.g. a posture it will not accept)
-    // from one that could not answer.
+    // The status tells a console that refused the request (4xx, e.g. a posture it
+    // will not accept) from one that could not answer.
     const text = await res.text().catch(() => "");
     const e = new Error(
       `One-time-token redemption failed (${res.status}): ${text}`
@@ -279,10 +271,8 @@ export const ConsoleClient = {
   /**
    * Fetches remote enterprise policies.
    *
-   * Policies are decoupled from device posture: this is a plain authenticated
-   * GET. Posture is reported independently, on the same cadence, via a
-   * posture-carrying token refresh whenever it changes (see FeltProcessParent's
-   * posture monitoring).
+   * A plain authenticated GET; posture is reported on the same cadence by the
+   * Felt posture monitor, not here.
    *
    * @returns {Promise<{policies: Record<string, any>}>}
    */
@@ -503,15 +493,13 @@ export const ConsoleClient = {
    * This should only be called from the Felt context.
    *
    * @param {object} [options]
-   * @param {DevicePosture|null} [options.posture=null] - Device posture to fold
-   *   into the refresh; when provided, the console records it and may return
-   *   updated policies/config.
+   * @param {DevicePosture|null} [options.posture=null] - Device posture to report
+   *   with the refresh, for the console to record.
    * @throws {ReauthRequiredError | Error} If unable to refresh session
    * @returns {Promise<{ access_token, refresh_token, expires_at, config,
-   *   postureSubmitted }>} where config is the refreshed browser config (may be
-   *   undefined) and postureSubmitted reports whether this call actually sent
-   *   the supplied posture (false when it piggybacked on an in-flight refresh
-   *   that did not carry it).
+   *   postureSubmitted }>} config is the refreshed browser config (may be
+   *   undefined); postureSubmitted is false when this call joined an in-flight
+   *   refresh that did not carry the supplied posture.
    */
   async refreshTokens({ posture = null } = {}) {
     // Assert we are in Felt context
@@ -521,10 +509,8 @@ export const ConsoleClient = {
       );
     }
 
-    // If a felt refresh is already underway, just return the promise. That
-    // in-flight refresh may not have carried this caller's posture, so report
-    // postureSubmitted=false: the caller must not record its posture as
-    // submitted (it will be retried on the next posture-monitor tick).
+    // An in-flight refresh may not have carried this caller's posture, so it
+    // reports postureSubmitted=false and the next monitor tick retries.
     if (this._feltRefreshPromise) {
       return this._feltRefreshPromise.then(result => ({
         ...result,
@@ -546,9 +532,6 @@ export const ConsoleClient = {
       }
 
       const url = await this.constructURI(this._paths.TOKEN);
-      // Device posture is folded into the token refresh: when a caller provides
-      // it, we report it alongside the refresh (the console returns refreshed
-      // tokens plus updated policies/config).
       const body = {
         grant_type: "refresh_token",
         refresh_token: refreshToken,

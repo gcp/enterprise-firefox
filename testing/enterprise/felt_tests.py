@@ -172,9 +172,9 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
     def build_config_response(self):
-        """Builds the browser config. The console sends it with the SSO callback
-        and with every token response. It carries a posture-elements descriptor
-        only when the test asked for one."""
+        """Builds the browser config the console sends with the SSO callback and
+        with every token response. It carries a posture-elements descriptor only
+        when the test asked for one."""
         config = {}
         posture_elements = getattr(self.server, "config_posture_elements", None)
         raw = posture_elements.value if posture_elements is not None else ""
@@ -258,8 +258,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.forbidden()
                 return
 
-            # This console only answers the flow it implements: a callback with a
-            # one-time token that /sso/token redeems together with the posture.
             if query.get("version") != ["v2"]:
                 self.forbidden()
                 return
@@ -411,13 +409,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/sso/callback":
-            # The SSO callback returns the short-lived one-time-token together
-            # with the identity and config the client needs to derive the profile
-            # and collect posture. It redeems all of it at /sso/token in one
-            # request, so no session exists before a posture is reported.
-            # The user id is a distinct opaque identifier (not the email), so the
-            # id-carrying profile-derivation path is not validated only by the
-            # coincidence of id == email.
+            # The one-time token, plus the identity and config the client needs to
+            # derive the profile and collect posture before it redeems the token.
             self.server.one_time_token = str(uuid.uuid4())
             obj = json.dumps({
                 "one_time_token": self.server.one_time_token,
@@ -453,9 +446,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         # Not a real end point, just used for tests
         elif path == "/sso/get_device_posture":
-            # Default to null when no posture has been submitted yet, matching
-            # the sibling GET handlers; a bare attribute access would raise and
-            # break the connection for tests that poll before the first submit.
+            # null until the first submission, for tests that poll before it.
             m = json.dumps(getattr(self.server, "device_posture_payload", None))
             contentType = "application/json"
 
@@ -546,17 +537,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 f"Refreshed tokens: ({self.server.policy_access_token.value}, {self.server.policy_refresh_token.value})"
             )
 
-            # Device posture rides on the token request; record it so tests can
-            # read the posture the client submits (e.g. before the browser starts).
+            # Record the posture the client submitted, for the tests to read.
             if parsed_payload.get("posture") is not None:
                 self.server.device_posture_payload = parsed_payload["posture"]
                 if not hasattr(self.server, "device_posture_history"):
                     self.server.device_posture_history = []
                 self.server.device_posture_history.append(parsed_payload["posture"])
 
-            # Sending back the session, plus the current browser config: the
-            # console folds config updates into the token response, which is how a
-            # descriptor changed mid-session reaches the client.
+            # The session, plus the config the console folds into every token
+            # response: the channel a mid-session descriptor arrives on.
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
@@ -813,8 +802,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
-        # JSON string served as the config's "posture_elements". Empty means the
-        # console omits the field entirely (older-console / probe-nothing case).
+        # JSON string served as the config's "posture_elements". Empty omits the
+        # field entirely.
         self.config_posture_elements = SharedString("")
 
         self.console_httpd = Process(

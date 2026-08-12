@@ -293,11 +293,9 @@ class FeltDevicePosture(FeltTests):
 
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
 
-        # Every posture now originates from FELT (the pre-launch collection and
-        # the change monitor), which reads extensions from the profile's on-disk
-        # add-on database. A profile that has never been launched has no database
-        # yet, and FELT reports that as null rather than substituting its own
-        # add-ons. test_felt_device_posture_elements covers the populated read.
+        # FELT reads extensions from the profile's on-disk add-on database, and a
+        # profile that has never been launched has none yet.
+        # test_felt_device_posture_elements covers the populated read.
         assert "extensions" in device_posture, "Device posture reports extensions"
         extensions = device_posture["extensions"]
         assert extensions is None or isinstance(extensions, list), (
