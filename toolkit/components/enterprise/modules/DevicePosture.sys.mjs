@@ -85,17 +85,16 @@ const REPORTED_ADDON_TYPES = [
   "mlmodel",
 ];
 
-// The name for a serialized add-on, negotiated the way AddonInternal does it:
-// the best match for the requested app locales, falling back to the add-on's
-// default locale, so the Felt-side read reports the same name the browser would.
-function localizedAddonName(addon) {
+// The locale add-on names are reported in, so the same add-on reads the same in
+// the console whatever locale the client runs in.
+const REPORTED_ADDON_LOCALE = "en-US";
+
+// The name to report for an add-on serialized in extensions.json: its
+// REPORTED_ADDON_LOCALE name when it ships one, its own default locale otherwise.
+function reportedAddonName(addon) {
   const locales = Array.isArray(addon.locales) ? addon.locales : [];
-  const requestedLocales = [...Services.locale.requestedLocales];
-  if (!requestedLocales.includes("en-US")) {
-    requestedLocales.push("en-US");
-  }
   const bestLocale = Services.locale.negotiateLanguages(
-    requestedLocales,
+    [REPORTED_ADDON_LOCALE],
     locales.flatMap(locale => locale.locales ?? []),
     "und",
     Services.locale.langNegStrategyLookup
@@ -115,9 +114,8 @@ export const DevicePosture = {
    * Felt runs its own AddonManager against its own profile, so this parses the
    * target profile's extensions.json and nothing else: it opens no database,
    * leaves add-on state in this process untouched, and never writes to the
-   * profile it reads. The reported fields match what the browser reports for the
-   * same add-on -- the entries XPIDatabase considers visible, the
-   * locale-negotiated display name, and the stored active flag that backs
+   * profile it reads. It reports the entries XPIDatabase considers visible, the
+   * name in REPORTED_ADDON_LOCALE, and the stored active flag that backs
    * AddonWrapper.isActive.
    *
    * @param {string} profileDir - Absolute path to the target profile directory.
@@ -155,7 +153,7 @@ export const DevicePosture = {
       )
       .map(addon => ({
         id: addon.id,
-        name: localizedAddonName(addon),
+        name: reportedAddonName(addon),
         type: addon.type,
         version: addon.version ?? "",
         enabled: !!addon.active,
