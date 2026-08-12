@@ -9,6 +9,10 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
 
+// The login flow this client speaks, reported on the SSO login URL: a callback
+// carrying a one-time token that /sso/token redeems together with the posture.
+const SSO_LOGIN_VERSION = "v2";
+
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
@@ -185,9 +189,11 @@ export const ConsoleClient = {
   /**
    * Constructs the SSO login URL for the provided email.
    *
-   * Identifies the user and the device. Platform selection for posture elements
-   * happens on the client (see PostureElements in DevicePosture.sys.mjs), which
-   * keeps the console's descriptor global and this request platform-agnostic.
+   * Identifies the user, the device, and the login flow this client speaks, which
+   * selects the callback and the token grant the console answers with. Platform
+   * selection for posture elements happens on the client (see PostureElements in
+   * DevicePosture.sys.mjs), which keeps the console's descriptor global and this
+   * request platform-agnostic.
    *
    * @param {string} email - Email address to prefill for SSO initiation.
    * @returns {Promise<nsIURI>}
@@ -199,6 +205,7 @@ export const ConsoleClient = {
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
     url.searchParams.set("deviceId", deviceId);
+    url.searchParams.set("version", SSO_LOGIN_VERSION);
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
