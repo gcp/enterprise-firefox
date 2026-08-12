@@ -252,7 +252,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         path = parsed.path
         print("path: ", path)
 
-        if path == "/api/browser/sso/login":
+        if path == "/sso/login":
             query = urllib.parse.parse_qs(parsed.query)
             if "deviceId" not in query.keys():
                 self.forbidden()

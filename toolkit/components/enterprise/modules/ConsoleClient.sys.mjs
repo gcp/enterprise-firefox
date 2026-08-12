@@ -143,7 +143,7 @@ export const ConsoleClient = {
       ""
     );
     return {
-      SSO: "/api/browser/sso/login",
+      SSO: "/sso/login",
       SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
       CONFIG: "/api/browser/config",
