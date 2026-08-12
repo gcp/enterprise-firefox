@@ -70,6 +70,17 @@ export function queueURL(payload) {
 
 let gFeltProcessParentInstance = null;
 
+// The session a token refresh belongs to, bumped whenever one starts or is torn
+// down. A refresh that resolves after its session is gone must not set tokens,
+// hand one to the browser, or re-arm the posture record. Kept at module level
+// because this actor is re-created with the content process hosting the login
+// page, which a refresh can outlive.
+let gSessionGeneration = 0;
+
+// The browser-driven refresh in flight, for teardown to wait on: it is tracked
+// here rather than by PostureMonitor, which only owns the refreshes it starts.
+let gBrowserRefresh = null;
+
 function extractURLPayload(payload) {
   return {
     url: payload.url ?? "",
@@ -319,9 +330,10 @@ export class FeltProcessParent extends JSProcessActorParent {
               break;
             }
             const client = lazy.ConsoleClient;
+            const generation = gSessionGeneration;
             // The browser is blocked until a token comes back, so this reports the
             // last posture rather than measuring a new one (see PostureMonitor).
-            lazy.PostureMonitor.postureForRefresh()
+            gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
               .then(({ posture, measuredAt }) =>
                 client.refreshTokens({ posture }).then(result => {
                   const {
@@ -331,6 +343,12 @@ export class FeltProcessParent extends JSProcessActorParent {
                     config,
                     postureSubmitted,
                   } = result;
+                  if (generation !== gSessionGeneration) {
+                    lazy.log.debug(
+                      "Session is over; dropping the token refresh response."
+                    );
+                    return;
+                  }
                   lazy.log.debug("refreshTokens successful");
                   Services.felt.setTokens(
                     access_token,
@@ -360,6 +378,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                 );
                 Services.felt.clearTokens();
                 gFeltProcessParentInstance.logoutReported = true;
+                gSessionGeneration += 1;
                 // Otherwise further ticks refresh against the cleared tokens.
                 lazy.PostureMonitor.stop();
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
@@ -797,15 +816,19 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   /**
    * Resolves (creating it if needed) the managed profile for the logged-in user
-   * and remembers it, so a relaunch reuses what login resolved.
+   * and remembers it, so a relaunch reuses what login resolved. Keyed on the user
+   * it was resolved for: the next user to sign in through this actor must not be
+   * handed the profile of the last one.
    *
    * @returns {Promise<{profile: nsIToolkitProfile|null, path: string}>}
    */
   async _resolveProfile() {
-    if (!this._resolvedProfile) {
+    const userId = this.loggedInUserInfo?.id ?? null;
+    if (!this._resolvedProfile || this._resolvedProfileUserId !== userId) {
       this._resolvedProfile = await lazy.resolveManagedProfile(
         this.loggedInUserInfo
       );
+      this._resolvedProfileUserId = userId;
       this._profilePath = this._resolvedProfile.path;
     }
     return this._resolvedProfile;
@@ -1028,10 +1051,14 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     gFeltProcessParentInstance.logoutReported = true;
 
-    // Awaiting the monitor orders a mid-refresh tick's decision to drop its
-    // response before the clearTokens() below.
+    // Awaiting both refresh paths orders a mid-refresh decision to drop its
+    // response before the clearTokens() below. A browser-driven refresh that
+    // already rotated the tokens is applied rather than dropped, so the signout
+    // authenticates with the token the console now expects.
     lazy.PostureMonitor.stop();
     await lazy.PostureMonitor.idle();
+    await gBrowserRefresh;
+    gSessionGeneration += 1;
 
     // Send the logout request to the server.
     // Handle any errors that occur during signout gracefully,
@@ -1060,6 +1087,16 @@ export class FeltProcessParent extends JSProcessActorParent {
       case "FeltChild:StartFirefox":
         {
           const { one_time_token = "", user_id, email, config } = message.data;
+
+          // The profile is derived from the user id, so without one the session
+          // would run in the profile shared by every user.
+          if (!user_id) {
+            lazy.log.error("SSO callback carried no user id");
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
+          }
 
           this.loggedInUserInfo = { id: user_id, email };
           lazy.FeltStorage.updateLastSignedInUserEmail(email);
@@ -1101,6 +1138,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
           Services.felt.setTokens(access_token, refresh_token, expires_at);
+          gSessionGeneration += 1;
 
           // The console has this posture now: the baseline the monitor diffs
           // against.
