@@ -23,8 +23,7 @@ export const FeltCommon = {
 
 /**
  * Derives the managed-profile name for a user id: a stable, non-reversible
- * per-user profile name. Falls back to the shared profile name when the user id
- * is unknown (which should not happen once SSO has completed).
+ * per-user profile name.
  *
  * @param {string|null} userId
  * @returns {Promise<string>}
@@ -39,10 +38,7 @@ export async function getProfileName(userId) {
 
 /**
  * Resolves the managed profile for the signed-in user, creating it if it does not
- * exist yet. Honors an explicit enterprise.profile_path override, in which case
- * there is no registered profile to return. Shared by the Firefox launch path
- * (which prefers launching a registered profile by name) and device posture
- * collection (which needs the directory), so both agree on which profile to use.
+ * exist yet. An enterprise.profile_path override has no registered profile.
  *
  * @param {{id: string}|null} loggedInUserInfo
  * @returns {Promise<{profile: nsIToolkitProfile|null, path: string}>} The
