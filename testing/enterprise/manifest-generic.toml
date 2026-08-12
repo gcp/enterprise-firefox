@@ -14,8 +14,6 @@ subsuite = "enterprise"
 
 ["test_felt_device_posture_elements.py"]
 
-["test_felt_device_posture_extensions.py"]
-
 ["test_felt_device_posture_poll.py"]
 
 ["test_felt_email_input_focus.py"]

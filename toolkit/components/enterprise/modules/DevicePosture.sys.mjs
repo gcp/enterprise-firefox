@@ -5,7 +5,6 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
@@ -161,65 +160,22 @@ export const DevicePosture = {
   },
 
   /**
-   * Returns the AddonManager the running browser reports its add-ons from.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false] - Block until AddonManager is
-   *   ready so the current list is always reported; otherwise return null when it
-   *   is not ready yet, to avoid blocking startup.
-   * @returns {Promise<object|null>}
-   */
-  async getAddonManagerForApp({ waitForAddons = false } = {}) {
-    if (!lazy.AddonManager.isReady) {
-      if (waitForAddons) {
-        await lazy.AddonManager.readyPromise;
-      } else {
-        return null;
-      }
-    }
-    return lazy.AddonManager;
-  },
-
-  /**
-   * Reads the installed add-ons for device posture. In the Felt process, reads
-   * the (soon to launch) profile's on-disk database when profileDir is known;
-   * in the browser, reads the running AddonManager. Returns null when the list
-   * cannot be determined (Felt without a known profile, or AddonManager not
-   * ready and not waited on).
+   * Reads the installed add-ons for device posture, from the on-disk database of
+   * the profile Felt is reporting for. Returns null when the list cannot be
+   * determined.
    *
    * @param {object} [options]
    * @param {string|null} [options.profileDir=null]
-   * @param {boolean} [options.waitForAddons=false]
    * @returns {Promise<DeviceAddon[]|null>}
    */
-  async getExtensions({ profileDir = null, waitForAddons = false } = {}) {
+  async getExtensions({ profileDir = null } = {}) {
     try {
-      if (Services.felt.isFeltUI()) {
-        // The profile (and thus its extension list) is only known once SSO has
-        // resolved the user id; without it we cannot report extensions.
-        if (!profileDir) {
-          return null;
-        }
-        return await this.readAddonsForFelt(profileDir);
-      }
-
-      if (!Services.felt.isFeltBrowser()) {
+      // The profile (and thus its extension list) is only known once SSO has
+      // resolved the user id; without it we cannot report extensions.
+      if (!profileDir) {
         return null;
       }
-
-      const addonManager = await this.getAddonManagerForApp({ waitForAddons });
-      if (!addonManager) {
-        return null;
-      }
-
-      const addons = await addonManager.getAddonsByTypes(REPORTED_ADDON_TYPES);
-      return addons.map(addon => ({
-        id: addon.id,
-        name: addon.name ?? "",
-        type: addon.type,
-        version: addon.version ?? "",
-        enabled: addon.isActive,
-      }));
+      return await this.readAddonsForFelt(profileDir);
     } catch (ex) {
       lazy.log.error("Error while getting extensions for device posture", ex);
       return null;
@@ -270,14 +226,12 @@ export const DevicePosture = {
    * and other data sources.
    *
    * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false] - Whether to block until
-   *   AddonManager is ready so extensions are always reported (browser context).
-   * @param {string|null} [options.profileDir=null] - When set (Felt context,
-   *   before the browser starts), read the extension list from this profile's
-   *   on-disk addon database instead of AddonManager.
+   * @param {string|null} [options.profileDir=null] - Profile whose on-disk addon
+   *   database the extension list is read from; without it extensions are
+   *   reported as unknown.
    * @returns {Promise<DevicePosture>} devicePosture
    */
-  async collect({ waitForAddons = false, profileDir = null } = {}) {
+  async collect({ profileDir = null } = {}) {
     const getImeiValue = async () => {
       try {
         return await Cc["@mozilla.org/imei/provider;1"]
@@ -352,13 +306,13 @@ export const DevicePosture = {
     // be collected here (read from an OSQUERY_QUERIES_PREF, probe-none default)
     // and added to the payload below.
 
-    // These probes are independent, and some are slow (subprocess spawns, addon
-    // manager readiness, an `ioreg` shell-out), so run them concurrently rather
-    // than serializing the awaits.
+    // These probes are independent, and some are slow (subprocess spawns, an
+    // `ioreg` shell-out), so run them concurrently rather than serializing the
+    // awaits.
     const [mobileEquipmentId, extensions, machineId, presentEdrs] =
       await Promise.all([
         getImeiValue(),
-        this.getExtensions({ profileDir, waitForAddons }),
+        this.getExtensions({ profileDir }),
         getMachineId(),
         getPresentEDRs(),
       ]);
