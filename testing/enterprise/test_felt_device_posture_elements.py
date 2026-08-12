@@ -270,7 +270,8 @@ class FeltDevicePostureElements(FeltTests):
 
     # A minimal on-disk add-on database, in the shape XPIDatabase serializes:
     # an active and a disabled add-on that posture reports, plus an invisible
-    # add-on and a type it does not report.
+    # add-on and a type it does not report. The active one is translated into a
+    # locale posture does not report in, the disabled one into the locale it does.
     ADDON_DB = {
         "schemaVersion": 36,
         "addons": [
@@ -281,7 +282,7 @@ class FeltDevicePostureElements(FeltTests):
                 "visible": True,
                 "active": True,
                 "defaultLocale": {"name": "Active Extension"},
-                "locales": [],
+                "locales": [{"locales": ["de"], "name": "Aktive Erweiterung"}],
             },
             {
                 "id": "disabled@example.com",
@@ -289,8 +290,8 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "0.9",
                 "visible": True,
                 "active": False,
-                "defaultLocale": {"name": "Disabled Extension"},
-                "locales": [],
+                "defaultLocale": {"name": "Deaktivierte Erweiterung"},
+                "locales": [{"locales": ["en-US"], "name": "Disabled Extension"}],
             },
             {
                 "id": "invisible@example.com",
@@ -336,7 +337,14 @@ class FeltDevicePostureElements(FeltTests):
             "type": "extension",
             "version": "1.2",
             "enabled": True,
-        }, f"the reported fields match the database, got {reported}"
+        }, (
+            "the reported fields match the database, falling back to the add-on's "
+            f"default locale, got {reported}"
+        )
+        assert reported["disabled@example.com"]["name"] == "Disabled Extension", (
+            "an add-on translated into en-US is reported under that name, got "
+            f"{reported['disabled@example.com']['name']!r}"
+        )
         assert reported["disabled@example.com"]["enabled"] is False, (
             "an inactive add-on is reported as disabled"
         )
