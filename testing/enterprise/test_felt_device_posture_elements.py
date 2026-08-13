@@ -563,6 +563,20 @@ class FeltDevicePostureElements(FeltTests):
         self._manually_closed_child = True
 
     def _assert_parser_agrees(self, felt_view, browser_view):
+        # Every add-on of a reported type that AddonManager knows about is
+        # reported, so a type the reader cannot actually read out of
+        # extensions.json (GMP plugins, ML models) cannot be claimed unnoticed.
+        reported_ids = {addon["id"] for addon in felt_view}
+        missing = {
+            addon_id
+            for addon_id, addon in browser_view.items()
+            if addon_id not in reported_ids
+        }
+        assert not missing, (
+            f"AddonManager reports {sorted(missing)} as a type device posture "
+            "claims to report, but Felt did not report them"
+        )
+
         for addon in felt_view:
             assert addon["id"] in browser_view, (
                 f"{addon['id']} is reported but unknown to AddonManager; the "
@@ -612,7 +626,12 @@ class FeltDevicePostureElements(FeltTests):
                 const { AddonManager } = ChromeUtils.importESModule(
                   "resource://gre/modules/AddonManager.sys.mjs"
                 );
-                AddonManager.getAllAddons().then(
+                // Restricted to the types posture reports, read from the module
+                // itself so the comparison covers whatever it claims.
+                const { REPORTED_ADDON_TYPES } = ChromeUtils.importESModule(
+                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                );
+                AddonManager.getAddonsByTypes(REPORTED_ADDON_TYPES).then(
                   addons =>
                     callback(
                       Object.fromEntries(
@@ -628,7 +647,7 @@ class FeltDevicePostureElements(FeltTests):
             )
         finally:
             self._child_driver.set_context("content")
-        assert "_error" not in rv, f"getAllAddons threw: {rv.get('_error')}"
+        assert "_error" not in rv, f"getAddonsByTypes threw: {rv.get('_error')}"
         return rv
 
     def _enable_an_inactive_browser_theme(self):
