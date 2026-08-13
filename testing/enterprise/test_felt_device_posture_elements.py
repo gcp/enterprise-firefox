@@ -290,6 +290,7 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "1.2",
                 "visible": True,
                 "active": True,
+                "location": "app-profile",
                 "defaultLocale": {"name": "Active Extension"},
                 "locales": [{"locales": ["de"], "name": "Aktive Erweiterung"}],
             },
@@ -299,6 +300,7 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "0.9",
                 "visible": True,
                 "active": False,
+                "location": "app-profile",
                 "defaultLocale": {"name": "Deaktivierte Erweiterung"},
                 "locales": [{"locales": ["en-US"], "name": "Disabled Extension"}],
             },
@@ -308,6 +310,7 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "2.0",
                 "visible": True,
                 "active": True,
+                "location": "app-profile",
                 "defaultLocale": {"name": "Standardname"},
                 "locales": [
                     {"locales": ["de"], "name": "Deutscher Name"},
@@ -320,6 +323,7 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "1.1",
                 "visible": True,
                 "active": True,
+                "location": "app-profile",
                 "defaultLocale": {"name": "Nombre Predeterminado"},
                 "locales": [{"locales": ["en"], "name": "Generic English Name"}],
             },
@@ -329,8 +333,19 @@ class FeltDevicePostureElements(FeltTests):
                 "version": "4.5",
                 "visible": True,
                 "active": True,
+                "location": "app-profile",
                 "defaultLocale": {"name": "Nom Par Defaut"},
                 "locales": [{"locales": ["fr", "de"], "name": "Nom Francais"}],
+            },
+            {
+                "id": "builtin@example.com",
+                "type": "extension",
+                "version": "5.0",
+                "visible": True,
+                "active": True,
+                "location": "app-builtin",
+                "defaultLocale": {"name": "Builtin Extension"},
+                "locales": [],
             },
             {
                 "id": "invisible@example.com",
@@ -372,6 +387,7 @@ class FeltDevicePostureElements(FeltTests):
             "multilocale@example.com",
             "generic-english@example.com",
             "no-english@example.com",
+            "builtin@example.com",
         }, (
             "only visible add-ons of a reported type are reported, got "
             f"{sorted(reported)}"
@@ -397,8 +413,77 @@ class FeltDevicePostureElements(FeltTests):
             "multilocale@example.com": "English Name",
             "generic-english@example.com": "Generic English Name",
             "no-english@example.com": "Nom Par Defaut",
+            "builtin@example.com": "Builtin Extension",
         }, f"reported add-on names, got {reported}"
         self._assert_addon_db_untouched(rv)
+
+    def test_safe_mode_deactivates_the_addons_it_deactivates(self):
+        """A browser launched in safe mode runs neither more nor fewer add-ons
+        than AddonWrapper.isActive reports there: the stored active bit alone
+        would report a profile extension as enabled when safe mode has turned it
+        off, while the add-ons safe mode keeps are still enabled."""
+        self._manually_closed_child = True
+        db = json.dumps(self.ADDON_DB)
+
+        normal = self._read_addons_for_felt(db, safe_mode=False)
+        assert {addon["id"]: addon["enabled"] for addon in normal} == {
+            "active@example.com": True,
+            "disabled@example.com": False,
+            "multilocale@example.com": True,
+            "generic-english@example.com": True,
+            "no-english@example.com": True,
+            "builtin@example.com": True,
+        }, f"outside safe mode the stored active bit is reported, got {normal}"
+
+        safe = self._read_addons_for_felt(db, safe_mode=True)
+        assert {addon["id"]: addon["enabled"] for addon in safe} == {
+            # Profile add-ons do not run in safe mode, whatever the database says.
+            "active@example.com": False,
+            "disabled@example.com": False,
+            "multilocale@example.com": False,
+            "generic-english@example.com": False,
+            "no-english@example.com": False,
+            # Built-ins do.
+            "builtin@example.com": True,
+        }, f"safe mode reports what it actually runs, got {safe}"
+
+    def _read_addons_for_felt(self, extensions_json, safe_mode):
+        """Reads a scratch profile's database as a browser launched with, or
+        without, safe mode. The Felt process decides that from its own command
+        line, which a test cannot vary, so it is passed in here."""
+        self._driver.set_context("chrome")
+        try:
+            rv = self._driver.execute_async_script(
+                """
+                const [dbJson, safeMode] = arguments;
+                const callback = arguments[arguments.length - 1];
+                (async () => {
+                  const dir = PathUtils.join(PathUtils.tempDir, "felt-posture-safemode");
+                  await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+                  await IOUtils.writeUTF8(
+                    PathUtils.join(dir, "extensions.json"),
+                    dbJson
+                  );
+                  const { DevicePosture } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  );
+                  try {
+                    return {
+                      addons: await DevicePosture.readAddonsForFelt(dir, {
+                        safeMode,
+                      }),
+                    };
+                  } finally {
+                    await IOUtils.remove(dir, { recursive: true });
+                  }
+                })().then(callback, err => callback({ _error: String(err) }));
+                """,
+                [extensions_json, safe_mode],
+            )
+        finally:
+            self._driver.set_context("content")
+        assert "_error" not in rv, f"readAddonsForFelt threw: {rv.get('_error')}"
+        return rv["addons"]
 
     def test_posture_without_an_addon_db(self):
         """A profile that has never been launched has no add-on database yet:
