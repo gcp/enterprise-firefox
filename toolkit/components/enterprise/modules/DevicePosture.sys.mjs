@@ -71,6 +71,17 @@ const REPORTED_ADDON_TYPES = [
   "mlmodel",
 ];
 
+// Install locations whose add-ons Firefox keeps running in safe mode, which is
+// what XPIProvider's canRunInSafeMode() decides from the location object. What
+// is serialized here is its name, so the names are matched instead.
+const SAFE_MODE_LOCATIONS = [
+  "app-temporary",
+  "app-builtin",
+  "app-builtin-addons",
+  "app-system-addons",
+  "app-system-profile",
+];
+
 // The locale add-on names are reported in, so the same add-on reads the same in
 // the console whatever locale the client runs in.
 const REPORTED_ADDON_LOCALE = "en-US";
@@ -100,13 +111,19 @@ export const DevicePosture = {
    * Felt runs its own AddonManager against its own profile, so this parses the
    * target profile's extensions.json and nothing else: it opens no database and
    * never writes to the profile it reads. It reports the entries XPIDatabase
-   * considers visible, the name in REPORTED_ADDON_LOCALE, and the stored active
-   * flag that backs AddonWrapper.isActive.
+   * considers visible, the name in REPORTED_ADDON_LOCALE, and what
+   * AddonWrapper.isActive would report for the browser being launched.
    *
    * @param {string} profileDir - Absolute path to the target profile directory.
+   * @param {object} [options]
+   * @param {boolean} [options.safeMode] - Whether the browser reported for runs
+   *   in safe mode, which deactivates the add-ons it does not keep running.
    * @returns {Promise<DeviceAddon[]|null>} null when the database cannot be read.
    */
-  async readAddonsForFelt(profileDir) {
+  async readAddonsForFelt(
+    profileDir,
+    { safeMode = Services.felt.isFeltSafeMode() } = {}
+  ) {
     if (!Services.felt.isFeltUI()) {
       throw new Error("readAddonsForFelt() must only be called in Felt");
     }
@@ -141,7 +158,9 @@ export const DevicePosture = {
         name: reportedAddonName(addon),
         type: addon.type,
         version: addon.version ?? "",
-        enabled: !!addon.active,
+        enabled:
+          !!addon.active &&
+          (!safeMode || SAFE_MODE_LOCATIONS.includes(addon.location)),
       }));
   },
 
