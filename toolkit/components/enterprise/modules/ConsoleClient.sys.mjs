@@ -179,7 +179,7 @@ export const ConsoleClient = {
    * @returns {Promise<void>}
    */
   async probeConsoleReachable() {
-    const url = (await this.consoleBaseURI).href;
+    const url = await this.constructURI("");
     await this._xhrFetch(url, { method: "GET" });
   },
 
