@@ -336,13 +336,10 @@ export class FeltProcessParent extends JSProcessActorParent {
             gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
               .then(({ posture, measuredAt }) =>
                 client.refreshTokens({ posture }).then(result => {
-                  const {
-                    access_token,
-                    refresh_token,
-                    expires_at,
-                    config,
-                    postureSubmitted,
-                  } = result;
+                  const { config, postureSubmitted } = result;
+                  // The tokens are stored by refreshTokens; a response that
+                  // outlived its session must not reach the dead browser or
+                  // the monitor's baseline.
                   if (generation !== gSessionGeneration) {
                     lazy.log.debug(
                       "Session is over; dropping the token refresh response."
@@ -350,11 +347,6 @@ export class FeltProcessParent extends JSProcessActorParent {
                     return;
                   }
                   lazy.log.debug("refreshTokens successful");
-                  Services.felt.setTokens(
-                    access_token,
-                    refresh_token,
-                    expires_at
-                  );
                   Services.felt.sendAccessToken();
                   gFeltProcessParentInstance._storePostureElements(
                     config?.posture_elements
@@ -655,13 +647,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         lazy.PostureMonitor.start({
           profileDir: this._profilePath,
           intervalMs: this._posturePollMs,
-          onRefreshed: ({
-            access_token,
-            refresh_token,
-            expires_at,
-            config,
-          }) => {
-            Services.felt.setTokens(access_token, refresh_token, expires_at);
+          onRefreshed: ({ config }) => {
             // The browser must switch to the rotated access token immediately;
             // otherwise its next authenticated call 401s and forces a second,
             // posture-less refresh.

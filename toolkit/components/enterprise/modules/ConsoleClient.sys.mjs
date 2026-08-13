@@ -488,7 +488,7 @@ export const ConsoleClient = {
   },
 
   /**
-   * Refreshes the session using a refresh token.
+   * Refreshes the session using a refresh token, storing the rotated tokens.
    * Serializes concurrent refreshes via an internal promise.
    * This should only be called from the Felt context.
    *
@@ -570,6 +570,10 @@ export const ConsoleClient = {
       const { access_token, refresh_token, expires_in, config } =
         await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
+      // Store the rotated tokens here rather than in the callers: this runs
+      // before the guard below clears, so a refresh starting as this one
+      // completes cannot read the refresh token this call just spent.
+      Services.felt.setTokens(access_token, refresh_token, expires_at);
       return {
         access_token,
         refresh_token,
