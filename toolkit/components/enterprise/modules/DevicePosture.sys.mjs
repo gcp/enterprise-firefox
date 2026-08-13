@@ -62,13 +62,16 @@ export const PostureElements = {
   },
 };
 
-// Add-on types we report in device posture.
-const REPORTED_ADDON_TYPES = [
+// Add-on types we report in device posture. This filters extensions.json, which
+// only XPIProvider writes to: GMP plugins live in the profile's media.gmp-*
+// prefs and ML models in ModelHub's IndexedDB, so both are much trickier to read
+// out from outside Firefox and are left unreported for now.
+export const REPORTED_ADDON_TYPES = [
   "extension",
   "sitepermission",
   "siteperm_deprecated",
-  "plugin",
-  "mlmodel",
+  // "plugin",
+  // "mlmodel",
 ];
 
 // Install locations whose add-ons Firefox keeps running in safe mode, which is
