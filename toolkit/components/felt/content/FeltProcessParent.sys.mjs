@@ -359,32 +359,13 @@ export class FeltProcessParent extends JSProcessActorParent {
                 })
               )
               .catch(error => {
-                // A refresh failure tears the browser down.
+                // A refresh the browser is blocked on tears it down whatever
+                // failed.
                 // TODO: define a more refined behaviour for these conditions and implement.
                 // For example, an intermittent network or 5xx error can be handled more
                 // gracefully if the refresh request is still before the actual token expiration
                 // because the known old token still has some validity time left.
-                lazy.log.error(
-                  `token refresh failed (${error.name}), shutting down Firefox`,
-                  error
-                );
-                Services.felt.clearTokens();
-                gFeltProcessParentInstance.logoutReported = true;
-                gSessionGeneration += 1;
-                // Otherwise further ticks refresh against the cleared tokens.
-                lazy.PostureMonitor.stop();
-                gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-                  Services.cpmm.sendAsyncMessage(
-                    "FeltParent:FirefoxSessionInterrupted",
-                    {
-                      reason:
-                        error.name === "ReauthRequiredError"
-                          ? "tokenRefreshExpired"
-                          : "tokenRefreshFailed",
-                    }
-                  );
-                });
-                Services.felt.shutdownFirefox();
+                gFeltProcessParentInstance.endSessionAfterRefreshFailure(error);
               });
             break;
           }
@@ -395,6 +376,36 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       },
     };
+  }
+
+  /**
+   * Ends the session a token refresh failed for: the console will not answer for
+   * its tokens any more, so the browser cannot keep running on them.
+   *
+   * @param {Error} error - The failure, whose name picks the notice FELT shows.
+   */
+  endSessionAfterRefreshFailure(error) {
+    if (this.logoutReported) {
+      return;
+    }
+    lazy.log.error(
+      `token refresh failed (${error.name}), shutting down Firefox`,
+      error
+    );
+    Services.felt.clearTokens();
+    this.logoutReported = true;
+    gSessionGeneration += 1;
+    // Otherwise further ticks refresh against the cleared tokens.
+    lazy.PostureMonitor.stop();
+    this.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+        reason:
+          error.name === "ReauthRequiredError"
+            ? "tokenRefreshExpired"
+            : "tokenRefreshFailed",
+      });
+    });
+    Services.felt.shutdownFirefox();
   }
 
   async sendPrefsToFirefox() {
@@ -655,6 +666,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             this._storePostureElements(config?.posture_elements);
           },
           isSessionOver: () => this.logoutReported,
+          onRefreshRejected: error => this.endSessionAfterRefreshFailure(error),
         });
       })
       .then(() => {

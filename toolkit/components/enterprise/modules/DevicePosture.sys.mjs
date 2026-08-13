@@ -333,6 +333,7 @@ export const PostureMonitor = {
   _intervalMs: DEFAULT_POSTURE_POLL_MS,
   _onRefreshed: null,
   _isSessionOver: null,
+  _onRefreshRejected: null,
 
   /**
    * Starts (or restarts) monitoring. Idempotent, so it is safe to call again
@@ -347,13 +348,22 @@ export const PostureMonitor = {
    *   session.
    * @param {() => boolean} options.isSessionOver - Whether the session was torn
    *   down while a submission was in flight, whose response is then dropped.
+   * @param {(error: Error) => void} options.onRefreshRejected - Ends the session
+   *   the console refused to refresh; the caller owns the teardown.
    */
-  start({ profileDir, intervalMs, onRefreshed, isSessionOver }) {
+  start({
+    profileDir,
+    intervalMs,
+    onRefreshed,
+    isSessionOver,
+    onRefreshRejected,
+  }) {
     this.stop();
     this._profileDir = profileDir;
     this._intervalMs = intervalMs ?? DEFAULT_POSTURE_POLL_MS;
     this._onRefreshed = onRefreshed;
     this._isSessionOver = isSessionOver;
+    this._onRefreshRejected = onRefreshRejected;
     this._timer = lazy.setInterval(() => this.tick(), this._intervalMs);
   },
 
@@ -455,6 +465,13 @@ export const PostureMonitor = {
       }
     } catch (e) {
       lazy.log.error("Posture-change refresh failed:", e);
+      // The console refusing the refresh token ends the session, as it does on
+      // the refresh the browser drives. Posture is reported independently of the
+      // browser's credentials, so a network or 5xx failure is left to the next
+      // tick instead.
+      if (e.name === "ReauthRequiredError" && !this._isSessionOver?.()) {
+        this._onRefreshRejected?.(e);
+      }
     }
   },
 };
