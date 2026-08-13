@@ -1094,12 +1094,18 @@ export class FeltProcessParent extends JSProcessActorParent {
           // Read the extension list from the profile on disk, before the browser
           // is spawned and its AddonManager rewrites extensions.json.
           const { path: profileDir } = await this._resolveProfile();
-          let posture = null;
+          let posture;
           const measuredAt = Date.now();
           try {
             posture = await lazy.DevicePosture.collect({ profileDir });
           } catch (e) {
+            // The console mints no session without a posture, so there is
+            // nothing to redeem the one-time token with.
             lazy.log.error("Failed to collect the initial device posture:", e);
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
           }
 
           let tokens;
@@ -1128,9 +1134,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           // The console has this posture now: the baseline the monitor diffs
           // against.
-          if (posture) {
-            lazy.PostureMonitor.record(posture, measuredAt);
-          }
+          lazy.PostureMonitor.record(posture, measuredAt);
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
