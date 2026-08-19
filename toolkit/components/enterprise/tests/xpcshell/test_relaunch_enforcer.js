@@ -3,7 +3,7 @@
 
 "use strict";
 
-const { computeRestartTime, RelaunchEnforcer } = ChromeUtils.importESModule(
+const { RelaunchEnforcer } = ChromeUtils.importESModule(
   "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
 );
 
@@ -15,6 +15,20 @@ const NOW = 1_700_000_000_000;
 function at(minutes) {
   return NOW + minutes * MINUTE;
 }
+
+add_task(function test_uses_process_start_by_default() {
+  const sessionStart = RelaunchEnforcer._sessionStart;
+  const schedule = RelaunchEnforcer._computeRestartTime({
+    now: sessionStart,
+    params: { MinutesRemaining: 0 },
+  });
+
+  Assert.equal(
+    schedule.restartAt,
+    sessionStart + 10 * MINUTE,
+    "The process start supplies the default grace-period floor"
+  );
+});
 
 add_task(function test_derives_the_deadline_from_the_console_budget() {
   const cases = [
@@ -114,7 +128,11 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
     params,
     restartAt: expectedRestartAt,
   } of cases) {
-    const schedule = computeRestartTime({ now: NOW, sessionStart, params });
+    const schedule = RelaunchEnforcer._computeRestartTime({
+      now: NOW,
+      sessionStart,
+      params,
+    });
     Assert.ok(schedule, `${what}: a schedule is produced`);
     Assert.equal(
       schedule.restartAt,
@@ -155,7 +173,11 @@ add_task(function test_nothing_pending_for_an_unusable_budget() {
 
   for (const [what, params] of cases) {
     Assert.equal(
-      computeRestartTime({ now: NOW, sessionStart: NOW, params }),
+      RelaunchEnforcer._computeRestartTime({
+        now: NOW,
+        sessionStart: NOW,
+        params,
+      }),
       null,
       `${what} means no restart is pending`
     );

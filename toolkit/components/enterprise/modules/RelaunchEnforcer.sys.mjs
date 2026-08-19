@@ -50,71 +50,6 @@ const REPLACEABLE_IDS = [
 ];
 
 /**
- * Derives the deadline this session must restart by, from the budget the console
- * reported on a poll.
- *
- * The console sends the time remaining and re-sends it every poll, so this
- * derives the deadline afresh from the local clock each time.
- *
- * A budget the console reports as already spent is negative, and means the
- * session is overdue. A negative grace period is not a budget but a nonsense
- * bound, and is rejected with the rest of a payload that fails to parse.
- *
- * @param {object} options
- * @param {number} [options.now=Date.now()] - When the budget arrived, in epoch ms.
- * @param {number} options.sessionStart - Epoch ms this process started.
- * @param {object|null} options.params - The console's `relaunch` payload.
- * @returns {{restartAt: number}|null} null means nothing is pending.
- */
-export function computeRestartTime({ now = Date.now(), sessionStart, params }) {
-  if (!params || typeof params !== "object") {
-    return null;
-  }
-
-  const { MinutesRemaining, HardMinutesRemaining, GracePeriodMinutes } = params;
-  if (!Number.isFinite(MinutesRemaining)) {
-    return null;
-  }
-
-  // An omitted optional field takes its default. A value that fails to parse
-  // means nothing here can be trusted, and restarting risks the user's work.
-  const hardOmitted = HardMinutesRemaining == null;
-  if (!hardOmitted && !Number.isFinite(HardMinutesRemaining)) {
-    return null;
-  }
-  const graceOmitted = GracePeriodMinutes == null;
-  if (
-    !graceOmitted &&
-    (!Number.isFinite(GracePeriodMinutes) || GracePeriodMinutes < 0)
-  ) {
-    return null;
-  }
-
-  const softMinutes = Math.min(MinutesRemaining, MAX_BUDGET_MINUTES);
-  // A hard deadline is at least the soft deadline.
-  const hardAt = hardOmitted
-    ? null
-    : now +
-      Math.min(
-        Math.max(HardMinutesRemaining, MinutesRemaining),
-        MAX_BUDGET_MINUTES
-      ) *
-        MS_PER_MINUTE;
-  const graceMinutes = Math.min(
-    graceOmitted ? DEFAULT_GRACE_PERIOD_MINUTES : GracePeriodMinutes,
-    MAX_BUDGET_MINUTES
-  );
-
-  const softAt = now + softMinutes * MS_PER_MINUTE;
-  const graceEnd = sessionStart + graceMinutes * MS_PER_MINUTE;
-
-  // The grace period floors the deadline, a hard deadline caps it.
-  return {
-    restartAt: Math.min(hardAt ?? Infinity, Math.max(softAt, graceEnd)),
-  };
-}
-
-/**
  * Enforces the restart deadline the enterprise console reports on each policy
  * poll: warns the user, and force-restarts when the deadline arrives.
  */
@@ -137,6 +72,78 @@ export const RelaunchEnforcer = {
     return Services.startup.getStartupInfo().process.getTime();
   },
 
+  /**
+   * Derives the deadline this session must restart by, from the budget the
+   * console reported on a poll.
+   *
+   * The console sends the time remaining and re-sends it every poll, so this
+   * derives the deadline afresh from the local clock each time.
+   *
+   * A budget the console reports as already spent is negative, and means the
+   * session is overdue. A negative grace period is not a budget but a nonsense
+   * bound, and is rejected with the rest of a payload that fails to parse.
+   *
+   * @param {object} options
+   * @param {number} [options.now=Date.now()] - When the budget arrived, in epoch
+   *   ms.
+   * @param {number} [options.sessionStart] - Epoch ms this process started.
+   *   Defaults to this process's start.
+   * @param {object|null} options.params - The console's `relaunch` payload.
+   * @returns {{restartAt: number}|null} null means nothing is pending.
+   */
+  _computeRestartTime({
+    now = Date.now(),
+    sessionStart = this._sessionStart,
+    params,
+  }) {
+    if (!params || typeof params !== "object") {
+      return null;
+    }
+
+    const { MinutesRemaining, HardMinutesRemaining, GracePeriodMinutes } =
+      params;
+    if (!Number.isFinite(MinutesRemaining)) {
+      return null;
+    }
+
+    // An omitted optional field takes its default. A value that fails to parse
+    // means nothing here can be trusted, and restarting risks the user's work.
+    const hardOmitted = HardMinutesRemaining == null;
+    if (!hardOmitted && !Number.isFinite(HardMinutesRemaining)) {
+      return null;
+    }
+    const graceOmitted = GracePeriodMinutes == null;
+    if (
+      !graceOmitted &&
+      (!Number.isFinite(GracePeriodMinutes) || GracePeriodMinutes < 0)
+    ) {
+      return null;
+    }
+
+    const softMinutes = Math.min(MinutesRemaining, MAX_BUDGET_MINUTES);
+    // A hard deadline is at least the soft deadline.
+    const hardAt = hardOmitted
+      ? null
+      : now +
+        Math.min(
+          Math.max(HardMinutesRemaining, MinutesRemaining),
+          MAX_BUDGET_MINUTES
+        ) *
+          MS_PER_MINUTE;
+    const graceMinutes = Math.min(
+      graceOmitted ? DEFAULT_GRACE_PERIOD_MINUTES : GracePeriodMinutes,
+      MAX_BUDGET_MINUTES
+    );
+
+    const softAt = now + softMinutes * MS_PER_MINUTE;
+    const graceEnd = sessionStart + graceMinutes * MS_PER_MINUTE;
+
+    // The grace period floors the deadline, a hard deadline caps it.
+    return {
+      restartAt: Math.min(hardAt ?? Infinity, Math.max(softAt, graceEnd)),
+    };
+  },
+
   // Recorded when "sessionstore-windows-restored" fires, so this also answers
   // for a session that was already restored before this module was loaded.
   get _sessionRestored() {
@@ -154,10 +161,7 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    const schedule = computeRestartTime({
-      sessionStart: this._sessionStart,
-      params: relaunch,
-    });
+    const schedule = this._computeRestartTime({ params: relaunch });
 
     if (!schedule) {
       if (relaunch) {
