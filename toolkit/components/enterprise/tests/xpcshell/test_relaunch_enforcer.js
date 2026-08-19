@@ -108,13 +108,18 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
     },
   ];
 
-  for (const { what, sessionStart, params, restartAt } of cases) {
+  for (const {
+    what,
+    sessionStart,
+    params,
+    restartAt: expectedRestartAt,
+  } of cases) {
     const schedule = computeRestartTime({ now: NOW, sessionStart, params });
     Assert.ok(schedule, `${what}: a schedule is produced`);
     Assert.equal(
       schedule.restartAt,
-      restartAt,
-      `${what}: restartAt is ${(restartAt - NOW) / MINUTE} minutes out`
+      expectedRestartAt,
+      `${what}: restartAt is ${(expectedRestartAt - NOW) / MINUTE} minutes out`
     );
   }
 });

@@ -24,6 +24,7 @@ const FTL_FILES = [
   "browser/policy-messages.ftl",
   "browser/profiles.ftl",
   "browser/termsofuse.ftl",
+  "toolkit/enterprise/enterprise.ftl",
 ];
 
 class InfoBarNotification {

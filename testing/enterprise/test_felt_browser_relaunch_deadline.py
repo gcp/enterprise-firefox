@@ -62,12 +62,16 @@ class BrowserRelaunchDeadline(FeltTests):
             "Expected the restart to be waiting on a timer"
         )
 
-        self.wait_process_exit(browser_pid)
+        # Keep the successor from consuming the old session's short grace while
+        # the server switches budgets across the restart.
+        self.policies_omit_policies.value = 1
+        try:
+            self.wait_process_exit(browser_pid)
+            self.relaunch.value = json.dumps({"MinutesRemaining": 0})
+        finally:
+            self.policies_omit_policies.value = 0
 
         self._logger.info("Connecting to the relaunched browser")
-        # The console still reports an exhausted budget, so only the grace period
-        # granted to this fresh session stands between it and another restart.
-        self.relaunch.value = json.dumps({"MinutesRemaining": 0})
         self.connect_child_browser()
         new_browser_pid = self._child_driver.session_capabilities["moz:processID"]
         assert new_browser_pid != browser_pid, (
@@ -158,19 +162,26 @@ class BrowserRelaunchDeadline(FeltTests):
 
     def check_focus_kept(self):
         self._child_driver.set_context("chrome")
-        return self._child_driver.execute_script(
-            """
-            const win = Services.wm.getMostRecentBrowserWindow();
-            const bar = win.gNotificationBox.getNotificationWithValue(
-                arguments[0]
-            );
-            return {
-                sameBar: bar === win._relaunchTestBar,
-                focused: win.document.activeElement === win._relaunchTestButton,
-            };
-            """,
-            script_args=(IMMINENT_ID,),
-        )
+        try:
+            result = self._child_driver.execute_script(
+                """
+                const win = Services.wm.getMostRecentBrowserWindow();
+                const bar = win.gNotificationBox.getNotificationWithValue(
+                    arguments[0]
+                );
+                const result = {
+                    sameBar: bar === win._relaunchTestBar,
+                    focused: win.document.activeElement === win._relaunchTestButton,
+                };
+                delete win._relaunchTestBar;
+                delete win._relaunchTestButton;
+                return result;
+                """,
+                script_args=(IMMINENT_ID,),
+            )
+        finally:
+            self._child_driver.set_context("content")
+        return result
 
     def test_relaunch_deadline_survives_a_response_without_policies(self):
         self.run_felt_base()
@@ -236,9 +247,12 @@ class BrowserRelaunchDeadline(FeltTests):
 
     def process_start(self):
         self._child_driver.set_context("chrome")
-        return self._child_driver.execute_script(
-            "return Services.startup.getStartupInfo().process.getTime();"
-        )
+        try:
+            return self._child_driver.execute_script(
+                "return Services.startup.getStartupInfo().process.getTime();"
+            )
+        finally:
+            self._child_driver.set_context("content")
 
     def session_age_ms(self):
         self._child_driver.set_context("chrome")

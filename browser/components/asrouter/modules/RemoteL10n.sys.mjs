@@ -222,6 +222,7 @@ export class _RemoteL10n {
         "browser/termsofuse.ftl",
         "browser/aiWindow.ftl",
         "toolkit/branding/brandings.ftl",
+        "toolkit/enterprise/enterprise.ftl",
       ],
       false
     );

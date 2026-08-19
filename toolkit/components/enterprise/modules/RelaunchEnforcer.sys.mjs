@@ -246,8 +246,8 @@ export const RelaunchEnforcer = {
   },
 
   /**
-   * Advances the countdown from the local deadline, so the minutes the bar
-   * shows stay true while the console is unreachable.
+   * Arms the next countdown update from the local deadline, so the minutes the
+   * bar shows stay true while the console is unreachable.
    *
    * @param {number} minutes - The minute count currently on the bar.
    */
@@ -355,7 +355,6 @@ export const RelaunchEnforcer = {
     }
 
     const message = {
-      weight: 100,
       id: phase,
       content: {
         priority: isImminent
