@@ -61,12 +61,12 @@ const REPLACEABLE_IDS = [
  * bound, and is rejected with the rest of a payload that fails to parse.
  *
  * @param {object} options
- * @param {number} options.now - Date.now() at the moment the budget arrived.
+ * @param {number} [options.now=Date.now()] - When the budget arrived, in epoch ms.
  * @param {number} options.sessionStart - Epoch ms this process started.
  * @param {object|null} options.params - The console's `relaunch` payload.
  * @returns {{restartAt: number}|null} null means nothing is pending.
  */
-export function computeRestartTime({ now, sessionStart, params }) {
+export function computeRestartTime({ now = Date.now(), sessionStart, params }) {
   if (!params || typeof params !== "object") {
     return null;
   }
@@ -155,7 +155,6 @@ export const RelaunchEnforcer = {
     }
 
     const schedule = computeRestartTime({
-      now: Date.now(),
       sessionStart: this._sessionStart,
       params: relaunch,
     });
