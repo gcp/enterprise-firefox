@@ -42,6 +42,7 @@
           this.getAttribute("fluent-remote-id"),
           this.fluentAttributeValues
         );
+        RemoteL10n.l10n.translateFragment(this._content);
       }
     }
 
@@ -54,10 +55,7 @@
      */
     setVariable(name, value) {
       this.setAttribute(`fluent-variable-${name}`, value);
-      if (this._content) {
-        this.render();
-        RemoteL10n.l10n.translateFragment(this._content);
-      }
+      this.render();
     }
 
     static get observedAttributes() {
@@ -79,7 +77,6 @@
       shadowRoot.appendChild(this._content);
 
       this.render();
-      RemoteL10n.l10n.translateFragment(this._content);
     }
   }
 
