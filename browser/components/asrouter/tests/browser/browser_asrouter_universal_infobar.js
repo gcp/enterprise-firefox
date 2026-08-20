@@ -915,3 +915,68 @@ add_task(async function global_replaces_universal_across_windows() {
   sandbox.restore();
   cleanupInfobars();
 });
+
+// The unload listener that hands the active infobar over to a surviving window
+// is registered on the window the bar was shown from, so closing that window
+// while others remain is what exercises the handover.
+add_task(async function universal_replaced_after_originating_window_closes() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+
+  const incumbent = {
+    id: "TEST_UNIVERSAL_HANDOVER_INCUMBENT",
+    content: {
+      type: "universal",
+      text: "incumbent",
+      buttons: [],
+    },
+  };
+  const replacement = {
+    id: "TEST_UNIVERSAL_HANDOVER_REPLACEMENT",
+    content: {
+      type: "universal",
+      text: "replacement",
+      buttons: [],
+      canReplace: [incumbent.id],
+    },
+  };
+
+  const incumbentNotification = await InfoBar.showInfoBarMessage(
+    win2.gBrowser.selectedBrowser,
+    incumbent,
+    sandbox.stub()
+  );
+  await TestUtils.waitForCondition(
+    () => !!getNotificationFromWin(win1, incumbent.id),
+    "Incumbent visible in the surviving window"
+  );
+
+  await BrowserTestUtils.closeWindow(win2);
+
+  Assert.equal(
+    InfoBar._activeInfobar?.notification,
+    incumbentNotification,
+    "The active infobar still names the notification that owns the bars"
+  );
+
+  await InfoBar.showInfoBarMessage(
+    win1.gBrowser.selectedBrowser,
+    replacement,
+    sandbox.stub()
+  );
+  await TestUtils.waitForCondition(
+    () => !!getNotificationFromWin(win1, replacement.id),
+    "Replacement visible in the surviving window"
+  );
+  Assert.ok(
+    !getNotificationFromWin(win1, incumbent.id),
+    "The incumbent was evicted rather than left stacked under the replacement"
+  );
+
+  // Cleanup
+  removeByIdInWin(win1, replacement.id);
+  removeByIdInWin(win1, incumbent.id);
+  sandbox.restore();
+  cleanupInfobars();
+});

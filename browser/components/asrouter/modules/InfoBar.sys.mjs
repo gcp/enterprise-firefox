@@ -713,9 +713,11 @@ export const InfoBar = {
             const nextEntry = InfoBar._universalInfobars.find(
               ({ box }) => !box.documentGlobal?.closed
             );
-            const nextNotification = nextEntry?.notification;
-            InfoBar._activeInfobar = nextNotification
-              ? { message, dispatch, nextNotification }
+            // _universalInfobars holds the bar elements; the active infobar
+            // holds the notification that owns them all, so hand that over
+            // rather than an element out of the list.
+            InfoBar._activeInfobar = nextEntry
+              ? { message, dispatch, notification }
               : null;
           } else {
             // Non-universal always clears on unload
