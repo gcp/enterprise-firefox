@@ -318,10 +318,8 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    // Ahead of touching InfoBar, so the first poll does not drag its module
-    // graph into "policies-startup" only to find no window to put a bar in.
-    const win = Services.wm.getMostRecentBrowserWindow();
-    if (!win?.gBrowser) {
+    const win = this._barWindow();
+    if (!win) {
       // The first poll precedes session restore; the next poll retries.
       return;
     }
@@ -422,6 +420,24 @@ export const RelaunchEnforcer = {
     if (isImminent) {
       this._armCountdown(minutes);
     }
+  },
+
+  /**
+   * The window to show the warning from. The most recent window can be a
+   * private window, a popup or a taskbar tab, and InfoBar refuses all of those.
+   *
+   * InfoBar is only reached once a window exists, so the first poll does not
+   * drag its module graph into "policies-startup".
+   *
+   * @returns {Window|null} null when no open window can take a bar.
+   */
+  _barWindow() {
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (win.gBrowser && lazy.InfoBar.isValidInfobarWindow(win)) {
+        return win;
+      }
+    }
+    return null;
   },
 
   /**

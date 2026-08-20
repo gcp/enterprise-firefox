@@ -309,3 +309,40 @@ add_task(async function test_takes_the_slot_from_another_infobar() {
     "The relaunch bar goes away"
   );
 });
+
+add_task(async function test_warns_in_a_window_that_can_take_a_bar() {
+  const win = Services.wm.getMostRecentBrowserWindow();
+  await reset(win);
+
+  // InfoBar refuses a private window, and the most recent window is the one
+  // the user just opened.
+  const privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+  Assert.equal(
+    Services.wm.getMostRecentBrowserWindow(),
+    privateWin,
+    "The private window is the most recent one"
+  );
+
+  RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
+  await RelaunchEnforcer._refreshNotification();
+
+  Assert.deepEqual(
+    notificationValues(win),
+    [WARNING_ID],
+    "The warning went to the window that can show it"
+  );
+  Assert.deepEqual(
+    notificationValues(privateWin),
+    [],
+    "No warning in the private window"
+  );
+
+  RelaunchEnforcer.onConsolePoll(null);
+  await TestUtils.waitForCondition(
+    () => !notificationValues(win).length,
+    "The relaunch bar goes away"
+  );
+  await BrowserTestUtils.closeWindow(privateWin);
+});
