@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
+  ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
@@ -537,6 +538,15 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   async startFirefox(startReason, ssoCollectedCookies = []) {
+    // An initial start reports the posture collected for the login below, which
+    // already names the session this browser runs as. A relaunch has no such
+    // posture, so it takes a new id here and drops what the console holds, or
+    // the first refresh would report the dead browser's session.
+    if (startReason !== PROCESS_START_REASON.INITIAL_START) {
+      lazy.ClientSession.renew();
+      lazy.PostureMonitor.forget();
+    }
+
     this.restartReported = false;
     this.logoutReported = false;
     this.exitReported = false;
@@ -1104,6 +1114,9 @@ export class FeltProcessParent extends JSProcessActorParent {
           const { path: profileDir } = await this._resolveProfile();
           let posture;
           const measuredAt = Date.now();
+          // The browser this login starts reports under this id, so mint it
+          // before the posture that redeems the one-time token.
+          lazy.ClientSession.renew();
           try {
             posture = await lazy.DevicePosture.collect({ profileDir });
           } catch (e) {

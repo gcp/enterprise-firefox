@@ -41,6 +41,41 @@ ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
 });
 
 /**
+ * Identifies one run of the managed browser, so the console can tell a restart
+ * from a browser that has been up all along. Random per launch and never
+ * stored: it says nothing about the device, only about the run reporting the
+ * posture.
+ *
+ * Firefox has no shared identifier of this kind. The telemetry session id is
+ * only minted once recording is allowed, and posture has to keep working with
+ * telemetry off, so this follows the pattern Sync uses for its own browser
+ * session id instead: module state, minted on demand, never persisted.
+ */
+export const ClientSession = {
+  _id: null,
+
+  /**
+   * Begins a new browser session, discarding the previous id.
+   *
+   * @returns {string} The new id.
+   */
+  renew() {
+    this._id = globalThis.crypto.randomUUID();
+    return this._id;
+  },
+
+  /**
+   * The current session id, minted on first read so a posture collected before
+   * any renew() still reports one.
+   *
+   * @returns {string}
+   */
+  get id() {
+    return (this._id ??= globalThis.crypto.randomUUID());
+  },
+};
+
+/**
  * The write side of EDR_AGENTS_PREF: the console serves one descriptor keyed by
  * platform, and the client picks its own list.
  */
@@ -331,6 +366,7 @@ export const DevicePosture = {
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
       isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
       presentEdrs,
+      clientSessionId: ClientSession.id,
     };
     return devicePosturePayload;
   },
@@ -431,6 +467,16 @@ export const PostureMonitor = {
   record(posture, measuredAt) {
     this._lastJson = JSON.stringify(posture);
     this._lastAt = measuredAt;
+  },
+
+  /**
+   * Drops what the console is known to hold, so the next report measures rather
+   * than replays. A browser that just started reports a posture of its own, not
+   * the one its predecessor left behind.
+   */
+  forget() {
+    this._lastJson = null;
+    this._lastAt = 0;
   },
 
   /**
