@@ -707,20 +707,25 @@ export const InfoBar = {
             ({ box }) => box.documentGlobal !== win
           );
 
-          if (isUniversal) {
-            // If there’s still at least one live universal infobar,
-            // make it the active infobar; otherwise clear the active infobar
-            const nextEntry = InfoBar._universalInfobars.find(
+          // This listener is registered per window and closes over the
+          // notification it was shown for, so it can outlive its own infobar: a
+          // replacement takes over _activeInfobar while this window stays open.
+          // Only the notification that still owns the active infobar may clear
+          // it, and identity is on the notification rather than the message
+          // because callers may show the same message object again.
+          if (InfoBar._activeInfobar?.notification !== notification) {
+            return;
+          }
+
+          // A universal infobar survives in the windows that are still open;
+          // closing one of them leaves the notification that owns them all in
+          // place. Anything else goes with its window.
+          const survives =
+            isUniversal &&
+            InfoBar._universalInfobars.some(
               ({ box }) => !box.documentGlobal?.closed
             );
-            // _universalInfobars holds the bar elements; the active infobar
-            // holds the notification that owns them all, so hand that over
-            // rather than an element out of the list.
-            InfoBar._activeInfobar = nextEntry
-              ? { message, dispatch, notification }
-              : null;
-          } else {
-            // Non-universal always clears on unload
+          if (!survives) {
             InfoBar._activeInfobar = null;
           }
         },
