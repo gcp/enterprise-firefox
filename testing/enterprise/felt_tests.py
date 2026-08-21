@@ -171,16 +171,16 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
-    def build_config_response(self):
-        """Builds the browser config the console sends with the SSO callback and
-        with every token response. It carries a posture-elements descriptor only
+    def build_posture_response(self):
+        """Builds the posture configuration the console sends with the SSO
+        callback and with every token response. It carries an EDR agent list only
         when the test asked for one."""
-        config = {}
-        posture_elements = getattr(self.server, "config_posture_elements", None)
-        raw = posture_elements.value if posture_elements is not None else ""
+        posture = {}
+        edr_agents = getattr(self.server, "posture_edr_agents", None)
+        raw = edr_agents.value if edr_agents is not None else ""
         if raw:
-            config["posture_elements"] = json.loads(raw)
-        return config
+            posture["edr_agents"] = json.loads(raw)
+        return posture
 
     def build_policies_response(self):
         policy_content = {}
@@ -287,12 +287,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 },
                 "extra_prefs": [["marionette.port", 0]],
             }
-            # Only include posture_elements when the test set one, so the
-            # absent-field (probe-nothing) path is exercised by default.
-            posture_elements = getattr(self.server, "config_posture_elements", None)
-            raw = posture_elements.value if posture_elements is not None else ""
-            if raw:
-                config["posture_elements"] = json.loads(raw)
             m = json.dumps(config)
             contentType = "application/json"
 
@@ -409,14 +403,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/sso/callback":
-            # The one-time token, plus the identity and config the client needs to
-            # derive the profile and collect posture before it redeems the token.
+            # The one-time token, plus the identity and the posture configuration
+            # the client needs to derive the profile and collect posture before it
+            # redeems the token.
             self.server.one_time_token = str(uuid.uuid4())
             obj = json.dumps({
                 "one_time_token": self.server.one_time_token,
                 "user_id": "8f14e45f-ceea-467d-9a3e-000000000042",
                 "email": "nobody@mozilla.org",
-                "config": self.build_config_response(),
+                "posture": self.build_posture_response(),
             })
 
             m = f"""
@@ -544,14 +539,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     self.server.device_posture_history = []
                 self.server.device_posture_history.append(parsed_payload["posture"])
 
-            # The session, plus the config the console folds into every token
-            # response: the channel a mid-session descriptor arrives on.
+            # The session, plus the posture configuration the console folds into
+            # every token response: the channel a mid-session descriptor arrives
+            # on.
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
                 "expires_in": 71999,
                 "refresh_token": self.server.policy_refresh_token.value,
-                "config": self.build_config_response(),
+                "posture": self.build_posture_response(),
             })
 
         elif path == "/api/browser/policies":
@@ -641,7 +637,7 @@ def serve(
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
-    config_posture_elements=None,
+    posture_edr_agents=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -681,8 +677,8 @@ def serve(
         token_fail_request if token_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
-    if config_posture_elements is not None:
-        httpd.config_posture_elements = config_posture_elements
+    if posture_edr_agents is not None:
+        httpd.posture_edr_agents = posture_edr_agents
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -802,9 +798,9 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
-        # JSON string served as the config's "posture_elements". Empty omits the
-        # field entirely.
-        self.config_posture_elements = SharedString("")
+        # JSON string served as the posture configuration's "edr_agents". Empty
+        # omits the field entirely.
+        self.posture_edr_agents = SharedString("")
 
         self.console_httpd = Process(
             target=serve,
@@ -824,7 +820,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
-                config_posture_elements=self.config_posture_elements,
+                posture_edr_agents=self.posture_edr_agents,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),

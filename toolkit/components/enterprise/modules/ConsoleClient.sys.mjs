@@ -180,8 +180,8 @@ export const ConsoleClient = {
    *
    * Identifies the user, the device, and the login flow this client speaks, which
    * selects the callback and the token grant the console answers with. It names no
-   * platform: the client selects its own section of the posture-elements
-   * descriptor (see PostureElements in DevicePosture.sys.mjs).
+   * platform: the client selects its own list out of the posture configuration
+   * (see EdrAgents in DevicePosture.sys.mjs).
    *
    * @param {string} email - Email address to prefill for SSO initiation.
    * @returns {Promise<nsIURI>}
@@ -496,8 +496,8 @@ export const ConsoleClient = {
    * @param {DevicePosture|null} [options.posture=null] - Device posture to report
    *   with the refresh, for the console to record.
    * @throws {ReauthRequiredError | Error} If unable to refresh session
-   * @returns {Promise<{ access_token, refresh_token, expires_at, config,
-   *   postureSubmitted }>} config is the refreshed browser config (may be
+   * @returns {Promise<{ access_token, refresh_token, expires_at, posture,
+   *   postureSubmitted }>} posture is the refreshed posture configuration (may be
    *   undefined); postureSubmitted is false when this call joined an in-flight
    *   refresh that did not carry the supplied posture.
    */
@@ -567,8 +567,12 @@ export const ConsoleClient = {
         throw new Error(`Token refresh failed: ${text}, Status: ${res.status}`);
       }
 
-      const { access_token, refresh_token, expires_in, config } =
-        await res.json();
+      const {
+        access_token,
+        refresh_token,
+        expires_in,
+        posture: postureConfig,
+      } = await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
       // Store the rotated tokens here rather than in the callers: this runs
       // before the guard below clears, so a refresh starting as this one
@@ -578,7 +582,7 @@ export const ConsoleClient = {
         access_token,
         refresh_token,
         expires_at,
-        config,
+        posture: postureConfig,
         postureSubmitted: !!posture,
       };
     })().finally(() => {

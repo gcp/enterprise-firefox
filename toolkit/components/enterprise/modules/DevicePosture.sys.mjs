@@ -28,9 +28,9 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // empty or malformed means "probe nothing".
 export const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
-// Our key into the console's platform-keyed posture-elements descriptor: the OS
-// name we report in the posture payload below (sysinfo "name", i.e. PR_SI_SYSNAME
-// -- "Windows_NT", "Darwin", "Linux"). An indeterminate name selects no section.
+// Our key into the console's platform-keyed EDR agent lists: the OS name we
+// report in the posture payload below (sysinfo "name", i.e. PR_SI_SYSNAME --
+// "Windows_NT", "Darwin", "Linux"). An indeterminate name selects no list.
 ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
   try {
     return Services.sysinfo.getProperty("name");
@@ -42,20 +42,20 @@ ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
 
 /**
  * The write side of EDR_AGENTS_PREF: the console serves one descriptor keyed by
- * platform, and the client picks its own section.
+ * platform, and the client picks its own list.
  */
-export const PostureElements = {
+export const EdrAgents = {
   /**
-   * Selects this platform's section and writes its EDR list into this process's
-   * EDR_AGENTS_PREF. A missing section or list writes "[]".
+   * Selects this platform's list and writes it into this process's
+   * EDR_AGENTS_PREF. A missing list writes "[]".
    *
-   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
+   * @param {{[key: string]: string[]}} [edrAgentsByPlatform]
    * @returns {string} The value written, so callers can relay it to the other
    *   process.
    */
-  write(postureElements) {
+  write(edrAgentsByPlatform) {
     const edrAgents = JSON.stringify(
-      postureElements?.[lazy.posturePlatform]?.edr ?? []
+      edrAgentsByPlatform?.[lazy.posturePlatform] ?? []
     );
     Services.prefs.setStringPref(EDR_AGENTS_PREF, edrAgents);
     return edrAgents;
@@ -365,7 +365,7 @@ export const PostureMonitor = {
    * @param {string|null} options.profileDir - Profile whose on-disk add-on list
    *   is reported; see DevicePosture.collect.
    * @param {number} [options.intervalMs]
-   * @param {(session: {access_token, refresh_token, expires_at, config}) => void}
+   * @param {(session: {access_token, refresh_token, expires_at, posture}) => void}
    *   options.onRefreshed - Applies a submission's response; the caller owns the
    *   session.
    * @param {() => boolean} options.isSessionOver - Whether the session was torn

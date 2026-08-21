@@ -9,7 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  PostureElements: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  EdrAgents: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   PostureMonitor: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
     "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
@@ -336,7 +336,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
               .then(({ posture, measuredAt }) =>
                 client.refreshTokens({ posture }).then(result => {
-                  const { config, postureSubmitted } = result;
+                  const { posture: postureConfig, postureSubmitted } = result;
                   // The tokens are stored by refreshTokens; a response that
                   // outlived its session must not reach the dead browser or
                   // the monitor's baseline.
@@ -348,8 +348,8 @@ export class FeltProcessParent extends JSProcessActorParent {
                   }
                   lazy.log.debug("refreshTokens successful");
                   Services.felt.sendAccessToken();
-                  gFeltProcessParentInstance._storePostureElements(
-                    config?.posture_elements
+                  gFeltProcessParentInstance._storeEdrAgents(
+                    postureConfig?.edr_agents
                   );
                   // Only a posture measured here is news to the console; a
                   // replayed one is already recorded against the session.
@@ -426,7 +426,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       policies: { polling_frequency },
       services: { push_url, remote_settings_url, tokenserver_url },
       extra_prefs,
-      posture_elements,
     } = await lazy.ConsoleClient.getFirefoxConfigs();
 
     if (learn_more_url === null) {
@@ -482,32 +481,24 @@ export class FeltProcessParent extends JSProcessActorParent {
       Services.felt.sendStringPreference("dom.push.serverURL", push_url);
     }
 
-    // A config that omits the field leaves the value delivered through the SSO
-    // callback or a token refresh in place.
-    if (posture_elements) {
-      this._storePostureElements(posture_elements);
-    } else {
-      lazy.log.debug("No posture_elements in Firefox configuration");
-    }
-
     extra_prefs.forEach(pref => {
       this._setPrefInFirefox(pref);
     });
   }
 
   /**
-   * Stores a posture-elements descriptor received mid-session, in this process and
-   * in the browser, so both hold the same probe list. An absent descriptor
-   * preserves the current value; only the SSO callback's clears it on omit (see
+   * Stores an EDR agent list received mid-session, in this process and in the
+   * browser, so both hold the same probe list. An absent list preserves the
+   * current value; only the SSO callback's clears it on omit (see
    * receiveMessage).
    *
-   * @param {{[key: string]: {edr?: string[]}}} [postureElements]
+   * @param {{[key: string]: string[]}} [edrAgentsByPlatform]
    */
-  _storePostureElements(postureElements) {
-    if (!postureElements) {
+  _storeEdrAgents(edrAgentsByPlatform) {
+    if (!edrAgentsByPlatform) {
       return;
     }
-    const edrAgents = lazy.PostureElements.write(postureElements);
+    const edrAgents = lazy.EdrAgents.write(edrAgentsByPlatform);
     try {
       Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, edrAgents);
     } catch (e) {
@@ -633,8 +624,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
         await this.sendPrefsToFirefox();
 
-        // Forward the probe list written from the SSO callback config;
-        // _applyFirefoxConfigs() may omit posture_elements.
+        // Forward the probe list written from the SSO callback: the browser
+        // config does not carry one.
         Services.felt.sendStringPreference(
           lazy.EDR_AGENTS_PREF,
           Services.prefs.getStringPref(lazy.EDR_AGENTS_PREF, "[]")
@@ -658,12 +649,12 @@ export class FeltProcessParent extends JSProcessActorParent {
         lazy.PostureMonitor.start({
           profileDir: this._profilePath,
           intervalMs: this._posturePollMs,
-          onRefreshed: ({ config }) => {
+          onRefreshed: session => {
             // The browser must switch to the rotated access token immediately;
             // otherwise its next authenticated call 401s and forces a second,
             // posture-less refresh.
             Services.felt.sendAccessToken();
-            this._storePostureElements(config?.posture_elements);
+            this._storeEdrAgents(session.posture?.edr_agents);
           },
           isSessionOver: () => this.logoutReported,
           onRefreshRejected: error => this.endSessionAfterRefreshFailure(error),
@@ -1084,7 +1075,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
-          const { one_time_token = "", user_id, email, config } = message.data;
+          const {
+            one_time_token = "",
+            user_id,
+            email,
+            posture: postureConfig,
+          } = message.data;
 
           // The profile is derived from the user id, so without one the session
           // would run in the profile shared by every user.
@@ -1099,9 +1095,9 @@ export class FeltProcessParent extends JSProcessActorParent {
           this.loggedInUserInfo = { id: user_id, email };
           lazy.FeltStorage.updateLastSignedInUserEmail(email);
 
-          // Login starts a fresh session, so an absent descriptor clears the
-          // probe list of the previous one rather than preserving it.
-          lazy.PostureElements.write(config?.posture_elements);
+          // Login starts a fresh session, so an absent list clears the probe
+          // list of the previous one rather than preserving it.
+          lazy.EdrAgents.write(postureConfig?.edr_agents);
 
           // Read the extension list from the profile on disk, before the browser
           // is spawned and its AddonManager rewrites extensions.json.
