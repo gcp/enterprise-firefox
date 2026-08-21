@@ -8,6 +8,7 @@ import platform
 import re
 import sys
 import time
+import uuid
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -151,6 +152,9 @@ class FeltDevicePosture(FeltTests):
             f"Expected device posture to report applicationName: '{expected_app_name}' but got '{device_posture['build']['applicationName']}'"
         )
         assert "secureBootEnabled" in device_posture
+
+        # Validate the browser-run identifier.
+        uuid.UUID(device_posture["clientSessionId"])
 
         assert "isDomainJoined" in device_posture
         assert isinstance(device_posture["isDomainJoined"], bool), (

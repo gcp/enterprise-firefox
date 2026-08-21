@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
+  ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
@@ -537,6 +538,15 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   async startFirefox(startReason, ssoCollectedCookies = []) {
+    // Finish refreshes from the previous browser before replacing its session
+    // id and clearing the posture baseline.
+    if (startReason !== PROCESS_START_REASON.INITIAL_START) {
+      await lazy.PostureMonitor.idle();
+      await gBrowserRefresh;
+      lazy.ClientSession.renew();
+      lazy.PostureMonitor.forget();
+    }
+
     this.restartReported = false;
     this.logoutReported = false;
     this.exitReported = false;
@@ -1104,6 +1114,8 @@ export class FeltProcessParent extends JSProcessActorParent {
           const { path: profileDir } = await this._resolveProfile();
           let posture;
           const measuredAt = Date.now();
+          // Include the new browser's session id in its initial posture.
+          lazy.ClientSession.renew();
           try {
             posture = await lazy.DevicePosture.collect({ profileDir });
           } catch (e) {

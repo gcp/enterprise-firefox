@@ -28,6 +28,33 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // empty or malformed means "probe nothing".
 export const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
+/**
+ * Identifies the managed browser run in posture reports. The random id is kept
+ * in module state so it works without telemetry and is never persisted.
+ */
+export const ClientSession = {
+  _id: null,
+
+  /**
+   * Replaces the id for a new browser run.
+   *
+   * @returns {string} The new id.
+   */
+  renew() {
+    this._id = globalThis.crypto.randomUUID();
+    return this._id;
+  },
+
+  /**
+   * The current session id, created on first use.
+   *
+   * @returns {string}
+   */
+  get id() {
+    return (this._id ??= globalThis.crypto.randomUUID());
+  },
+};
+
 /** The write side of EDR_AGENTS_PREF. */
 export const EdrAgents = {
   /**
@@ -210,6 +237,7 @@ export const DevicePosture = {
    * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
    * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
    * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none, or if the console asked us to probe none).
+   * @property {string} clientSessionId Identifies the browser run reporting this posture; see ClientSession.
    */
 
   /**
@@ -314,6 +342,7 @@ export const DevicePosture = {
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
       isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
       presentEdrs,
+      clientSessionId: ClientSession.id,
     };
     return devicePosturePayload;
   },
@@ -414,6 +443,14 @@ export const PostureMonitor = {
   record(posture, measuredAt) {
     this._lastJson = JSON.stringify(posture);
     this._lastAt = measuredAt;
+  },
+
+  /**
+   * Clears the baseline so the next refresh collects a new posture.
+   */
+  forget() {
+    this._lastJson = null;
+    this._lastAt = 0;
   },
 
   /**
