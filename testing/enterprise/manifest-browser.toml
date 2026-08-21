@@ -43,6 +43,18 @@ run-if = [
   "os == 'mac'",
 ]
 
+["test_felt_browser_relaunch_deadline_countdown_focus.py"]
+
+["test_felt_browser_relaunch_deadline_infobar_slot.py"]
+
+["test_felt_browser_relaunch_deadline_missing_policies.py"]
+
+["test_felt_browser_relaunch_deadline_removed_bar.py"]
+
+["test_felt_browser_relaunch_deadline_restart.py"]
+
+["test_felt_browser_relaunch_deadline_withdrawn.py"]
+
 ["test_felt_browser_safe_mode.py"]
 
 ["test_felt_browser_shutdown_crash_exit.py"]
@@ -71,18 +83,6 @@ run-if = [
 ["test_felt_external_link.py"]
 
 ["test_felt_harness_prefs.py"]
-
-["test_felt_browser_relaunch_deadline_countdown_focus.py"]
-
-["test_felt_browser_relaunch_deadline_infobar_slot.py"]
-
-["test_felt_browser_relaunch_deadline_missing_policies.py"]
-
-["test_felt_browser_relaunch_deadline_removed_bar.py"]
-
-["test_felt_browser_relaunch_deadline_restart.py"]
-
-["test_felt_browser_relaunch_deadline_withdrawn.py"]
 
 ["test_felt_restart_persists_session.py"]
 
