@@ -9,6 +9,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const SECURITY_LOGGING_PREFS = {
+  AddonInstall: {
+    Enabled: "extensions.enterprise.telemetry.addonInstall.enabled",
+  },
   BlocklistDomainBrowsed: {
     Enabled:
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
@@ -25,8 +28,7 @@ const SECURITY_LOGGING_PREFS = {
     UrlLogging: "print.enterprise.telemetry.printPage.urlLogging",
   },
   UnsafeDownload: {
-    Enabled:
-      "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
+    Enabled: "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
     UrlLogging:
       "browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging",
   },

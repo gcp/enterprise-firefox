@@ -149,6 +149,9 @@ run-if = [
 
 ["test_embedderDisabled.js"]
 
+["test_enterprise_install_telemetry_policy.js"]
+run-if = ["enterprise"]
+
 ["test_error.js"]
 skip-if = [
   "os == 'win'", # Bug 1508482

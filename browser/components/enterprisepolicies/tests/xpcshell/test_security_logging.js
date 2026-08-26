@@ -4,6 +4,7 @@
 "use strict";
 
 const SECURITY_LOGGING_PREFS = {
+  "extensions.enterprise.telemetry.addonInstall.enabled": true,
   "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled": true,
   "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging":
     "domain",
@@ -39,6 +40,7 @@ add_task(async function test_all_events_configured_through_policy_engine() {
   await setupPolicyEngineWithJson({
     policies: {
       SecurityLogging: {
+        AddonInstall: { Enabled: true },
         BlocklistDomainBrowsed: { Enabled: true, UrlLogging: "domain" },
         Download: {
           Enabled: true,

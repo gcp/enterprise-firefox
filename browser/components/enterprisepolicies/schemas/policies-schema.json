@@ -4034,6 +4034,9 @@
       "description": "Enable and configure security logging/telemetry for security-relevant events.",
       "examples": [
         {
+          "AddonInstall": {
+            "Enabled": true
+          },
           "Download": {
             "Enabled": true,
             "UrlLogging": "full",
@@ -4072,6 +4075,14 @@
         }
       ],
       "properties": {
+        "AddonInstall": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "BlocklistDomainBrowsed": {
           "type": "object",
           "properties": {

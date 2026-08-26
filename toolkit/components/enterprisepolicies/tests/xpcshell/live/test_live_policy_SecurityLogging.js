@@ -7,6 +7,8 @@ const { DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
   "moz-src:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
 );
 
+const ADDON_INSTALL_ENABLED_PREF =
+  "extensions.enterprise.telemetry.addonInstall.enabled";
 const DOWNLOAD_ENABLED_PREF = "browser.download.enterprise.telemetry.enabled";
 const DOWNLOAD_URL_PREF = "browser.download.enterprise.telemetry.urlLogging";
 const DOWNLOAD_FILE_PREF = "browser.download.enterprise.telemetry.fileLogging";
@@ -24,6 +26,7 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
     {
       policies: {
         SecurityLogging: {
+          AddonInstall: { Enabled: true },
           Download: {
             Enabled: true,
             UrlLogging: "domain",
@@ -36,6 +39,11 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
     null
   );
 
+  EnterprisePolicyTesting.checkPolicyPref(
+    ADDON_INSTALL_ENABLED_PREF,
+    true,
+    true
+  );
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_ENABLED_PREF, true, true);
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_URL_PREF, "domain", true);
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_FILE_PREF, "metadata", true);
@@ -65,6 +73,7 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
   await updatePolicies({
     policies: {
       SecurityLogging: {
+        AddonInstall: { Enabled: false },
         Download: {
           Enabled: false,
           UrlLogging: "none",
@@ -74,6 +83,11 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
     },
   });
 
+  EnterprisePolicyTesting.checkPolicyPref(
+    ADDON_INSTALL_ENABLED_PREF,
+    false,
+    true
+  );
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_ENABLED_PREF, false, true);
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_URL_PREF, "none", true);
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_FILE_PREF, "none", true);
@@ -97,6 +111,11 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
 
   await updatePolicies({ policies: {} });
 
+  EnterprisePolicyTesting.checkPolicyPref(
+    ADDON_INSTALL_ENABLED_PREF,
+    undefined,
+    false
+  );
   EnterprisePolicyTesting.checkPolicyPref(
     DOWNLOAD_ENABLED_PREF,
     undefined,

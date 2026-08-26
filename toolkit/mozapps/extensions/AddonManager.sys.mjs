@@ -5847,8 +5847,12 @@ AMTelemetry = {
     );
     if (
       AppConstants.MOZ_ENTERPRISE &&
-      eventMethod == "install" &&
-      extraVars?.step == "completed"
+      Services.prefs.getBoolPref(
+        "extensions.enterprise.telemetry.addonInstall.enabled",
+        true
+      ) &&
+      eventMethod === "install" &&
+      extraVars?.step === "completed"
     ) {
       Glean.addonsManager.installComplete.record(
         this.formatExtraVars({
@@ -5868,7 +5872,14 @@ AMTelemetry = {
           site_permission: install.newSitePerm,
         })
       );
-      GleanPings.enterprise.submit();
+      if (
+        !Services.prefs.getBoolPref(
+          "extensions.enterprise.telemetry.testing.disableSubmit",
+          false
+        )
+      ) {
+        GleanPings.enterprise.submit();
+      }
     }
   },
 
