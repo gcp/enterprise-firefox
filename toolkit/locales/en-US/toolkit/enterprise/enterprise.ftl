@@ -6,9 +6,10 @@
 -enterprise-feature-access-connector = Access Connector
 
 # Shown in the about:support "Application Basics" table on enterprise builds.
-app-basics-machine-id = Machine ID
+app-basics-device-id = Device ID
 
 # Shown in the about:support "Security Software" section on enterprise builds.
+# Endpoint Detection and Response is an industry term and must remain in English.
 security-software-edr = Endpoint Detection and Response
 
 enterprise-toolbar-button =
