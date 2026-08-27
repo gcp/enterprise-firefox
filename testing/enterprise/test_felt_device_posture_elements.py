@@ -17,49 +17,18 @@ from felt_tests import FeltTests
 class FeltDevicePostureElements(FeltTests):
     """The console drives which EDR agents device posture probes.
 
-    The console publishes one global, platform-keyed `edr_agents` list in the
-    posture configuration it returns with the SSO callback and with every token
-    response; Felt selects the list for the platform it is running on, stores it
-    into the enterprise.posture.* prefs, and DevicePosture.collect probes exactly
-    that list, probing nothing when the prefs are unset. The configuration is also
-    expected to carry a parallel osquery query list, but osquery collection is not
-    implemented yet, so it is not exercised here.
+    The console publishes one global `edr_agents` list in the posture
+    configuration it returns with the SSO callback and with every token response;
+    Felt stores it into the enterprise.posture.* prefs, and DevicePosture.collect
+    probes exactly that list on every platform, probing nothing when the prefs are
+    unset.
     """
 
-    # Keyed by the OS name the client reports in the posture payload
-    # (sysinfo "name" / PR_SI_SYSNAME), with a distinct list per platform so a
-    # wrong selection shows up as a mismatch.
-    EDR_AGENTS = {
-        "Windows_NT": ["crowdstrike", "cortex-xdr"],
-        "Darwin": ["crowdstrike"],
-        "Linux": ["sentinelone"],
-    }
+    EDR_AGENTS = ["crowdstrike", "cortex-xdr", "sentinelone"]
 
     # A second descriptor, to check that a descriptor arriving mid-session
-    # replaces the one the browser was launched with. Distinct lists again.
-    UPDATED_EDR_AGENTS = {
-        "Windows_NT": ["sentinelone"],
-        "Darwin": ["sentinelone", "cortex-xdr"],
-        "Linux": ["cortex-xdr"],
-    }
-
-    def expected_edr(self, edr_agents):
-        """The list the client should have selected out of edr_agents. Reads the
-        key back from the browser so the test resolves it through the product's
-        own source of truth, and requires that the reported OS name has a
-        list."""
-        self._child_driver.set_context("chrome")
-        try:
-            os_name = self._child_driver.execute_script(
-                "return Services.sysinfo.getProperty('name');"
-            )
-        finally:
-            self._child_driver.set_context("content")
-        assert os_name in edr_agents, (
-            f"reported OS name {os_name!r} has no edr_agents list; "
-            f"known platforms: {sorted(edr_agents)}"
-        )
-        return edr_agents[os_name]
+    # replaces the one the browser was launched with.
+    UPDATED_EDR_AGENTS = ["sentinelone", "cortex-xdr"]
 
     def test_posture_elements(self):
         # The posture configuration comes back with the SSO callback, so the
@@ -78,8 +47,7 @@ class FeltDevicePostureElements(FeltTests):
         self.run_mid_session_descriptor_reaches_browser()
 
     def run_os_version_not_sent_to_sso(self):
-        """Platform selection happens on the client, so the login request
-        identifies only the user and the device."""
+        """The login request identifies only the user and the device."""
         console_addr = f"http://localhost:{self.console_port}"
         r = requests.get(f"{console_addr}/sso/get_sso_os_version")
         os_version = r.json()
@@ -101,12 +69,11 @@ class FeltDevicePostureElements(FeltTests):
             self._child_driver.set_context("content")
 
     def run_config_pref_plumbing(self):
-        """This platform's edr_agents list is pushed to the browser as JSON prefs;
-        the other platforms' lists are not."""
+        """The complete edr_agents list is pushed to the browser as a JSON pref."""
         edr_pref = self._wait_for_string_pref("enterprise.posture.edr_agents")
-        assert json.loads(edr_pref) == self.expected_edr(self.EDR_AGENTS), (
-            "edr_agents pref reflects this platform's list from the console "
-            f"posture configuration, got {edr_pref}"
+        assert json.loads(edr_pref) == self.EDR_AGENTS, (
+            "edr_agents pref reflects the complete list from the console posture "
+            f"configuration, got {edr_pref}"
         )
 
     def run_console_driven_probes(self):
@@ -150,8 +117,8 @@ class FeltDevicePostureElements(FeltTests):
         assert "_error" not in collected_edrs, (
             f"DevicePosture.collect threw: {collected_edrs.get('_error')}"
         )
-        assert collected_edrs["recorded"] == self.expected_edr(self.EDR_AGENTS), (
-            "getPresentEdrs called with this platform's console-configured list, "
+        assert collected_edrs["recorded"] == self.EDR_AGENTS, (
+            "getPresentEdrs called with the complete console-configured list, "
             f"got {collected_edrs['recorded']}"
         )
 
@@ -175,7 +142,7 @@ class FeltDevicePostureElements(FeltTests):
     def run_mid_session_descriptor_reaches_browser(self):
         """A descriptor delivered after the browser started reaches it too, so
         both processes collect posture from the same probe list."""
-        expected = self.expected_edr(self.UPDATED_EDR_AGENTS)
+        expected = self.UPDATED_EDR_AGENTS
         self.posture_edr_agents.value = json.dumps(
             self.UPDATED_EDR_AGENTS, separators=(",", ":")
         )

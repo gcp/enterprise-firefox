@@ -492,15 +492,15 @@ export class FeltProcessParent extends JSProcessActorParent {
    * current value; only the SSO callback's clears it on omit (see
    * receiveMessage).
    *
-   * @param {{[key: string]: string[]}} [edrAgentsByPlatform]
+   * @param {string[]} [edrAgents]
    */
-  _storeEdrAgents(edrAgentsByPlatform) {
-    if (!edrAgentsByPlatform) {
+  _storeEdrAgents(edrAgents) {
+    if (!edrAgents) {
       return;
     }
-    const edrAgents = lazy.EdrAgents.write(edrAgentsByPlatform);
+    const serialized = lazy.EdrAgents.write(edrAgents);
     try {
-      Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, edrAgents);
+      Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, serialized);
     } catch (e) {
       lazy.log.error("Could not send the EDR probe list to the browser:", e);
     }

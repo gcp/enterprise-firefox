@@ -28,37 +28,20 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // empty or malformed means "probe nothing".
 export const EDR_AGENTS_PREF = "enterprise.posture.edr_agents";
 
-// Our key into the console's platform-keyed EDR agent lists: the OS name we
-// report in the posture payload below (sysinfo "name", i.e. PR_SI_SYSNAME --
-// "Windows_NT", "Darwin", "Linux"). An indeterminate name selects no list.
-ChromeUtils.defineLazyGetter(lazy, "posturePlatform", () => {
-  try {
-    return Services.sysinfo.getProperty("name");
-  } catch (e) {
-    lazy.log.error("Could not determine the OS name for posture elements:", e);
-    return null;
-  }
-});
-
-/**
- * The write side of EDR_AGENTS_PREF: the console serves one descriptor keyed by
- * platform, and the client picks its own list.
- */
+/** The write side of EDR_AGENTS_PREF. */
 export const EdrAgents = {
   /**
-   * Selects this platform's list and writes it into this process's
-   * EDR_AGENTS_PREF. A missing list writes "[]".
+   * Writes the console's EDR agent list into this process's EDR_AGENTS_PREF.
+   * A missing list writes "[]".
    *
-   * @param {{[key: string]: string[]}} [edrAgentsByPlatform]
+   * @param {string[]} [edrAgents]
    * @returns {string} The value written, so callers can relay it to the other
    *   process.
    */
-  write(edrAgentsByPlatform) {
-    const edrAgents = JSON.stringify(
-      edrAgentsByPlatform?.[lazy.posturePlatform] ?? []
-    );
-    Services.prefs.setStringPref(EDR_AGENTS_PREF, edrAgents);
-    return edrAgents;
+  write(edrAgents) {
+    const serialized = JSON.stringify(edrAgents ?? []);
+    Services.prefs.setStringPref(EDR_AGENTS_PREF, serialized);
+    return serialized;
   },
 };
 
