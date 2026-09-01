@@ -19,7 +19,7 @@ class BrowserRelaunchDeadlineBase(FeltTests):
 
     def serve_relaunch(self, relaunch):
         """Serves a restart budget (or none) and waits one polling interval."""
-        self.relaunch.value = json.dumps(relaunch) if relaunch else ""
+        self.relaunch.value = json.dumps(relaunch) if relaunch is not None else ""
         waiting_time = (firefox_config["polling_frequency"]["pref_value"] / 1000) + 1
         time.sleep(waiting_time)
 

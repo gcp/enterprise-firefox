@@ -659,7 +659,7 @@ export const ConsoleClient = {
    *
    * @param {number} [aFlags] - nsIAppStartup quit flags, to which eRestart can
    *   be added to come back up. eForceQuit on its own by default.
-   * returns {void}
+   * @returns {void}
    */
   quitIgnoringCanClose(aFlags = Ci.nsIAppStartup.eForceQuit) {
     if (Services.felt.isFeltUI()) {
