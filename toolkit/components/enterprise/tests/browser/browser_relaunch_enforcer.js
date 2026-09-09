@@ -317,7 +317,7 @@ add_task(async function test_retries_after_the_browser_window_loads() {
   const loadingWin = win.OpenBrowserWindow();
   const started = TestUtils.topicObserved(
     "browser-delayed-startup-finished",
-    subject => subject === loadingWin
+    subject => subject == loadingWin
   );
   try {
     await BrowserTestUtils.waitForEvent(loadingWin, "DOMContentLoaded");
