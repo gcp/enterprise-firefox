@@ -310,6 +310,50 @@ add_task(async function test_takes_the_slot_from_another_infobar() {
   );
 });
 
+add_task(async function test_retries_after_the_browser_window_loads() {
+  const win = Services.wm.getMostRecentBrowserWindow();
+  await reset(win);
+
+  const loadingWin = win.OpenBrowserWindow();
+  const started = TestUtils.topicObserved(
+    "browser-delayed-startup-finished",
+    subject => subject === loadingWin
+  );
+  try {
+    await BrowserTestUtils.waitForEvent(loadingWin, "DOMContentLoaded");
+    Assert.equal(
+      loadingWin.document.readyState,
+      "interactive",
+      "The new window is still loading"
+    );
+
+    // Model startup by making the loading window the only eligible target.
+    win.document.documentElement.setAttribute("taskbartab", "true");
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
+    await RelaunchEnforcer._refreshNotification();
+    win.document.documentElement.removeAttribute("taskbartab");
+
+    await started;
+    const shown = BrowserTestUtils.waitForGlobalNotificationBar(
+      loadingWin,
+      WARNING_ID
+    );
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
+    await shown;
+
+    Assert.deepEqual(
+      notificationValues(loadingWin),
+      [WARNING_ID],
+      "The warning is shown after the window loads"
+    );
+  } finally {
+    win.document.documentElement.removeAttribute("taskbartab");
+    RelaunchEnforcer.onConsolePoll(null);
+    await started;
+    await BrowserTestUtils.closeWindow(loadingWin);
+  }
+});
+
 add_task(async function test_warns_in_a_window_that_can_take_a_bar() {
   const win = Services.wm.getMostRecentBrowserWindow();
   await reset(win);
