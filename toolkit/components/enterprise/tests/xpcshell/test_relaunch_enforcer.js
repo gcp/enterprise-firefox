@@ -224,7 +224,11 @@ add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
     const request = sandbox.stub(RelaunchEnforcer, "_requestUpdateCheck");
     RelaunchEnforcer.onConsolePoll({ MinutesRemaining: "invalid" });
     Assert.ok(request.notCalled, "Malformed directives do not request updates");
-    request.onFirstCall().throws(new Error("IPC not connected"));
+    request
+      .onFirstCall()
+      .throws(
+        Components.Exception("IPC not connected", Cr.NS_ERROR_NOT_CONNECTED)
+      );
     RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
     RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 44 });
     Assert.equal(

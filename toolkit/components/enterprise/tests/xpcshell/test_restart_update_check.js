@@ -16,6 +16,8 @@ const { TestUtils } = ChromeUtils.importESModule(
 
 function mockUpdater() {
   const sandbox = sinon.createSandbox();
+  sandbox.stub(Updates, "_nextRestartUpdateCheck").value(0);
+  Updates._suspended = false;
   sandbox.stub(Updates, "updateCheckingAllowed").callsFake(async () => {
     Updates._canDoUpdateChecking = true;
   });
@@ -200,6 +202,125 @@ add_task(async function test_preparation_waits_for_startup_history_and_check() {
     Assert.ok(mock.stop.calledOnce, "Only preparation stops its updater");
   } finally {
     Updates.uninit();
+    mock.sandbox.restore();
+  }
+});
+
+add_task(async function test_reopened_window_is_bound_during_preparation() {
+  const mock = mockUpdater();
+  try {
+    mock.sandbox.stub(Updates, "_initialized").value(true);
+    const success = mock.sandbox.stub(Updates, "maybeShowUpdateSuccess");
+    const login = mock.sandbox.stub(Updates, "displayLoginState");
+    let finish;
+    mock.check.callsFake(() => new Promise(resolve => (finish = resolve)));
+    const preparation = Updates.prepareForRestart();
+    await TestUtils.waitForCondition(() => !!finish);
+    const doc = {};
+    const init = Updates.init(doc);
+    Assert.equal(
+      Updates._document,
+      doc,
+      "Reopened document is bound synchronously"
+    );
+    Assert.ok(success.calledOnce, "Update success is shown immediately");
+    Assert.ok(login.calledOnce, "Login is refreshed immediately");
+    await init;
+    Assert.ok(mock.stop.notCalled, "Rebinding does not cancel preparation");
+    finish();
+    await preparation;
+  } finally {
+    Updates._document = undefined;
+    mock.sandbox.restore();
+  }
+});
+
+add_task(async function test_portal_suspends_before_queued_startup() {
+  const mock = mockUpdater();
+  try {
+    mock.sandbox.stub(Updates, "maybeShowUpdateSuccess");
+    mock.sandbox.stub(Updates, "displayLoginState");
+    const init = Updates.init({});
+    Updates.suspend();
+    await init;
+    await Updates._updateTask;
+    Assert.ok(
+      Updates._suspended,
+      "Queued startup preserves the portal suspension"
+    );
+    Assert.ok(mock.check.notCalled, "No update check behind the portal");
+    await Updates.prepareForRestart();
+    Assert.ok(
+      mock.check.notCalled,
+      "Restart preparation also honors suspension"
+    );
+  } finally {
+    Updates.uninit();
+    mock.sandbox.restore();
+  }
+});
+
+add_task(async function test_portal_stops_restart_preparation() {
+  const mock = mockUpdater();
+  try {
+    mock.sandbox.stub(Updates, "displayLoginState");
+    let finish;
+    mock.check.callsFake(() => new Promise(resolve => (finish = resolve)));
+    mock.stop.callsFake(() => finish());
+    const preparation = Updates.prepareForRestart();
+    await TestUtils.waitForCondition(() => !!finish);
+    const updater = Updates._restartUpdater;
+    const warning = mock.sandbox.stub(
+      Updates,
+      "displayLoginStateWithUpdateWarning"
+    );
+    Updates.suspend();
+    Updates.observe(null, "update-error", "download-attempt-failed");
+    Assert.ok(
+      warning.notCalled,
+      "Update errors do not paint behind the portal"
+    );
+    Assert.ok(
+      mock.stop.calledOn(updater),
+      "The active preparation updater is stopped"
+    );
+    await preparation;
+    Assert.equal(
+      Updates._restartUpdater,
+      null,
+      "The completed updater is released"
+    );
+  } finally {
+    Updates.uninit();
+    mock.sandbox.restore();
+  }
+});
+
+add_task(async function test_no_updates_uses_the_normal_check_interval() {
+  const mock = mockUpdater();
+  try {
+    mock.check.callsFake(async () => {
+      mock.addListener.lastCall.args[0](AppUpdater.STATUS.NO_UPDATES_FOUND);
+    });
+    await Updates.prepareForRestart();
+    Updates._nextRestartUpdateCheck -= 5 * 60 * 1000;
+    await Updates.prepareForRestart();
+    Assert.ok(
+      mock.check.calledOnce,
+      "A successful empty check is not repeated after five minutes"
+    );
+    Assert.ok(
+      Updates.updateCheckingAllowed.calledOnce,
+      "The cooldown also skips update history"
+    );
+    Updates._nextRestartUpdateCheck = Date.now() - 1;
+    await Updates.prepareForRestart();
+    Assert.equal(
+      mock.check.callCount,
+      2,
+      "Checking resumes at the normal update interval"
+    );
+  } finally {
     mock.sandbox.restore();
   }
 });
