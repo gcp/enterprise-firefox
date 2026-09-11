@@ -18,6 +18,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const MS_PER_MINUTE = 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
 // Grace granted to a freshly launched session when the console names none.
 const DEFAULT_GRACE_PERIOD_MINUTES = 10;
@@ -55,7 +56,7 @@ const REPLACEABLE_IDS = [
  */
 export const RelaunchEnforcer = {
   _schedule: null,
-  _updateCheckRequested: false,
+  _lastUpdateCheck: null,
   _restartTask: null,
   _escalationTask: null,
   _countdownTask: null,
@@ -174,12 +175,21 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    if (!this._updateCheckRequested) {
+    const now = Date.now();
+    if (
+      this._lastUpdateCheck === null ||
+      now - this._lastUpdateCheck >= UPDATE_CHECK_INTERVAL_MS ||
+      now < this._lastUpdateCheck
+    ) {
       try {
         this._requestUpdateCheck();
-        this._updateCheckRequested = true;
+        this._lastUpdateCheck = now;
       } catch (e) {
-        lazy.log.error("Failed to request an update check from FELT", e);
+        if (e.result === Cr.NS_ERROR_NOT_CONNECTED) {
+          lazy.log.warn("Cannot request an update check without FELT", e);
+        } else {
+          lazy.log.error("Failed to request an update check from FELT", e);
+        }
       }
     }
     this._schedule = schedule;
@@ -203,7 +213,7 @@ export const RelaunchEnforcer = {
     }
     lazy.log.debug("The console withdrew the restart deadline.");
     this._schedule = null;
-    this._updateCheckRequested = false;
+    this._lastUpdateCheck = null;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
@@ -550,7 +560,7 @@ export const RelaunchEnforcer = {
       throw new Error("this method only usable in testing");
     }
     this._schedule = null;
-    this._updateCheckRequested = false;
+    this._lastUpdateCheck = null;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();

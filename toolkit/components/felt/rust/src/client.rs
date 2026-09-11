@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
+use nserror::{
+    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED, NS_OK,
+};
 use nsstring::nsString;
 use std::cell::RefCell;
 use std::ffi::{c_char, CStr, CString};
@@ -88,12 +90,16 @@ impl FeltIpcClient {
     }
 
     pub fn request_update_check(&self) -> nsresult {
+        trace!("FeltIpcClient::request_update_check()");
         match &self.tx {
             Some(tx) => match tx.send(FeltMessage::CheckForUpdates) {
                 Ok(()) => NS_OK,
-                Err(_) => NS_ERROR_FAILURE,
+                Err(err) => {
+                    trace!("FeltIpcClient::request_update_check() TX ERROR: {}", err);
+                    NS_ERROR_CONNECTION_REFUSED
+                }
             },
-            None => NS_ERROR_FAILURE,
+            None => NS_ERROR_NOT_CONNECTED,
         }
     }
 
@@ -488,6 +494,7 @@ impl FeltClientThread {
     }
 
     pub fn request_update_check(&self) -> nsresult {
+        trace!("FeltClientThread::request_update_check()");
         self.ipc_client.borrow().request_update_check()
     }
 

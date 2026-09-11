@@ -238,11 +238,18 @@ add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
       2,
       "Repeated deadlines do not repeat the check"
     );
+    RelaunchEnforcer._lastUpdateCheck -= 5 * MINUTE;
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 38 });
+    Assert.equal(
+      request.callCount,
+      3,
+      "A continuing directive retries every five minutes"
+    );
     RelaunchEnforcer.onConsolePoll(null);
     RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 30 });
     Assert.equal(
       request.callCount,
-      3,
+      4,
       "A new directive requests another check"
     );
   } finally {

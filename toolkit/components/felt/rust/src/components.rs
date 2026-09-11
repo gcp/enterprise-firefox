@@ -267,6 +267,7 @@ impl FeltXPCOM {
     }
 
     fn RequestUpdateCheck(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::RequestUpdateCheck()");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => client.request_update_check(),

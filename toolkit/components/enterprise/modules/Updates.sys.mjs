@@ -41,6 +41,8 @@ export const Updates = {
       return;
     }
 
+    // AppUpdater.stop() aborts every AppUpdater in this process. The startup
+    // check finishes before login can launch the browser that requests this.
     const updater = new lazy.AppUpdater();
     const onStatus = status => {
       lazy.log.debug(`Preparing an update before restart: ${status}`);

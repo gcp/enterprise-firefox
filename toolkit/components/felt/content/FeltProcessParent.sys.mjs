@@ -189,9 +189,6 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-restarting": {
-            if (gFeltProcessParentInstance?.restartReported) {
-              break;
-            }
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.restartReported = true;
               gFeltProcessParentInstance.firefox = null;
@@ -203,11 +200,17 @@ export class FeltProcessParent extends JSProcessActorParent {
               false
             );
 
+            lazy.log.debug(
+              `ParentProcess: restart notification, restartDisabled=${restartDisabled}`
+            );
             if (!proc) {
               lazy.log.debug("ParentProcess: No proc to wait for!");
               break;
             }
 
+            lazy.log.debug(
+              `ParentProcess: Waiting for Firefox PID=${proc.pid} to exit for restart`
+            );
             // exitPromise never rejects and has no timeout. kill after a timeout, set above the
             // toolkit.asyncshutdown.crash_timeout, to avoid hangs if the child is truly unresponsive.
             const restartShutdownTimeout = Services.prefs.getIntPref(
@@ -247,17 +250,32 @@ export class FeltProcessParent extends JSProcessActorParent {
                   return;
                 }
 
+                lazy.log.debug(
+                  `ParentProcess: Firefox exited for restart, restartDisabled=${restartDisabled}, updateState=${readyUpdate?.state}`
+                );
                 if (pendingUpdate) {
-                  await UM.elevationOptedIn();
+                  await UM.elevationOptedIn().catch(err => {
+                    lazy.log.error(
+                      "ParentProcess: elevationOptedIn failed",
+                      err
+                    );
+                  });
+                  lazy.log.debug(
+                    "ParentProcess: Restart requested and pending update, restarting FELT UI"
+                  );
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxRestartUpdateExit",
                     {}
                   );
                 } else if (!restartDisabled) {
+                  lazy.log.debug("ParentProcess: Starting new Firefox");
                   await gFeltProcessParentInstance.startFirefox(
                     PROCESS_START_REASON.RESTART
                   );
                 } else {
+                  lazy.log.debug(
+                    "ParentProcess: Restart disabled, sending normal exit to restore FELT UI"
+                  );
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxNormalExit",
                     {}
