@@ -55,6 +55,7 @@ const REPLACEABLE_IDS = [
  */
 export const RelaunchEnforcer = {
   _schedule: null,
+  _updateCheckRequested: false,
   _restartTask: null,
   _escalationTask: null,
   _countdownTask: null,
@@ -173,12 +174,24 @@ export const RelaunchEnforcer = {
       return;
     }
 
+    if (!this._updateCheckRequested) {
+      try {
+        this._requestUpdateCheck();
+        this._updateCheckRequested = true;
+      } catch (e) {
+        lazy.log.error("Failed to request an update check from FELT", e);
+      }
+    }
     this._schedule = schedule;
     this._arm();
     if (this._restarting) {
       return;
     }
     this._refreshNotification();
+  },
+
+  _requestUpdateCheck() {
+    Services.felt.requestUpdateCheck();
   },
 
   /**
@@ -190,6 +203,7 @@ export const RelaunchEnforcer = {
     }
     lazy.log.debug("The console withdrew the restart deadline.");
     this._schedule = null;
+    this._updateCheckRequested = false;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
@@ -536,6 +550,7 @@ export const RelaunchEnforcer = {
       throw new Error("this method only usable in testing");
     }
     this._schedule = null;
+    this._updateCheckRequested = false;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();

@@ -87,6 +87,16 @@ impl FeltIpcClient {
         }
     }
 
+    pub fn request_update_check(&self) -> nsresult {
+        match &self.tx {
+            Some(tx) => match tx.send(FeltMessage::CheckForUpdates) {
+                Ok(()) => NS_OK,
+                Err(_) => NS_ERROR_FAILURE,
+            },
+            None => NS_ERROR_FAILURE,
+        }
+    }
+
     pub fn notify_refresh_tokens(&self) {
         trace!("FeltIpcClient::notify_refresh_tokens()");
         let msg = FeltMessage::RefreshTokens;
@@ -475,6 +485,10 @@ impl FeltClientThread {
         trace!("FeltClientThread::notify_signout()");
         let client = self.ipc_client.borrow();
         client.notify_signout();
+    }
+
+    pub fn request_update_check(&self) -> nsresult {
+        self.ipc_client.borrow().request_update_check()
     }
 
     pub fn notify_refresh_tokens(&self) {

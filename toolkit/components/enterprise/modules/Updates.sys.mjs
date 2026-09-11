@@ -24,6 +24,42 @@ const FELT_UPDATE_APPLY_PERCENT_DOWNLOAD_END = 90;
 const FELT_UPDATE_APPLY_PERCENT_STAGING_END = 100;
 
 export const Updates = {
+  _restartUpdateCheck: null,
+
+  prepareForRestart() {
+    if (!this._restartUpdateCheck) {
+      this._restartUpdateCheck = this._prepareForRestart().finally(() => {
+        this._restartUpdateCheck = null;
+      });
+    }
+    return this._restartUpdateCheck;
+  },
+
+  async _prepareForRestart() {
+    await this.updateCheckingAllowed();
+    if (!this._canDoUpdateChecking || Services.startup.shuttingDown) {
+      return;
+    }
+
+    const updater = new lazy.AppUpdater();
+    const onStatus = status => {
+      lazy.log.debug(`Preparing an update before restart: ${status}`);
+      if (status === lazy.AppUpdater.STATUS.DOWNLOAD_AND_INSTALL) {
+        updater.allowUpdateDownload();
+      }
+    };
+    const onShutdown = () => updater.stop();
+    updater.addListener(onStatus);
+    Services.obs.addObserver(onShutdown, "quit-application");
+    try {
+      await updater.check();
+    } finally {
+      Services.obs.removeObserver(onShutdown, "quit-application");
+      updater.removeListener(onStatus);
+      updater.stop();
+    }
+  },
+
   async init(doc) {
     // Make sure that we always refer to the correct document, so we can show
     // back the login UI in any circumstance

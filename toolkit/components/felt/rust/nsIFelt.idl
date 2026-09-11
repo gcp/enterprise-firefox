@@ -65,6 +65,9 @@ interface nsIFelt : nsISupports {
   void refreshTokens();
 
   [must_use]
+  void requestUpdateCheck();
+
+  [must_use]
   ACString getRefreshToken();
 
   [must_use]
