@@ -25,10 +25,20 @@ const FELT_UPDATE_APPLY_PERCENT_STAGING_END = 100;
 
 export const Updates = {
   _restartUpdateCheck: null,
+  _updateTask: Promise.resolve(),
+
+  _queueUpdateTask(task) {
+    // AppUpdater.stop() aborts all updater promises in this process.
+    const result = this._updateTask.then(task);
+    this._updateTask = result.catch(() => {});
+    return result;
+  },
 
   prepareForRestart() {
     if (!this._restartUpdateCheck) {
-      this._restartUpdateCheck = this._prepareForRestart().finally(() => {
+      this._restartUpdateCheck = this._queueUpdateTask(() =>
+        this._prepareForRestart()
+      ).finally(() => {
         this._restartUpdateCheck = null;
       });
     }
@@ -41,8 +51,6 @@ export const Updates = {
       return;
     }
 
-    // AppUpdater.stop() aborts every AppUpdater in this process. The startup
-    // check finishes before login can launch the browser that requests this.
     const updater = new lazy.AppUpdater();
     const onStatus = status => {
       lazy.log.debug(`Preparing an update before restart: ${status}`);
@@ -62,7 +70,14 @@ export const Updates = {
     }
   },
 
-  async init(doc) {
+  init(doc) {
+    return this._queueUpdateTask(() => this._init(doc));
+  },
+
+  async _init(doc) {
+    if (Services.startup.shuttingDown) {
+      return;
+    }
     // Make sure that we always refer to the correct document, so we can show
     // back the login UI in any circumstance
     this._document = doc;
@@ -110,9 +125,9 @@ export const Updates = {
       });
     }
 
-    this.forceUpdateCheck();
-
+    const check = this.forceUpdateCheck();
     this._initialized = true;
+    await check;
   },
 
   uninit() {
@@ -210,7 +225,7 @@ export const Updates = {
     Services.obs.addObserver(this, "update-error");
   },
 
-  forceUpdateCheck() {
+  async forceUpdateCheck() {
     if (this._canDoUpdateChecking !== true) {
       lazy.log.warn(
         `FeltUpdates: forceUpdateCheck(): skip because previous updates failures`
@@ -219,7 +234,7 @@ export const Updates = {
       return;
     }
 
-    this._appUpdater
+    await this._appUpdater
       .check()
       .catch(err => {
         if (this._suspended) {

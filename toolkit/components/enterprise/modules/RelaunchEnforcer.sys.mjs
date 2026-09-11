@@ -201,7 +201,9 @@ export const RelaunchEnforcer = {
   },
 
   _requestUpdateCheck() {
-    Services.felt.requestUpdateCheck();
+    if (Services.felt.isFeltBrowser()) {
+      Services.felt.requestUpdateCheck();
+    }
   },
 
   /**

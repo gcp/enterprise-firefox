@@ -257,3 +257,11 @@ add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
     sandbox.restore();
   }
 });
+
+add_task(function test_update_request_without_felt_is_a_noop() {
+  Assert.ok(
+    !Services.felt.isFeltBrowser(),
+    "This test runs without a FELT browser"
+  );
+  RelaunchEnforcer._requestUpdateCheck();
+});

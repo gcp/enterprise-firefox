@@ -154,3 +154,52 @@ add_task(async function test_ready_update_does_not_restart_felt() {
     mock.sandbox.restore();
   }
 });
+
+add_task(async function test_preparation_waits_for_startup_history_and_check() {
+  const mock = mockUpdater();
+  try {
+    mock.sandbox.stub(Updates, "maybeShowUpdateSuccess");
+    mock.sandbox.stub(Updates, "displayUpdateState");
+    let finishHistory;
+    Updates.updateCheckingAllowed
+      .onFirstCall()
+      .callsFake(() => new Promise(resolve => (finishHistory = resolve)));
+    let finishStartup;
+    mock.check
+      .onFirstCall()
+      .callsFake(() => new Promise(resolve => (finishStartup = resolve)));
+    mock.check.onSecondCall().resolves();
+
+    const startup = Updates.init({});
+    await TestUtils.waitForCondition(() => !!finishHistory);
+    const preparation = Updates.prepareForRestart();
+    await Promise.resolve();
+    Assert.ok(mock.check.notCalled, "Preparation waits for startup history");
+    Assert.ok(
+      mock.stop.notCalled,
+      "Startup is not aborted during history loading"
+    );
+
+    Updates._canDoUpdateChecking = true;
+    finishHistory();
+    await TestUtils.waitForCondition(() => !!finishStartup);
+    Assert.ok(mock.check.calledOnce, "Only the startup check is running");
+    Assert.ok(
+      mock.stop.notCalled,
+      "Preparation does not abort the startup check"
+    );
+
+    finishStartup();
+    await startup;
+    await preparation;
+    Assert.equal(
+      mock.check.callCount,
+      2,
+      "Preparation runs after startup finishes"
+    );
+    Assert.ok(mock.stop.calledOnce, "Only preparation stops its updater");
+  } finally {
+    Updates.uninit();
+    mock.sandbox.restore();
+  }
+});
