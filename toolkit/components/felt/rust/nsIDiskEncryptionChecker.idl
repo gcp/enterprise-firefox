@@ -24,7 +24,8 @@ interface nsIDiskEncryptionCheckerCallback : nsISupports {
 
 /**
  * Reports encryption for the operating-system volume, other mounted fixed
- * volumes and active Linux swap. Returns "unknown" when unprivileged platform
+ * volumes and active Linux swap, excluding Linux mounts at /boot, /boot/efi,
+ * and /efi. Returns "unknown" when unprivileged platform
  * APIs cannot determine the status. This is self-reported from local OS state,
  * not remote attestation.
  */

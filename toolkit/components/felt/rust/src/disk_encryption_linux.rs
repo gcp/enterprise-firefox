@@ -17,6 +17,7 @@ const MOUNTINFO: &str = "/proc/self/mountinfo";
 const SWAPS: &str = "/proc/swaps";
 const SYS_DEV_BLOCK: &str = "/sys/dev/block";
 const SYS_FS_BTRFS: &str = "/sys/fs/btrfs";
+const DEV_ZVOL: &str = "/dev/zvol";
 
 // Limit recursion through malformed device graphs.
 const MAX_STACK_DEPTH: u32 = 8;
@@ -65,6 +66,7 @@ const ZFS_METHOD: &str = "zfs";
 pub(crate) struct Sysfs<'a> {
     pub dev_block: &'a Path,
     pub fs_btrfs: &'a Path,
+    pub dev_zvol: &'a Path,
 }
 
 pub fn detect(deadline: Instant) -> DiskEncryption {
@@ -79,10 +81,12 @@ pub fn detect(deadline: Instant) -> DiskEncryption {
             vec![SwapArea::Unresolved]
         }
     };
-    let zfs = if parse_mountinfo(&mountinfo)
-        .iter()
-        .any(|mount| mount.fstype == ZFS_FSTYPE)
-    {
+    let sysfs = Sysfs {
+        dev_block: Path::new(SYS_DEV_BLOCK),
+        fs_btrfs: Path::new(SYS_FS_BTRFS),
+        dev_zvol: Path::new(DEV_ZVOL),
+    };
+    let zfs = if needs_zfs(&sysfs, &mountinfo, &swaps) {
         probe_zfs(deadline)
     } else {
         ZfsTables::default()
@@ -90,16 +94,23 @@ pub fn detect(deadline: Instant) -> DiskEncryption {
 
     let inspect_dm_crypt = |dir: &Path| dm_crypt_is_confidential(dir, deadline);
     detect_at(
-        &Sysfs {
-            dev_block: Path::new(SYS_DEV_BLOCK),
-            fs_btrfs: Path::new(SYS_FS_BTRFS),
-        },
+        &sysfs,
         &mountinfo,
         &swaps,
         &zfs,
         deadline,
         &inspect_dm_crypt,
     )
+}
+
+fn needs_zfs(sysfs: &Sysfs, mountinfo: &str, swaps: &[SwapArea]) -> bool {
+    parse_mountinfo(mountinfo)
+        .iter()
+        .any(|mount| mount.fstype == ZFS_FSTYPE)
+        || swaps.iter().any(|area| {
+            matches!(area,
+            SwapArea::Device(devno) if zvol_name(sysfs, devno).is_some())
+        })
 }
 
 /// Runs detection with supplied procfs, sysfs and ZFS data.
@@ -218,7 +229,7 @@ fn other_fixed_volume_states(
         .filter(|mount| is_fixed_volume_mount(mount))
         .map(|mount| backing_of(sysfs, mount));
     let swapped = swap_areas.iter().map(|area| match area {
-        SwapArea::Device(devno) => swap_backing(sysfs, mounts, devno),
+        SwapArea::Device(devno) => swap_backing(sysfs, zfs, mounts, devno),
         SwapArea::Unresolved => None,
     });
 
@@ -246,11 +257,34 @@ fn other_fixed_volume_states(
 
 /// Swap on a pooled filesystem reports that filesystem's anonymous device
 /// number, so the mount it belongs to resolves it.
-fn swap_backing(sysfs: &Sysfs, mounts: &[MountEntry], devno: &str) -> Option<Backing> {
+fn swap_backing(
+    sysfs: &Sysfs,
+    zfs: &ZfsTables,
+    mounts: &[MountEntry],
+    devno: &str,
+) -> Option<Backing> {
+    if let Some(name) = zvol_name(sysfs, devno) {
+        return zfs.encryption.keys().find_map(|dataset| {
+            let link = sysfs.dev_zvol.join(dataset);
+            fs::read_link(&link).ok()?;
+            let device = fs::canonicalize(link).ok()?;
+            (device.file_name()? == name).then(|| Backing::Zfs(dataset.clone()))
+        });
+    }
     match mounts.iter().find(|mount| mount.devno == devno) {
         Some(mount) => backing_of(sysfs, mount),
         None => Some(Backing::Devices(vec![devno.to_string()])),
     }
+}
+
+fn zvol_name(sysfs: &Sysfs, devno: &str) -> Option<std::ffi::OsString> {
+    let mut device = fs::canonicalize(sysfs.dev_block.join(devno)).ok()?;
+    if device.join("partition").exists() {
+        device = device.parent()?.to_path_buf();
+    }
+    let name = device.file_name()?;
+    let number = name.to_str()?.strip_prefix("zd")?;
+    (!number.is_empty() && number.bytes().all(|c| c.is_ascii_digit())).then(|| name.to_owned())
 }
 
 /// An active swap area from `/proc/swaps`.
@@ -884,6 +918,7 @@ mod tests {
         dir: tempfile::TempDir,
         dev_block: std::path::PathBuf,
         fs_btrfs: std::path::PathBuf,
+        dev_zvol: std::path::PathBuf,
     }
 
     impl SysfsFixture {
@@ -891,6 +926,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let dev_block = dir.path().join("dev").join("block");
             let fs_btrfs = dir.path().join("fs").join("btrfs");
+            let dev_zvol = dir.path().join("dev/zvol");
             fs::create_dir_all(dir.path().join("devices")).unwrap();
             fs::create_dir_all(&dev_block).unwrap();
             fs::create_dir_all(&fs_btrfs).unwrap();
@@ -898,6 +934,7 @@ mod tests {
                 dir,
                 dev_block,
                 fs_btrfs,
+                dev_zvol,
             }
         }
 
@@ -913,6 +950,7 @@ mod tests {
             Sysfs {
                 dev_block: &self.dev_block,
                 fs_btrfs: &self.fs_btrfs,
+                dev_zvol: &self.dev_zvol,
             }
         }
 
@@ -925,6 +963,13 @@ mod tests {
                 let name = device.file_name().unwrap();
                 symlink(relative(&dir, device), dir.join(name)).unwrap();
             }
+        }
+
+        fn zvol(&self, dataset: &str, name: &str, devno: &str) {
+            let device = self.disk(name, Some(devno));
+            let link = self.dev_zvol.join(dataset);
+            fs::create_dir_all(link.parent().unwrap()).unwrap();
+            symlink(device, link).unwrap();
         }
 
         fn disk(&self, name: &str, devno: Option<&str>) -> std::path::PathBuf {
@@ -1492,6 +1537,62 @@ errors: No known data errors";
 31 28 8:2 / /boot rw,relatime - ext2 /dev/sda2 rw
 45 28 8:17 / /boot/data rw,relatime - ext4 /dev/sdb1 rw";
         assert_eq!(detect(&sysfs, mountinfo).status.as_str(), "partial");
+    }
+
+    #[test]
+    fn zvol_swap_uses_its_own_encryption_property() {
+        let sysfs = SysfsFixture::new();
+        sysfs.zvol("rpool/swap", "zd0", "230:0");
+        sysfs.disk("sda", Some("8:0"));
+        let mut zfs = zfs_tables(
+            &[
+                ("rpool/ROOT/default", "aes-256-gcm"),
+                ("rpool/swap", "aes-256-gcm"),
+            ],
+            &[("rpool", &["/dev/sda"])],
+        );
+        let swaps = swap_on("230:0");
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &swaps, &zfs).status.as_str(),
+            "full"
+        );
+        zfs.encryption.insert("rpool/swap".into(), "off".into());
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &swaps, &zfs).status.as_str(),
+            "partial"
+        );
+        zfs.encryption.remove("rpool/swap");
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &swaps, &zfs).status.as_str(),
+            "enabled"
+        );
+    }
+
+    #[test]
+    fn zvol_swap_is_inspected_without_a_mounted_zfs_filesystem() {
+        let sysfs = SysfsFixture::new();
+        sysfs.mapper("dm-0", Some("253:0"), "CRYPT-LUKS2-root");
+        sysfs.zvol("tank/swap", "zd0", "230:0");
+        let mountinfo = "28 1 253:0 / / rw - ext4 /dev/mapper/root rw";
+        let swaps = swap_on("230:0");
+        assert!(needs_zfs(&sysfs.paths(), mountinfo, &swaps));
+        assert!(!needs_zfs(&sysfs.paths(), mountinfo, &[]));
+        let zfs = zfs_tables(&[("tank/swap", "aes-256-gcm")], &[]);
+        assert_eq!(
+            detect_with(&sysfs, mountinfo, &swaps, &zfs).status.as_str(),
+            "full"
+        );
+        assert_eq!(
+            detect_with(&sysfs, mountinfo, &swaps, &ZfsTables::default())
+                .status
+                .as_str(),
+            "enabled"
+        );
+        fs::remove_file(sysfs.dev_zvol.join("tank/swap")).unwrap();
+        assert_eq!(
+            detect_with(&sysfs, mountinfo, &swaps, &zfs).status.as_str(),
+            "enabled"
+        );
     }
 
     #[test]

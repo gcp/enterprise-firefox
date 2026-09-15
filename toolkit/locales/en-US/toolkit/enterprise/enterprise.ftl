@@ -17,12 +17,14 @@ security-software-disk-encryption = Disk Encryption
 
 # All relevant storage was checked and is encrypted: the operating-system volume,
 # other mounted fixed volumes (storage areas on non-removable disks), and active
-# Linux swap (disk space used to hold memory contents). This variant is used when
+# Linux swap (disk space used to hold memory contents). Linux boot partitions
+# mounted at /boot, /boot/efi, or /efi are excluded. This variant is used when
 # the encryption technology name is unavailable.
 security-software-disk-encryption-full = Enabled
 
 # All relevant storage was checked and is encrypted, including the operating-system
-# volume, other mounted fixed volumes, and active Linux swap.
+# volume, other mounted fixed volumes, and active Linux swap. Linux boot
+# partitions mounted at /boot, /boot/efi, or /efi are excluded.
 # Variables:
 #   $method (String): Encryption technology name: "BitLocker", "FileVault",
 #   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
