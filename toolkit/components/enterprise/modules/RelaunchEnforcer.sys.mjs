@@ -18,6 +18,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const MS_PER_MINUTE = 60 * 1000;
+// Retries after the first update check of a directive double from this spacing
+// up to app.update.interval.
 const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
 // Grace granted to a freshly launched session when the console names none.
@@ -57,6 +59,7 @@ const REPLACEABLE_IDS = [
 export const RelaunchEnforcer = {
   _schedule: null,
   _lastUpdateCheck: null,
+  _updateCheckDelay: UPDATE_CHECK_INTERVAL_MS,
   _restartTask: null,
   _escalationTask: null,
   _countdownTask: null,
@@ -176,14 +179,21 @@ export const RelaunchEnforcer = {
     }
 
     const now = Date.now();
+    const isRetry = this._lastUpdateCheck !== null;
     if (
-      this._lastUpdateCheck === null ||
-      now - this._lastUpdateCheck >= UPDATE_CHECK_INTERVAL_MS ||
+      !isRetry ||
+      now - this._lastUpdateCheck >= this._updateCheckDelay ||
       now < this._lastUpdateCheck
     ) {
       try {
         this._requestUpdateCheck();
         this._lastUpdateCheck = now;
+        if (isRetry) {
+          this._updateCheckDelay = Math.min(
+            this._updateCheckDelay * 2,
+            Services.prefs.getIntPref("app.update.interval") * 1000
+          );
+        }
       } catch (e) {
         if (e.result === Cr.NS_ERROR_NOT_CONNECTED) {
           lazy.log.warn("Cannot request an update check without FELT", e);
@@ -216,6 +226,7 @@ export const RelaunchEnforcer = {
     lazy.log.debug("The console withdrew the restart deadline.");
     this._schedule = null;
     this._lastUpdateCheck = null;
+    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
@@ -563,6 +574,7 @@ export const RelaunchEnforcer = {
     }
     this._schedule = null;
     this._lastUpdateCheck = null;
+    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();

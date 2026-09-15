@@ -247,16 +247,49 @@ add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
     Assert.equal(
       request.callCount,
       3,
-      "A continuing directive retries every five minutes"
+      "A continuing directive retries after five minutes"
+    );
+    RelaunchEnforcer._lastUpdateCheck -= 5 * MINUTE;
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 33 });
+    Assert.equal(
+      request.callCount,
+      3,
+      "The second retry waits longer than the first"
+    );
+    RelaunchEnforcer._lastUpdateCheck -= 5 * MINUTE;
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 28 });
+    Assert.equal(
+      request.callCount,
+      4,
+      "The second retry comes after ten minutes"
+    );
+    Services.prefs.setIntPref("app.update.interval", 15 * 60);
+    RelaunchEnforcer._lastUpdateCheck -= 20 * MINUTE;
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 8 });
+    Assert.equal(
+      request.callCount,
+      5,
+      "Retries continue while the deadline stands"
+    );
+    Assert.equal(
+      RelaunchEnforcer._updateCheckDelay,
+      15 * MINUTE,
+      "Retry spacing is capped at app.update.interval"
     );
     RelaunchEnforcer.onConsolePoll(null);
     RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 30 });
     Assert.equal(
       request.callCount,
-      4,
+      6,
       "A new directive requests another check"
     );
+    Assert.equal(
+      RelaunchEnforcer._updateCheckDelay,
+      5 * MINUTE,
+      "A new directive restarts the retry spacing"
+    );
   } finally {
+    Services.prefs.clearUserPref("app.update.interval");
     RelaunchEnforcer.testingOnly_reset();
     sandbox.restore();
   }
