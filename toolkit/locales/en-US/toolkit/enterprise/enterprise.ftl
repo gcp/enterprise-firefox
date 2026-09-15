@@ -15,33 +15,56 @@ security-software-edr = Endpoint Detection and Response
 # Shown in the about:support "Security Software" section on enterprise builds.
 security-software-disk-encryption = Disk Encryption
 
+# All relevant storage was checked and is encrypted: the operating-system volume,
+# other mounted fixed volumes (storage areas on non-removable disks), and active
+# Linux swap (disk space used to hold memory contents). This variant is used when
+# the encryption technology name is unavailable.
 security-software-disk-encryption-full = Enabled
 
+# All relevant storage was checked and is encrypted, including the operating-system
+# volume, other mounted fixed volumes, and active Linux swap.
 # Variables:
-#   $method (String): Encryption product name, such as "BitLocker" or "FileVault".
-#   The product name is not localized.
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
 security-software-disk-encryption-full-with-method = Enabled ({ $method })
 
-# No plaintext volume was found, but at least one relevant volume or encryption
-# mapping could not be inspected completely.
+# The operating-system volume is encrypted and no unencrypted storage was found,
+# but Firefox could not verify encryption for all relevant storage. "Inspection
+# incomplete" describes an incomplete check, not encryption still in progress.
+# This variant is used when the encryption technology name is unavailable.
 security-software-disk-encryption-enabled = Enabled; inspection incomplete
 
+# The operating-system volume is encrypted and no unencrypted storage was found,
+# but Firefox could not verify encryption for all relevant storage. "Inspection
+# incomplete" describes an incomplete check, not encryption still in progress.
 # Variables:
-#   $method (String): Encryption product name, not localized.
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
 security-software-disk-encryption-enabled-with-method = Enabled ({ $method }); inspection incomplete
 
-# The boot volume is encrypted, but another mounted fixed volume is not.
+# The operating-system volume is encrypted, but another mounted fixed volume or
+# active Linux swap is known to be unencrypted. "Partial" describes encryption
+# coverage across storage areas, not the progress of an encryption operation.
+# This variant is used when the encryption technology name is unavailable.
 security-software-disk-encryption-partial = Partial; some mounted fixed volumes are not encrypted
 
+# The operating-system volume is encrypted, but another mounted fixed volume or
+# active Linux swap is known to be unencrypted. "Partial" describes encryption
+# coverage across storage areas, not the progress of an encryption operation.
 # Variables:
-#   $method (String): Encryption product name, not localized.
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
 security-software-disk-encryption-partial-with-method = Partial ({ $method }); some mounted fixed volumes are not encrypted
 
+# The operating-system volume is not encrypted. Other storage may be encrypted.
 security-software-disk-encryption-disabled = Disabled
 
-# A volume is currently being encrypted or decrypted.
+# An inspected volume is being encrypted or decrypted. This describes an ongoing
+# operation, unlike incomplete inspection or partial encryption coverage.
 security-software-disk-encryption-in-progress = Encryption or decryption in progress
 
+# Firefox could not determine whether the operating-system volume is encrypted.
+# This does not mean that encryption is disabled.
 security-software-disk-encryption-unknown = Unknown
 
 enterprise-toolbar-button =
