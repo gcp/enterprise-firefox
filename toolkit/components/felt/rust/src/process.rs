@@ -23,11 +23,8 @@ pub(crate) fn budget_until(deadline: Instant) -> Option<Duration> {
 }
 
 /// Runs a command for at most `budget`, killing and reaping it on timeout.
-///
-/// Output is read after the child exits; a child blocked on a full pipe times out.
 pub(crate) fn run_command_within(program: &str, args: &[&str], budget: Duration) -> Option<Output> {
-    use std::io::Read;
-
+    let start = Instant::now();
     let mut command = Command::new(program);
     scrub_environment(&mut command);
     let mut child = command
@@ -38,35 +35,99 @@ pub(crate) fn run_command_within(program: &str, args: &[&str], budget: Duration)
         .spawn()
         .ok()?;
 
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let mut stdout = Vec::new();
-                if let Some(mut out) = child.stdout.take() {
-                    let _ = out.read_to_end(&mut stdout);
+    let result = (|| {
+        let mut pipe = child.stdout.take()?;
+        prepare_stdout(&pipe).ok()?;
+        let mut stdout = Vec::new();
+        let mut eof = false;
+        let mut buffer = [0; 4096];
+        loop {
+            if start.elapsed() >= budget {
+                return None;
+            }
+            let status = child.try_wait().ok()?;
+            if !eof {
+                match read_stdout(&mut pipe, &mut buffer) {
+                    Ok(0) => eof = true,
+                    Ok(count) => {
+                        if stdout.len() + count > 1024 * 1024 {
+                            return None;
+                        }
+                        stdout.extend_from_slice(&buffer[..count]);
+                        continue;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => return None,
                 }
+            }
+            if let Some(status) = status.filter(|_| eof) {
                 return Some(Output {
                     status,
                     stdout,
                     stderr: Vec::new(),
                 });
             }
-            Ok(None) => {
-                if start.elapsed() >= budget {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return None;
-                }
-                thread::sleep(PROBE_POLL_INTERVAL);
-            }
-            Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
+            thread::sleep(PROBE_POLL_INTERVAL.min(budget.saturating_sub(start.elapsed())));
         }
+    })();
+    if result.is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
     }
+    result
+}
+
+#[cfg(unix)]
+fn prepare_stdout(pipe: &std::process::ChildStdout) -> std::io::Result<()> {
+    use std::os::fd::AsRawFd;
+    let fd = pipe.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags == -1 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn prepare_stdout(_pipe: &std::process::ChildStdout) -> std::io::Result<()> {
+    Ok(())
+}
+
+fn read_stdout(pipe: &mut std::process::ChildStdout, buffer: &mut [u8]) -> std::io::Result<usize> {
+    use std::io::Read;
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        use winapi::shared::winerror::ERROR_BROKEN_PIPE;
+        use winapi::um::namedpipeapi::PeekNamedPipe;
+        let mut available = 0;
+        let success = unsafe {
+            PeekNamedPipe(
+                pipe.as_raw_handle().cast(),
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+                &mut available,
+                std::ptr::null_mut(),
+            )
+        };
+        if success == 0 {
+            let error = std::io::Error::last_os_error();
+            return if error.raw_os_error() == Some(ERROR_BROKEN_PIPE as i32) {
+                Ok(0)
+            } else {
+                Err(error)
+            };
+        }
+        if available == 0 {
+            return Err(std::io::ErrorKind::WouldBlock.into());
+        }
+        let count = buffer.len().min(available as usize);
+        return pipe.read(&mut buffer[..count]);
+    }
+    #[cfg(unix)]
+    pipe.read(buffer)
 }
 
 /// Probe output is trusted, so the child must not inherit variables such as
@@ -122,6 +183,33 @@ mod tests {
     #[test]
     fn returns_none_when_spawn_fails() {
         assert!(run_command_bounded("/nonexistent/felt-probe", &[]).is_none());
+    }
+
+    #[test]
+    fn inherited_stdout_does_not_extend_the_deadline() {
+        let start = Instant::now();
+        assert!(run_command_within(
+            "/bin/sh",
+            &["-c", "sleep 2 & exit 0"],
+            Duration::from_millis(200)
+        )
+        .is_none());
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn drains_output_while_the_child_is_running() {
+        let output =
+            run_command_bounded("/bin/sh", &["-c", "dd if=/dev/zero bs=4096 count=32"]).unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, vec![0; 131072]);
+    }
+
+    #[test]
+    fn excessive_output_is_rejected() {
+        assert!(
+            run_command_bounded("/bin/sh", &["-c", "dd if=/dev/zero bs=4096 count=512"]).is_none()
+        );
     }
 
     #[test]

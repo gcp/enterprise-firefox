@@ -230,7 +230,7 @@ fn other_fixed_volume_states(
             states.push(VolumeState::Unknown);
             continue;
         };
-        if !seen.insert(backing_key(&backing)) || is_ignorable(sysfs, &backing) {
+        if !seen.insert(backing_key(&backing)) || is_ignorable(sysfs, zfs, &backing) {
             continue;
         }
         if Instant::now() >= deadline {
@@ -360,12 +360,21 @@ fn backing_key(backing: &Backing) -> String {
 }
 
 /// Volumes with no data at rest to protect.
-fn is_ignorable(sysfs: &Sysfs, backing: &Backing) -> bool {
+fn is_ignorable(sysfs: &Sysfs, zfs: &ZfsTables, backing: &Backing) -> bool {
     match backing {
         Backing::Devices(devnos) => devnos
             .iter()
-            .any(|devno| is_volatile(sysfs, devno) || is_removable(sysfs, devno)),
-        Backing::Zfs(_) => false,
+            .all(|devno| is_volatile(sysfs, devno) || is_removable(sysfs, devno)),
+        Backing::Zfs(dataset) => zfs
+            .vdevs
+            .get(dataset.split('/').next().unwrap_or(dataset))
+            .is_some_and(|vdevs| {
+                !vdevs.is_empty()
+                    && vdevs.iter().all(|path| {
+                        devno_for_name(sysfs.dev_block, &device_name(path))
+                            .is_some_and(|devno| is_removable(sysfs, &devno))
+                    })
+            }),
     }
 }
 
@@ -438,27 +447,39 @@ fn btrfs_filesystem(fs_btrfs: &Path, name: &str) -> BtrfsFilesystem {
             continue;
         };
 
-        let mut devnos = Vec::new();
-        let mut holds_name = false;
-        let mut complete = true;
-        for device in devices.flatten() {
-            holds_name |= device.file_name().to_str() == Some(name);
-            match fs::read_to_string(device.path().join("dev")) {
-                Ok(devno) => devnos.push(devno.trim().to_string()),
-                Err(_) => complete = false,
-            }
-        }
-
-        if holds_name {
-            return if complete {
-                BtrfsFilesystem::Devices(devnos)
-            } else {
-                BtrfsFilesystem::Unreadable
-            };
+        match btrfs_members(devices, name) {
+            BtrfsFilesystem::Unlisted => continue,
+            result => return result,
         }
     }
-
     BtrfsFilesystem::Unlisted
+}
+
+fn btrfs_members(
+    devices: impl IntoIterator<Item = std::io::Result<fs::DirEntry>>,
+    name: &str,
+) -> BtrfsFilesystem {
+    let mut devnos = Vec::new();
+    let mut holds_name = false;
+    let mut complete = true;
+    for device in devices {
+        let Ok(device) = device else {
+            complete = false;
+            continue;
+        };
+        holds_name |= device.file_name().to_str() == Some(name);
+        match fs::read_to_string(device.path().join("dev")) {
+            Ok(devno) => devnos.push(devno.trim().to_string()),
+            Err(_) => complete = false,
+        }
+    }
+    if !holds_name {
+        BtrfsFilesystem::Unlisted
+    } else if complete {
+        BtrfsFilesystem::Devices(devnos)
+    } else {
+        BtrfsFilesystem::Unreadable
+    }
 }
 
 /// The kernel name of a device path, resolving links like /dev/mapper/root.
@@ -584,12 +605,17 @@ fn zfs_state(
         return VolumeState::Unknown;
     };
 
-    combine(vdevs.iter().map(
-        |path| match devno_for_name(sysfs.dev_block, &device_name(path)) {
+    let state = combine(vdevs.iter().map(|path| {
+        match devno_for_name(sysfs.dev_block, &device_name(path)) {
             Some(devno) => device_state(sysfs, &devno, inspect_dm_crypt),
             None => VolumeState::Unknown,
-        },
-    ))
+        }
+    }));
+    if state == VolumeState::Unencrypted && !zfs.encryption.contains_key(dataset) {
+        VolumeState::Unknown
+    } else {
+        state
+    }
 }
 
 /// Follows sysfs slave links to find dm-crypt below the mounted device.
@@ -725,19 +751,38 @@ fn is_volatile(sysfs: &Sysfs, devno: &str) -> bool {
 /// Checks the device and its parent because partitions inherit the whole disk's
 /// removable flag.
 fn is_removable(sysfs: &Sysfs, devno: &str) -> bool {
-    let dir = sysfs.dev_block.join(devno);
+    stack_is_removable(&sysfs.dev_block.join(devno), MAX_STACK_DEPTH)
+}
+
+fn stack_is_removable(dir: &Path, depth: u32) -> bool {
+    if depth == 0 {
+        return false;
+    }
     let Ok(resolved) = dir.canonicalize() else {
         return false;
     };
-
-    let mut candidates = vec![resolved.clone()];
-    if let Some(parent) = resolved.parent() {
-        candidates.push(parent.to_path_buf());
+    if std::iter::once(resolved.as_path())
+        .chain(resolved.parent())
+        .any(|candidate| {
+            fs::read_to_string(candidate.join("removable")).is_ok_and(|flag| flag.trim() == "1")
+        })
+    {
+        return true;
     }
-
-    candidates.iter().any(|candidate| {
-        fs::read_to_string(candidate.join("removable")).is_ok_and(|flag| flag.trim() == "1")
-    })
+    let Ok(slaves) = fs::read_dir(resolved.join("slaves")) else {
+        return false;
+    };
+    let mut found = false;
+    for slave in slaves {
+        let Ok(slave) = slave else {
+            return false;
+        };
+        if !stack_is_removable(&slave.path(), depth - 1) {
+            return false;
+        }
+        found = true;
+    }
+    found
 }
 
 #[cfg(test)]
@@ -1229,6 +1274,89 @@ mod tests {
                 .as_str(),
             "unknown"
         );
+    }
+
+    #[test]
+    fn missing_zfs_encryption_does_not_prove_plaintext() {
+        let sysfs = SysfsFixture::new();
+        sysfs.partition("sdb", "sdb1", "8:17");
+        let mut zfs = zfs_tables(&[], &[("rpool", &["/dev/sdb1"])]);
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &[], &zfs).status.as_str(),
+            "unknown"
+        );
+        zfs.encryption
+            .insert("rpool/ROOT/default".into(), "off".into());
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &[], &zfs).status.as_str(),
+            "disabled"
+        );
+    }
+
+    #[test]
+    fn missing_zfs_encryption_preserves_encrypted_backing_evidence() {
+        let sysfs = SysfsFixture::new();
+        sysfs.mapper("dm-0", Some("253:0"), "CRYPT-LUKS2-pool");
+        let zfs = zfs_tables(&[], &[("rpool", &["/dev/dm-0"])]);
+        assert_eq!(
+            detect_with(&sysfs, ZFS_ROOT, &[], &zfs).status.as_str(),
+            "full"
+        );
+    }
+
+    #[test]
+    fn btrfs_directory_errors_prevent_complete_enumeration() {
+        let sysfs = SysfsFixture::new();
+        let disk = sysfs.disk("sdb", Some("8:16"));
+        sysfs.btrfs("pool", &[&disk]);
+        let entries = fs::read_dir(sysfs.fs_btrfs.join("pool/devices")).unwrap();
+        let interrupted = entries.chain(std::iter::once(Err(std::io::ErrorKind::Other.into())));
+        assert!(matches!(
+            btrfs_members(interrupted, "sdb"),
+            BtrfsFilesystem::Unreadable
+        ));
+    }
+
+    #[test]
+    fn removable_backing_is_followed_without_excluding_mixed_storage() {
+        let sysfs = SysfsFixture::new();
+        let disk = sysfs.disk("sdb", Some("8:16"));
+        fs::write(disk.join("removable"), "1").unwrap();
+        let mapper = sysfs.mapper("dm-0", Some("253:0"), "LVM-data");
+        sysfs.slave(&mapper, &disk);
+        let backing = Backing::Devices(vec!["253:0".into()]);
+        assert!(is_ignorable(
+            &sysfs.paths(),
+            &ZfsTables::default(),
+            &backing
+        ));
+        let fixed = sysfs.disk("sdc", Some("8:32"));
+        sysfs.slave(&mapper, &fixed);
+        assert!(!is_ignorable(
+            &sysfs.paths(),
+            &ZfsTables::default(),
+            &backing
+        ));
+        let mixed = Backing::Devices(vec!["8:16".into(), "8:32".into()]);
+        assert!(!is_ignorable(&sysfs.paths(), &ZfsTables::default(), &mixed));
+    }
+
+    #[test]
+    fn removable_zfs_vdevs_are_ignored_only_when_all_are_removable() {
+        let sysfs = SysfsFixture::new();
+        let disk = sysfs.disk("sdb", Some("8:16"));
+        fs::write(disk.join("removable"), "1").unwrap();
+        sysfs.disk("sdc", Some("8:32"));
+        let backing = Backing::Zfs("pool/data".into());
+        let removable = zfs_tables(&[], &[("pool", &["/dev/sdb"])]);
+        assert!(is_ignorable(&sysfs.paths(), &removable, &backing));
+        let mixed = zfs_tables(&[], &[("pool", &["/dev/sdb", "/dev/sdc"])]);
+        assert!(!is_ignorable(&sysfs.paths(), &mixed, &backing));
+        assert!(!is_ignorable(
+            &sysfs.paths(),
+            &ZfsTables::default(),
+            &backing
+        ));
     }
 
     #[test]

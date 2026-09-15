@@ -46,7 +46,7 @@ security-software-disk-encryption-enabled-with-method = Enabled ({ $method }); i
 # active Linux swap is known to be unencrypted. "Partial" describes encryption
 # coverage across storage areas, not the progress of an encryption operation.
 # This variant is used when the encryption technology name is unavailable.
-security-software-disk-encryption-partial = Partial; some mounted fixed volumes are not encrypted
+security-software-disk-encryption-partial = Partial; some storage areas are not encrypted
 
 # The operating-system volume is encrypted, but another mounted fixed volume or
 # active Linux swap is known to be unencrypted. "Partial" describes encryption
@@ -54,7 +54,7 @@ security-software-disk-encryption-partial = Partial; some mounted fixed volumes 
 # Variables:
 #   $method (String): Encryption technology name: "BitLocker", "FileVault",
 #   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
-security-software-disk-encryption-partial-with-method = Partial ({ $method }); some mounted fixed volumes are not encrypted
+security-software-disk-encryption-partial-with-method = Partial ({ $method }); some storage areas are not encrypted
 
 # The operating-system volume is not encrypted. Other storage may be encrypted.
 security-software-disk-encryption-disabled = Disabled

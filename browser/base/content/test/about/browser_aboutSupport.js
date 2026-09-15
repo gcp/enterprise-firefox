@@ -101,7 +101,7 @@ add_task(
         status: "partial",
         method: "bitlocker",
         displayMethod: "BitLocker",
-        text: "Partial (BitLocker); some mounted fixed volumes are not encrypted",
+        text: "Partial (BitLocker); some storage areas are not encrypted",
       },
       {
         status: "disabled",
