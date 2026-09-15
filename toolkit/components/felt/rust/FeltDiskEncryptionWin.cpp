@@ -13,14 +13,6 @@
 #include "mozilla/mscom/Utils.h"
 #include "nsCOMPtr.h"
 
-// Explorer's BitLocker property. Older SDKs omit it from propkey.h.
-static const PROPERTYKEY kVolumeBitLockerProtection = {
-    {0x2d15a9a1,
-     0xa556,
-     0x4189,
-     {0x91, 0xad, 0x02, 0x74, 0x58, 0xf1, 0x1a, 0x07}},
-    1717};
-
 /**
  * Reads System.Volume.BitLockerProtection for a mount path such as "C:\".
  * Returns false if the property is missing or is not an integer.
@@ -36,8 +28,15 @@ extern "C" bool felt_read_bitlocker_protection(const char16_t* aRoot,
     return false;
   }
 
+  PROPERTYKEY key;
+  HRESULT hr =
+      PSGetPropertyKeyFromName(L"System.Volume.BitLockerProtection", &key);
+  if (FAILED(hr)) {
+    return false;
+  }
+
   RefPtr<IPropertyStore> store;
-  HRESULT hr = SHGetPropertyStoreFromParsingName(
+  hr = SHGetPropertyStoreFromParsingName(
       reinterpret_cast<const wchar_t*>(aRoot), nullptr, GPS_DEFAULT,
       IID_IPropertyStore, getter_AddRefs(store));
   if (FAILED(hr) || !store) {
@@ -46,7 +45,7 @@ extern "C" bool felt_read_bitlocker_protection(const char16_t* aRoot,
 
   PROPVARIANT value;
   PropVariantInit(&value);
-  hr = store->GetValue(kVolumeBitLockerProtection, &value);
+  hr = store->GetValue(key, &value);
   bool read = SUCCEEDED(hr) && (value.vt == VT_I4 || value.vt == VT_UI4);
   if (read) {
     *aOutValue = value.lVal;

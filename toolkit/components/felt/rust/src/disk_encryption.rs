@@ -113,7 +113,8 @@ pub(crate) fn summarize(
 // Cache stable results to avoid repeating expensive probes on every poll.
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 
-// Retry inconclusive and transitional results sooner.
+// Retry inconclusive and transitional results sooner, including Enabled when
+// incomplete inspection may succeed on the next sweep.
 const UNKNOWN_CACHE_TTL: Duration = Duration::from_secs(60);
 
 // Backends stop between probes after this budget. One platform call may still

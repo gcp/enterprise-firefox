@@ -83,11 +83,13 @@ add_task(
       {
         status: "full",
         method: "filevault",
+        displayMethod: "FileVault",
         text: "Enabled (FileVault)",
       },
       {
         status: "full",
         method: "zfs",
+        displayMethod: "ZFS",
         text: "Enabled (ZFS)",
       },
       {
@@ -98,6 +100,7 @@ add_task(
       {
         status: "partial",
         method: "bitlocker",
+        displayMethod: "BitLocker",
         text: "Partial (BitLocker); some mounted fixed volumes are not encrypted",
       },
       {
@@ -108,6 +111,7 @@ add_task(
       {
         status: "in-progress",
         method: "bitlocker",
+        displayMethod: "BitLocker",
         text: "Encryption or decryption in progress",
       },
       {
@@ -145,8 +149,21 @@ add_task(
                 }
               );
 
+              const edrCid = MockRegistrar.register(
+                "@mozilla.org/enterprise/edr-checker;1",
+                {
+                  QueryInterface: ChromeUtils.generateQI([Ci.nsIEdrChecker]),
+                  getPresentEdrs(requestedIds, callback) {
+                    callback.onComplete([]);
+                  },
+                }
+              );
+
               const doc = content.document;
-              const id = `security-software-disk-encryption-${expected.status}`;
+              let id = `security-software-disk-encryption-${expected.status}`;
+              if (["full", "enabled", "partial"].includes(expected.status)) {
+                id += "-with-method";
+              }
               try {
                 const snapshot = await Troubleshoot.snapshot();
                 content.wrappedJSObject.snapshotFormatters.securitySoftware(
@@ -160,7 +177,8 @@ add_task(
                 await ContentTaskUtils.waitForCondition(
                   () =>
                     doc.l10n.getAttributes(cell).id === id &&
-                    cell.textContent.trim() === expected.text,
+                    cell.textContent.replace(/[\u2068\u2069]/g, "").trim() ===
+                      expected.text,
                   `${id} rendered as "${expected.text}", got "${cell.textContent.trim()}"`
                 );
                 return [
@@ -169,6 +187,7 @@ add_task(
                     .hidden,
                 ];
               } finally {
+                MockRegistrar.unregister(edrCid);
                 MockRegistrar.unregister(cid);
               }
             }
@@ -176,7 +195,7 @@ add_task(
 
           Assert.equal(
             l10nArgs.method,
-            testCase.method,
+            testCase.displayMethod ?? testCase.method,
             "The method reaches Fluent, empty when there is none"
           );
           Assert.ok(!hidden, "The disk encryption row is shown");

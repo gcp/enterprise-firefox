@@ -382,11 +382,22 @@ var snapshotFormatters = {
     let diskEncryption = data.diskEncryption;
     $("security-software-disk-encryption-row").hidden = !diskEncryption;
     if (diskEncryption) {
-      document.l10n.setAttributes(
-        $("security-software-disk-encryption"),
-        `security-software-disk-encryption-${diskEncryption.status}`,
-        { method: diskEncryption.method ?? "" }
-      );
+      let method = {
+        bitlocker: "BitLocker",
+        filevault: "FileVault",
+        "dm-crypt": "dm-crypt",
+        zfs: "ZFS",
+      }[diskEncryption.method];
+      let id = `security-software-disk-encryption-${diskEncryption.status}`;
+      if (
+        method &&
+        ["full", "enabled", "partial"].includes(diskEncryption.status)
+      ) {
+        id += "-with-method";
+      }
+      document.l10n.setAttributes($("security-software-disk-encryption"), id, {
+        method: method ?? "",
+      });
     }
 
     let hasContent = isWin || hasEdrs || !!diskEncryption;

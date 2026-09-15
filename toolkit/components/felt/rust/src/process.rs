@@ -61,7 +61,6 @@ pub(crate) fn run_command_within(program: &str, args: &[&str], budget: Duration)
                 thread::sleep(PROBE_POLL_INTERVAL);
             }
             Err(_) => {
-                // Dropping a Child neither kills nor reaps it.
                 let _ = child.kill();
                 let _ = child.wait();
                 return None;

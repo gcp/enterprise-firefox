@@ -8,8 +8,6 @@ const { MockRegistrar } = ChromeUtils.importESModule(
   "resource://testing-common/MockRegistrar.sys.mjs"
 );
 
-const enterpriseOnly = () => ({ skip_if: () => !AppConstants.MOZ_ENTERPRISE });
-
 const CONTRACT_ID = "@mozilla.org/enterprise/disk-encryption-checker;1";
 const VALID_STATUSES = [
   "full",
@@ -20,12 +18,9 @@ const VALID_STATUSES = [
   "unknown",
 ];
 
-let DiskEncryption;
-if (AppConstants.MOZ_ENTERPRISE) {
-  ({ DiskEncryption } = ChromeUtils.importESModule(
-    "resource://gre/modules/enterprise/DiskEncryption.sys.mjs"
-  ));
-}
+const { DiskEncryption } = ChromeUtils.importESModule(
+  "resource://gre/modules/enterprise/DiskEncryption.sys.mjs"
+);
 
 async function withMockChecker(mock, callback) {
   let cid = MockRegistrar.register(CONTRACT_ID, {
@@ -39,7 +34,7 @@ async function withMockChecker(mock, callback) {
   }
 }
 
-add_task(enterpriseOnly(), async function test_native_component_result_shape() {
+add_task(async function test_native_component_result_shape() {
   let result = await DiskEncryption.getStatus();
   info(`Disk encryption: ${JSON.stringify(result)}`);
 
@@ -65,7 +60,7 @@ add_task(enterpriseOnly(), async function test_native_component_result_shape() {
   }
 });
 
-add_task(enterpriseOnly(), async function test_empty_method_becomes_null() {
+add_task(async function test_empty_method_becomes_null() {
   await withMockChecker(
     {
       getDiskEncryption(callback) {
@@ -81,34 +76,31 @@ add_task(enterpriseOnly(), async function test_empty_method_becomes_null() {
   );
 });
 
-add_task(
-  enterpriseOnly(),
-  async function test_invalid_result_becomes_unknown() {
-    for (let [status, method] of [
-      ["unexpected", "dm-crypt"],
-      ["full", ""],
-      ["full", "unexpected"],
-      ["unknown", "dm-crypt"],
-    ]) {
-      await withMockChecker(
-        {
-          getDiskEncryption(callback) {
-            callback.onComplete(status, method);
-          },
+add_task(async function test_invalid_result_becomes_unknown() {
+  for (let [status, method] of [
+    ["unexpected", "dm-crypt"],
+    ["full", ""],
+    ["full", "unexpected"],
+    ["unknown", "dm-crypt"],
+  ]) {
+    await withMockChecker(
+      {
+        getDiskEncryption(callback) {
+          callback.onComplete(status, method);
         },
-        async () => {
-          Assert.deepEqual(
-            await DiskEncryption.getStatus(),
-            { status: "unknown", method: null },
-            `${status}/${method} is normalized to unknown`
-          );
-        }
-      );
-    }
+      },
+      async () => {
+        Assert.deepEqual(
+          await DiskEncryption.getStatus(),
+          { status: "unknown", method: null },
+          `${status}/${method} is normalized to unknown`
+        );
+      }
+    );
   }
-);
+});
 
-add_task(enterpriseOnly(), async function test_lost_callback_times_out() {
+add_task(async function test_lost_callback_times_out() {
   await withMockChecker(
     {
       getDiskEncryption() {},
@@ -123,7 +115,7 @@ add_task(enterpriseOnly(), async function test_lost_callback_times_out() {
   );
 });
 
-add_task(enterpriseOnly(), async function test_failing_component_is_unknown() {
+add_task(async function test_failing_component_is_unknown() {
   await withMockChecker(
     {
       getDiskEncryption() {

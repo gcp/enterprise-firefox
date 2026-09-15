@@ -408,15 +408,13 @@ fn combine(states: impl Iterator<Item = VolumeState>) -> VolumeState {
     }
 }
 
-/// Every device of the btrfs filesystem mounted from `source`. Only sysfs
-/// reports the other devices of a multi-device filesystem, so the mount source
-/// alone is used just when sysfs does not list it.
+/// Every device of the btrfs filesystem mounted from `source`. The mount source
+/// alone cannot establish that all members are encrypted.
 fn btrfs_devnos(sysfs: &Sysfs, source: &str) -> Option<Vec<String>> {
     let name = device_name(source);
     match btrfs_filesystem(sysfs.fs_btrfs, &name) {
         BtrfsFilesystem::Devices(devnos) => Some(devnos),
-        BtrfsFilesystem::Unreadable => None,
-        BtrfsFilesystem::Unlisted => Some(vec![devno_for_name(sysfs.dev_block, &name)?]),
+        BtrfsFilesystem::Unreadable | BtrfsFilesystem::Unlisted => None,
     }
 }
 
@@ -1069,13 +1067,12 @@ mod tests {
     }
 
     #[test]
-    fn a_btrfs_root_missing_from_sysfs_falls_back_to_the_named_device() {
+    fn a_btrfs_root_missing_from_sysfs_is_unknown() {
         let sysfs = SysfsFixture::new();
         let crypt = sysfs.mapper("root", Some("253:0"), "CRYPT-LUKS2-4f1c-root\n");
         sysfs.slave(&crypt, &sysfs.partition("sda", "sda3", "8:3"));
 
-        // Kernels too old to list devices leave /sys/fs/btrfs empty.
-        assert_eq!(detect(&sysfs, BTRFS_ROOT).status.as_str(), "full");
+        assert_eq!(detect(&sysfs, BTRFS_ROOT).status.as_str(), "unknown");
     }
 
     #[test]
@@ -1088,6 +1085,34 @@ mod tests {
 
         // The mount source names the encrypted half of the mirror only.
         assert_eq!(detect(&sysfs, BTRFS_ROOT).status.as_str(), "disabled");
+    }
+
+    #[test]
+    fn missing_btrfs_members_cannot_certify_a_mixed_root() {
+        let sysfs = SysfsFixture::new();
+        let crypt = sysfs.mapper("root", Some("253:0"), "CRYPT-LUKS2-4f1c-root\n");
+        let plain = sysfs.partition("sdb", "sdb1", "8:17");
+        sysfs.btrfs("4f1c-abcd", &[&crypt, &plain]);
+
+        assert_eq!(detect(&sysfs, BTRFS_ROOT).status.as_str(), "disabled");
+        fs::remove_dir_all(&sysfs.fs_btrfs).unwrap();
+        assert_eq!(detect(&sysfs, BTRFS_ROOT).status.as_str(), "unknown");
+    }
+
+    #[test]
+    fn missing_btrfs_data_members_prevent_full_encryption() {
+        let sysfs = SysfsFixture::new();
+        sysfs.mapper("dm-0", Some("253:0"), "CRYPT-LUKS2-root\n");
+        sysfs.mapper("data", Some("253:1"), "CRYPT-LUKS2-data\n");
+        sysfs.partition("sdb", "sdb1", "8:17");
+
+        let mountinfo = "\
+28 1 253:0 / / rw - ext4 /dev/mapper/root rw
+45 28 0:36 / /data rw - btrfs /dev/mapper/data rw";
+        assert_eq!(detect(&sysfs, mountinfo).status.as_str(), "enabled");
+
+        let with_plaintext = format!("{}\n46 28 8:17 / /srv rw - ext4 /dev/sdb1 rw", mountinfo);
+        assert_eq!(detect(&sysfs, &with_plaintext).status.as_str(), "partial");
     }
 
     #[test]

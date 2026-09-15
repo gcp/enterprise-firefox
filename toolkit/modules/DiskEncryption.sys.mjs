@@ -75,6 +75,7 @@ export const DiskEncryption = {
             },
           });
       } catch (e) {
+        console.warn("Disk encryption detection failed; reporting unknown.", e);
         finish(UNKNOWN);
       }
     });

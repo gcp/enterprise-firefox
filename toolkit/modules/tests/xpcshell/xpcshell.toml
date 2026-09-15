@@ -51,6 +51,7 @@ skip-if = [
 support-files = ["test_DeferredTask_window/*"]
 
 ["test_DiskEncryption.js"]
+run-if = ["enterprise"]
 
 ["test_E10SUtils_getRemoteTypeForURIObject.js"]
 

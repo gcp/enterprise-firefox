@@ -15,43 +15,27 @@ security-software-edr = Endpoint Detection and Response
 # Shown in the about:support "Security Software" section on enterprise builds.
 security-software-disk-encryption = Disk Encryption
 
-# $method identifies the platform encryption mechanism. FileVault, BitLocker,
-# dm-crypt, and ZFS are product names and should not be translated.
+security-software-disk-encryption-full = Enabled
+
 # Variables:
-#   $method (String): "filevault", "bitlocker", "dm-crypt" or "zfs".
-security-software-disk-encryption-full =
-    { $method ->
-        [bitlocker] Enabled (BitLocker)
-        [dm-crypt] Enabled (dm-crypt)
-        [filevault] Enabled (FileVault)
-        [zfs] Enabled (ZFS)
-       *[other] Enabled
-    }
+#   $method (String): Encryption product name, such as "BitLocker" or "FileVault".
+#   The product name is not localized.
+security-software-disk-encryption-full-with-method = Enabled ({ $method })
 
 # No plaintext volume was found, but at least one relevant volume or encryption
 # mapping could not be inspected completely.
+security-software-disk-encryption-enabled = Enabled; inspection incomplete
+
 # Variables:
-#   $method (String): "filevault", "bitlocker", "dm-crypt" or "zfs".
-security-software-disk-encryption-enabled =
-    { $method ->
-        [bitlocker] Enabled (BitLocker); inspection incomplete
-        [dm-crypt] Enabled (dm-crypt); inspection incomplete
-        [filevault] Enabled (FileVault); inspection incomplete
-        [zfs] Enabled (ZFS); inspection incomplete
-       *[other] Enabled; inspection incomplete
-    }
+#   $method (String): Encryption product name, not localized.
+security-software-disk-encryption-enabled-with-method = Enabled ({ $method }); inspection incomplete
 
 # The boot volume is encrypted, but another mounted fixed volume is not.
+security-software-disk-encryption-partial = Partial; some mounted fixed volumes are not encrypted
+
 # Variables:
-#   $method (String): "filevault", "bitlocker", "dm-crypt" or "zfs".
-security-software-disk-encryption-partial =
-    { $method ->
-        [bitlocker] Partial (BitLocker); some mounted fixed volumes are not encrypted
-        [dm-crypt] Partial (dm-crypt); some mounted fixed volumes are not encrypted
-        [filevault] Partial (FileVault); some mounted fixed volumes are not encrypted
-        [zfs] Partial (ZFS); some mounted fixed volumes are not encrypted
-       *[other] Partial; some mounted fixed volumes are not encrypted
-    }
+#   $method (String): Encryption product name, not localized.
+security-software-disk-encryption-partial-with-method = Partial ({ $method }); some mounted fixed volumes are not encrypted
 
 security-software-disk-encryption-disabled = Disabled
 
