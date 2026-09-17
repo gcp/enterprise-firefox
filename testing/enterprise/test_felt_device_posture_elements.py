@@ -36,6 +36,9 @@ class FeltDevicePostureElements(FeltTests):
         self.posture_edr_agents.value = json.dumps(
             self.EDR_AGENTS, separators=(",", ":")
         )
+        # Felt collects posture for sign-in, and has no window to script once
+        # the browser is up, so check its collection path first.
+        self.run_build_and_security_sections("felt", self._driver)
         super().run_felt_base()
         self.connect_child_browser()
 
@@ -43,6 +46,7 @@ class FeltDevicePostureElements(FeltTests):
         self.run_config_pref_plumbing()
         self.run_console_driven_probes()
         self.run_probe_none_when_unconfigured()
+        self.run_build_and_security_sections("browser", self._child_driver)
         # Runs last: it replaces the descriptor the console serves.
         self.run_mid_session_descriptor_reaches_browser()
 
@@ -138,6 +142,57 @@ class FeltDevicePostureElements(FeltTests):
             assert rv["presentEdrs"] == [], (
                 f"presentEdrs is empty when no EDR configured, got {rv['presentEdrs']}"
             )
+
+    def run_build_and_security_sections(self, label, driver):
+        """The build, security and os sections are populated in the process
+        behind driver."""
+        driver.set_context("chrome")
+        try:
+            rv = driver.execute_async_script(
+                """
+                const callback = arguments[arguments.length - 1];
+                const { DevicePosture } = ChromeUtils.importESModule(
+                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                );
+                const { AppConstants } = ChromeUtils.importESModule(
+                  "resource://gre/modules/AppConstants.sys.mjs"
+                );
+                DevicePosture.collect().then(
+                  ({ build, security, os }) =>
+                    callback({ build, security, os, isWindows: AppConstants.platform == "win" }),
+                  err => callback({ _error: String(err) })
+                );
+                """
+            )
+        finally:
+            driver.set_context("content")
+
+        assert "_error" not in rv, (
+            f"[{label}] DevicePosture.collect threw: {rv.get('_error')}"
+        )
+        for field in (
+            "applicationId",
+            "applicationName",
+            "version",
+            "vendor",
+            "displayVersion",
+            "platformVersion",
+            "buildId",
+            "architecture",
+            "xpcomAbi",
+        ):
+            assert rv["build"].get(field), f"[{label}] build.{field} is empty"
+        assert isinstance(rv["build"].get("updaterAvailable"), bool), (
+            f"[{label}] build.updaterAvailable is not a boolean"
+        )
+        assert set(rv["security"]) == {"antivirus", "antispyware", "firewall"}, (
+            f"[{label}] security is {rv['security']!r}"
+        )
+        for field in ("name", "version", "locale"):
+            assert rv["os"].get(field), f"[{label}] os.{field} is empty"
+        if rv["isWindows"]:
+            for field in ("windowsBuildNumber", "windowsUBR", "installYear"):
+                assert rv["os"].get(field) is not None, f"[{label}] os.{field} is null"
 
     def run_mid_session_descriptor_reaches_browser(self):
         """A descriptor delivered after the browser started reaches it too, so
