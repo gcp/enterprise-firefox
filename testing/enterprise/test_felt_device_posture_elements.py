@@ -159,7 +159,13 @@ class FeltDevicePostureElements(FeltTests):
                 );
                 DevicePosture.collect().then(
                   ({ build, security, os }) =>
-                    callback({ build, security, os, isWindows: AppConstants.platform == "win" }),
+                    callback({
+                      build,
+                      security,
+                      os,
+                      isWindows: AppConstants.platform == "win",
+                      appVersion: Services.appinfo.version,
+                    }),
                   err => callback({ _error: String(err) })
                 );
                 """
@@ -182,6 +188,10 @@ class FeltDevicePostureElements(FeltTests):
             "xpcomAbi",
         ):
             assert rv["build"].get(field), f"[{label}] build.{field} is empty"
+        assert rv["build"]["version"] == rv["appVersion"], (
+            f"[{label}] build.version is {rv['build']['version']!r}, "
+            f"appinfo has {rv['appVersion']!r}"
+        )
         assert isinstance(rv["build"].get("updaterAvailable"), bool), (
             f"[{label}] build.updaterAvailable is not a boolean"
         )
@@ -191,8 +201,16 @@ class FeltDevicePostureElements(FeltTests):
         for field in ("name", "version", "locale"):
             assert rv["os"].get(field), f"[{label}] os.{field} is empty"
         if rv["isWindows"]:
-            for field in ("windowsBuildNumber", "windowsUBR", "installYear"):
-                assert rv["os"].get(field) is not None, f"[{label}] os.{field} is null"
+            # Null when the registry or OS info collection has nothing, so only
+            # the presence of the keys is checked.
+            for field in (
+                "windowsBuildNumber",
+                "windowsUBR",
+                "installYear",
+                "hasPrefetch",
+                "hasSuperfetch",
+            ):
+                assert field in rv["os"], f"[{label}] os.{field} is missing"
 
     def run_mid_session_descriptor_reaches_browser(self):
         """A descriptor delivered after the browser started reaches it too, so
